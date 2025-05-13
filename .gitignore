@@ -1,0 +1,19 @@
+# 環境變數
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 虛擬環境
+venv/
+env/
+ENV/
+
+# IDE設定
+.vscode/
+.idea/
+
+# 日誌
+*.log
