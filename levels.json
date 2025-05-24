@@ -1,28 +1,28 @@
 {
     "1345360902777737327": {
         "874527892866990141": {
-            "level": 7,
-            "xp": 115,
-            "total_xp": 2220,
-            "messages": 112
+            "level": 8,
+            "xp": 773,
+            "total_xp": 3573,
+            "messages": 181
         },
         "1016182228641927198": {
-            "level": 7,
-            "xp": 509,
-            "total_xp": 2614,
-            "messages": 131
+            "level": 9,
+            "xp": 495,
+            "total_xp": 4115,
+            "messages": 205
         },
         "746126438326992959": {
-            "level": 2,
-            "xp": 89,
-            "total_xp": 244,
-            "messages": 14
+            "level": 3,
+            "xp": 2,
+            "total_xp": 377,
+            "messages": 21
         },
         "1046268942328537088": {
-            "level": 6,
-            "xp": 86,
-            "total_xp": 1611,
-            "messages": 80
+            "level": 7,
+            "xp": 342,
+            "total_xp": 2447,
+            "messages": 122
         },
         "827416190107648000": {
             "level": 1,
@@ -32,41 +32,53 @@
         },
         "1360249137031020886": {
             "level": 2,
-            "xp": 22,
-            "total_xp": 177,
-            "messages": 9
+            "xp": 46,
+            "total_xp": 201,
+            "messages": 10
         },
         "1001016404289536051": {
-            "level": 1,
-            "xp": 92,
-            "total_xp": 92,
-            "messages": 5
+            "level": 4,
+            "xp": 0,
+            "total_xp": 670,
+            "messages": 33
         },
         "981753691218522152": {
-            "level": 1,
-            "xp": 90,
-            "total_xp": 90,
-            "messages": 5
+            "level": 2,
+            "xp": 17,
+            "total_xp": 172,
+            "messages": 9
         },
         "898836485397180426": {
+            "level": 2,
+            "xp": 118,
+            "total_xp": 273,
+            "messages": 14
+        },
+        "314754442060890112": {
             "level": 1,
-            "xp": 57,
-            "total_xp": 57,
-            "messages": 3
+            "xp": 18,
+            "total_xp": 18,
+            "messages": 1
+        },
+        "939446095157788712": {
+            "level": 1,
+            "xp": 24,
+            "total_xp": 24,
+            "messages": 1
         }
     },
     "1016182933444374548": {
         "1016182228641927198": {
-            "level": 6,
-            "xp": 161,
-            "total_xp": 1686,
-            "messages": 84
+            "level": 7,
+            "xp": 85,
+            "total_xp": 2190,
+            "messages": 109
         },
         "919937324756914218": {
-            "level": 1,
-            "xp": 102,
-            "total_xp": 102,
-            "messages": 5
+            "level": 2,
+            "xp": 77,
+            "total_xp": 232,
+            "messages": 11
         },
         "1046268942328537088": {
             "level": 1,
@@ -75,10 +87,10 @@
             "messages": 2
         },
         "1164206818793357382": {
-            "level": 1,
-            "xp": 106,
-            "total_xp": 106,
-            "messages": 5
+            "level": 2,
+            "xp": 141,
+            "total_xp": 296,
+            "messages": 16
         },
         "1321924170606706760": {
             "level": 1,
@@ -90,6 +102,12 @@
             "level": 1,
             "xp": 22,
             "total_xp": 22,
+            "messages": 1
+        },
+        "994102034796130336": {
+            "level": 1,
+            "xp": 19,
+            "total_xp": 19,
             "messages": 1
         }
     },
@@ -150,6 +168,68 @@
             "level": 1,
             "xp": 23,
             "total_xp": 23,
+            "messages": 1
+        }
+    },
+    "1370663414631764019": {
+        "1169978776541732993": {
+            "level": 1,
+            "xp": 131,
+            "total_xp": 131,
+            "messages": 6
+        },
+        "1347677053662789770": {
+            "level": 1,
+            "xp": 18,
+            "total_xp": 18,
+            "messages": 1
+        },
+        "1356253164952752218": {
+            "level": 1,
+            "xp": 18,
+            "total_xp": 18,
+            "messages": 1
+        },
+        "1356575771883208834": {
+            "level": 1,
+            "xp": 22,
+            "total_xp": 22,
+            "messages": 1
+        },
+        "1356897297270706206": {
+            "level": 1,
+            "xp": 18,
+            "total_xp": 18,
+            "messages": 1
+        },
+        "1355412694169157713": {
+            "level": 1,
+            "xp": 16,
+            "total_xp": 16,
+            "messages": 1
+        },
+        "1359856700039106702": {
+            "level": 1,
+            "xp": 20,
+            "total_xp": 20,
+            "messages": 1
+        },
+        "1355503802849034372": {
+            "level": 1,
+            "xp": 18,
+            "total_xp": 18,
+            "messages": 1
+        },
+        "1356126664752496852": {
+            "level": 1,
+            "xp": 18,
+            "total_xp": 18,
+            "messages": 1
+        },
+        "834054349515784252": {
+            "level": 1,
+            "xp": 19,
+            "total_xp": 19,
             "messages": 1
         }
     }
