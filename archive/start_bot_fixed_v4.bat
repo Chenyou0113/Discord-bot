@@ -1,10 +1,10 @@
 @echo off
 echo ===================================
-echo Discord Bot 啟動腳本 (最新版本)
+echo Discord Bot 啟動腳本 (優化修復版 v4)
 echo ===================================
 echo.
-echo 此腳本將啟動 Discord 機器人
-echo 功能: 支持2025年地震資料新格式及其他優化
+echo 此腳本將啟動修復過的 Discord 機器人
+echo 修復內容: 地震資料解析與處理優化，支持2025年新格式
 echo.
 echo 按任意鍵開始啟動機器人...
 pause > nul
@@ -46,25 +46,15 @@ if %errorlevel% neq 0 (
 
 echo [成功] 所有必要套件已安裝
 
-echo 正在設置網路環境...
-set PYTHONHTTPSVERIFY=0
-set AIOHTTP_NO_EXTENSIONS=1
-set SSL_CERT_FILE=
-set REQUESTS_CA_BUNDLE=
-set CURL_CA_BUNDLE=
-
 echo.
 echo 正在啟動 Discord 機器人...
-echo 請等待約 1-2 分鐘，讓斜線指令完成同步...
+echo 如需停止機器人，請按 Ctrl+C 或關閉此視窗
 echo.
 echo 啟動日誌:
 echo ------------------------------
 
-python -X dev bot.py
-if errorlevel 1 (
-    echo 錯誤：機器人啟動失敗
-    goto :error
-)
+python bot.py
+if %errorlevel% neq 0 goto :error
 goto :end
 
 :error

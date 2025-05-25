@@ -184,41 +184,50 @@ class InfoCommands(commands.Cog):
         self.eq_check_task.cancel()
         if self.session and not self.session.closed:
             await self.session.close()
-            logger.info("已關閉 aiohttp 工作階段")
-
-    async def check_earthquake_updates(self):
+            logger.info("已關閉 aiohttp 工作階段")    async def check_earthquake_updates(self):
         """定期檢查是否有新地震"""
         await self.bot.wait_until_ready()
         while not self.bot.is_closed():
             try:
                 # 檢查一般地震
                 data = await self.fetch_earthquake_data(small_area=False)
-                if data and 'result' in data and 'records' in data['result'] and 'Earthquake' in data['result']['records']:
-                    latest_eq = data['result']['records']['Earthquake'][0]
-                    report_time = latest_eq.get('EarthquakeNo', '')
+                if data and 'result' in data and 'records' in data['result']:
+                    records = data['result']['records']
+                    latest_eq = None
                     
-                    # 檢查是否有新地震報告
-                    for guild in self.bot.guilds:
-                        channel_id = self.notification_channels.get(guild.id, None)
+                    # 檢查不同可能的資料格式
+                    if isinstance(records, dict) and 'Earthquake' in records:
+                        earthquake_data = records['Earthquake']
+                        if isinstance(earthquake_data, list) and len(earthquake_data) > 0:
+                            latest_eq = earthquake_data[0]
+                        elif isinstance(earthquake_data, dict):
+                            latest_eq = earthquake_data
+                    
+                    if latest_eq:
+                        report_time = latest_eq.get('EarthquakeNo', '')
                         
-                        # 如果該伺服器已設定通知頻道，且有新地震報告
-                        if channel_id and guild.id in self.last_eq_time and report_time != self.last_eq_time[guild.id]:
-                            channel = guild.get_channel(channel_id)
-                            if channel:
-                                try:
-                                    # 檢查機器人是否有此頻道的發送權限
-                                    if channel.permissions_for(guild.me).send_messages:
-                                        # 獲取並發送地震嵌入
-                                        embed = await self.format_earthquake_data(latest_eq)
-                                        if embed:
-                                            embed.title = "🚨 新地震通報！"
-                                            await channel.send(embed=embed)
-                                except Exception as e:
-                                    logger.error(f"發送地震通知時發生錯誤: {str(e)}")
-                    
-                    # 更新最後地震時間
-                    for guild in self.bot.guilds:
-                        self.last_eq_time[guild.id] = report_time
+                        # 檢查是否有新地震報告
+                        for guild in self.bot.guilds:
+                            channel_id = self.notification_channels.get(guild.id, None)
+                            
+                            # 如果該伺服器已設定通知頻道，且有新地震報告
+                            if channel_id and guild.id in self.last_eq_time and report_time != self.last_eq_time[guild.id]:
+                                channel = guild.get_channel(channel_id)
+                                if channel:
+                                    try:
+                                        # 檢查機器人是否有此頻道的發送權限
+                                        if channel.permissions_for(guild.me).send_messages:
+                                            # 獲取並發送地震嵌入
+                                            embed = await self.format_earthquake_data(latest_eq)
+                                            if embed:
+                                                embed.title = "🚨 新地震通報！"
+                                                await channel.send(embed=embed)
+                                    except Exception as e:
+                                        logger.error(f"發送地震通知時發生錯誤: {str(e)}")
+                        
+                        # 更新最後地震時間
+                        for guild in self.bot.guilds:
+                            self.last_eq_time[guild.id] = report_time
             except asyncio.CancelledError:
                 # 正常取消
                 break
@@ -293,47 +302,43 @@ class InfoCommands(commands.Cog):
             logger.info(f"正在獲取地震資料，URL: {url}")
             
             # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
-            try:
-                data = await self.fetch_with_retry(url, timeout=30, max_retries=3)
+            try:                data = await self.fetch_with_retry(url, timeout=30, max_retries=3)
                 
                 if data and isinstance(data, dict):
                     # 驗證資料結構
                     if 'success' in data and (data['success'] == 'true' or data['success'] is True):
                         # 記錄完整的資料結構，以便調試
                         logger.info(f"API返回的資料結構: {str(data.keys())}")
+                        
+                        # 直接更新快取，無論資料結構如何，只要API返回成功
+                        self.earthquake_cache[cache_key] = data
+                        self.cache_time = current_time
+                        logger.info(f"成功獲取並更新地震資料快取")
+                        
                         if 'result' in data:
                             logger.info(f"result欄位的內容: {str(data['result'].keys() if isinstance(data['result'], dict) else 'not a dict')}")
                             
-                            if 'records' in data['result'] and isinstance(data['result']['records'], dict):
+                            if 'records' in data['result']:
                                 # 檢查資料格式
                                 records = data['result']['records']
-                                logger.info(f"records欄位的內容: {str(records.keys())}")
+                                if isinstance(records, dict):
+                                    logger.info(f"records欄位的內容: {str(records.keys())}")
+                                else:
+                                    logger.info(f"records不是字典而是 {type(records)}")
                                 
                                 # 檢查是否有 Earthquake 列表或其他可能的格式
-                                if 'Earthquake' in records and records['Earthquake']:
-                                    # 更新快取
-                                    self.earthquake_cache[cache_key] = data
-                                    self.cache_time = current_time
-                                    logger.info(f"成功獲取並更新地震資料快取")
-                                    return data
+                                if isinstance(records, dict) and 'Earthquake' in records and records['Earthquake']:
+                                    logger.info(f"找到標準Earthquake資料格式")
                                 # 處理2025年新格式：records可能包含datasetDescription和Earthquake
-                                elif 'datasetDescription' in records and 'Earthquake' in records:
-                                    # 更新快取
-                                    self.earthquake_cache[cache_key] = data
-                                    self.cache_time = current_time
-                                    logger.info(f"成功獲取並更新地震資料快取 (使用替代格式)")
-                                    return data
+                                elif isinstance(records, dict) and 'datasetDescription' in records and 'Earthquake' in records:
+                                    logger.info(f"找到2025年新Earthquake資料格式")
                                 else:
                                     # 嘗試直接使用records，可能API結構已變更
-                                    logger.warning(f"地震資料結構異常，但仍然嘗試使用: {records}")
-                                    self.earthquake_cache[cache_key] = data
-                                    self.cache_time = current_time
-                                    return data
-                            else:
-                                logger.warning(f"地震資料缺少 records 欄位或格式異常，但仍嘗試使用資料: {data}")
-                                self.earthquake_cache[cache_key] = data
-                                self.cache_time = current_time
-                                return data
+                                    logger.warning(f"地震資料結構異常，但仍然接受: {records}")
+                        else:
+                            logger.warning(f"地震資料缺少 result 欄位，但仍嘗試使用資料")
+                        
+                        return data
                         else:
                             logger.error(f"地震資料缺少 result 欄位: {data}")
                     else:
@@ -614,8 +619,7 @@ class InfoCommands(commands.Cog):
         """查詢最新地震資訊"""
         await interaction.response.defer()
         
-        try:
-            # 獲取地震資料
+        try:            # 獲取地震資料
             eq_data = await self.fetch_earthquake_data()
             
             if not eq_data:
@@ -626,14 +630,19 @@ class InfoCommands(commands.Cog):
             logger.info(f"Earthquake 指令獲取的資料結構: {str(eq_data.keys())}")
             
             # 檢查資料結構
+            latest_eq = None
             if 'result' in eq_data and 'records' in eq_data['result']:
                 records = eq_data['result']['records']
                 
-                # 檢查是否有 Earthquake 列表
-                if 'Earthquake' in records and records['Earthquake'] and len(records['Earthquake']) > 0:
-                    # 獲取最新的地震資料
-                    latest_eq = records['Earthquake'][0]
-                    
+                # 檢查不同可能的資料格式
+                if isinstance(records, dict) and 'Earthquake' in records:
+                    earthquake_data = records['Earthquake']
+                    if isinstance(earthquake_data, list) and len(earthquake_data) > 0:
+                        latest_eq = earthquake_data[0]
+                    elif isinstance(earthquake_data, dict):
+                        latest_eq = earthquake_data
+                
+                if latest_eq:
                     # 格式化為Discord嵌入訊息
                     embed = await self.format_earthquake_data(latest_eq)
                     
@@ -642,7 +651,7 @@ class InfoCommands(commands.Cog):
                     else:
                         await interaction.followup.send("❌ 無法解析地震資料，請稍後再試。")
                 else:
-                    logger.error(f"地震資料結構不符合預期: {records}")
+                    logger.error(f"找不到有效的地震資料: {records}")
                     await interaction.followup.send("❌ 目前沒有可用的地震資料，請稍後再試。")
             else:
                 logger.error(f"地震資料缺少必要欄位: {eq_data}")
