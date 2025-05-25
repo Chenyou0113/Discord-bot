@@ -292,7 +292,8 @@ class InfoCommands(commands.Cog):
             
             logger.info(f"正在獲取地震資料，URL: {url}")
             
-            # 使用非同步請求獲取資料，並處理 SSL 相關錯誤            try:
+            # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
+            try:
                 data = await self.fetch_with_retry(url, timeout=30, max_retries=3)
                 
                 if data and isinstance(data, dict):
@@ -617,20 +618,35 @@ class InfoCommands(commands.Cog):
             # 獲取地震資料
             eq_data = await self.fetch_earthquake_data()
             
-            if not eq_data or 'result' not in eq_data or 'records' not in eq_data['result'] or 'Earthquake' not in eq_data['result']['records']:
+            if not eq_data:
                 await interaction.followup.send("❌ 無法獲取地震資料，請稍後再試。")
                 return
                 
-            # 獲取最新的地震資料
-            latest_eq = eq_data['result']['records']['Earthquake'][0]
+            # 在日誌中記錄完整的資料結構以進行調試
+            logger.info(f"Earthquake 指令獲取的資料結構: {str(eq_data.keys())}")
             
-            # 格式化為Discord嵌入訊息
-            embed = await self.format_earthquake_data(latest_eq)
-            
-            if embed:
-                await interaction.followup.send(embed=embed)
+            # 檢查資料結構
+            if 'result' in eq_data and 'records' in eq_data['result']:
+                records = eq_data['result']['records']
+                
+                # 檢查是否有 Earthquake 列表
+                if 'Earthquake' in records and records['Earthquake'] and len(records['Earthquake']) > 0:
+                    # 獲取最新的地震資料
+                    latest_eq = records['Earthquake'][0]
+                    
+                    # 格式化為Discord嵌入訊息
+                    embed = await self.format_earthquake_data(latest_eq)
+                    
+                    if embed:
+                        await interaction.followup.send(embed=embed)
+                    else:
+                        await interaction.followup.send("❌ 無法解析地震資料，請稍後再試。")
+                else:
+                    logger.error(f"地震資料結構不符合預期: {records}")
+                    await interaction.followup.send("❌ 目前沒有可用的地震資料，請稍後再試。")
             else:
-                await interaction.followup.send("❌ 無法解析地震資料，請稍後再試。")
+                logger.error(f"地震資料缺少必要欄位: {eq_data}")
+                await interaction.followup.send("❌ 地震資料格式錯誤，請稍後再試。")
                 
         except Exception as e:
             logger.error(f"earthquake指令執行時發生錯誤: {str(e)}")

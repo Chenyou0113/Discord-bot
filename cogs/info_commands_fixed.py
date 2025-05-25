@@ -552,7 +552,7 @@ class InfoCommands(commands.Cog):
             # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
             try:
                 data = await self.fetch_with_retry(url, timeout=30, max_retries=3)
-                  if data and isinstance(data, dict):
+                if data and isinstance(data, dict):
                     # 驗證資料結構
                     if 'success' in data and data['success'] == 'true':
                         if 'result' in data and 'records' in data['result']:
