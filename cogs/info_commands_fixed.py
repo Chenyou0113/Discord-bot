@@ -552,18 +552,28 @@ class InfoCommands(commands.Cog):
             # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
             try:
                 data = await self.fetch_with_retry(url, timeout=30, max_retries=3)
-                
-                if data and isinstance(data, dict):
+                  if data and isinstance(data, dict):
                     # 驗證資料結構
                     if 'success' in data and data['success'] == 'true':
-                        if 'result' in data and 'records' in data['result'] and 'Earthquake' in data['result']['records'] and data['result']['records']['Earthquake']:
-                            # 更新快取
-                            self.earthquake_cache[cache_key] = data
-                            self.cache_time = current_time
-                            logger.info(f"成功獲取並更新地震資料快取，資料：{data}")
-                            return data
+                        if 'result' in data and 'records' in data['result']:
+                            # 檢查是否有 Earthquake 列表
+                            if 'Earthquake' in data['result']['records'] and data['result']['records']['Earthquake']:
+                                # 更新快取
+                                self.earthquake_cache[cache_key] = data
+                                self.cache_time = current_time
+                                logger.info(f"成功獲取並更新地震資料快取")
+                                return data
+                            # 有時候 API 可能返回不同的格式，嘗試兼容處理
+                            elif 'datasetDescription' in data['result']['records'] and 'Earthquake' in data['result']['records']:
+                                # 更新快取
+                                self.earthquake_cache[cache_key] = data
+                                self.cache_time = current_time
+                                logger.info(f"成功獲取並更新地震資料快取 (使用替代格式)")
+                                return data
+                            else:
+                                logger.error(f"地震資料結構不完整: {data}")
                         else:
-                            logger.error(f"地震資料結構不完整: {data}")
+                            logger.error(f"地震資料缺少 result 或 records 欄位: {data}")
                     else:
                         logger.error(f"API 請求不成功: {data}")
                 else:

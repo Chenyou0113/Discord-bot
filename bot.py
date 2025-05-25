@@ -98,8 +98,7 @@ class CustomBot(commands.Bot):
             loop = asyncio.get_event_loop()
         except RuntimeError:
             loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
+            asyncio.set_event_loop(loop)            
         super().__init__(
             command_prefix='!',
             intents=intents,
@@ -109,12 +108,12 @@ class CustomBot(commands.Bot):
             proxy_auth=None,
             assume_unsync_clock=True
         )
-          # 初始化其他屬性
+        # 初始化其他屬性
         self._loaded_cogs = set()
         self.initial_extensions = [
             'cogs.admin_commands_fixed',
             'cogs.basic_commands',
-            'cogs.info_commands_fixed',
+            'cogs.info_commands_fixed_v2',
             'cogs.level_system',
             'cogs.monitor_system',
             'cogs.voice_system',
