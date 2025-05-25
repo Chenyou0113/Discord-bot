@@ -30,6 +30,16 @@ if not exist "cogs\info_commands_fixed_v4.py" (
     goto :error
 )
 
+if not exist "cogs\admin_commands_fixed.py" (
+    echo [錯誤] 找不到 cogs\admin_commands_fixed.py 檔案。
+    goto :error
+)
+
+if not exist "cogs\chat_commands.py" (
+    echo [錯誤] 找不到 cogs\chat_commands.py 檔案。
+    goto :error
+)
+
 echo [成功] 找到所有必要檔案
 
 echo 檢查是否已安裝必要的套件...
