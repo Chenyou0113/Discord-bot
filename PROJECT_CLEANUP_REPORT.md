@@ -7,10 +7,13 @@
 #### 1. **啟動腳本修復**
 - ✅ 移動損壞的 `start_bot.bat` 到 `archive/start_bot_corrupted.bat`
 - ✅ 創建新的乾淨版本的 `start_bot.bat`，支援 UTF-8 編碼
-- ✅ 移除重複的啟動腳本（`Discord-bot/start_bot.bat` 等）
+- ✅ 移除重複的啟動腳本（`start_bot_fixed_v2.bat`, `start_bot_fixed_v3.bat`, `start_bot_fixed_v4.bat`, `start_bot_fixed.bat`, `start_bot_clean.bat`）
+- ✅ 移除重複的停止腳本（`stop_bot_fixed_v2.bat`, `stop_bot_fixed.bat`）
 
 #### 2. **Python 檔案清理**
 - ✅ 移動所有舊版本的 info_commands 檔案到 archive 資料夾
+- ✅ 刪除重複的 `cogs/info_commands_fixed_v4_new.py` 和 `cogs/info_commands_fixed_v4_clean.py`
+- ✅ 備份當前使用的 `cogs/info_commands_fixed_v4.py` 為 `cogs/info_commands_fixed_v4.py.backup`
 - ✅ 移動原始版本的 admin_commands.py 到 archive 資料夾
 - ✅ 刪除整個重複的 `Discord-bot` 子資料夾
 - ✅ 清理主目錄中的臨時和重複檔案
@@ -19,6 +22,10 @@
 #### 3. **快取檔案清理**
 - ✅ 清理過時的 .pyc 檔案
 - ✅ 移除對應已刪除 .py 檔案的快取
+
+#### 4. **命令錯誤修復**
+- ✅ 修復 `/leaderboard` 命令的互動超時問題 (錯誤代碼: 10062: Unknown interaction)
+- ✅ 同樣修復 `/rank` 和 `/level` 命令的潛在超時問題
 
 #### 4. **無效檔案清理**
 - ✅ 刪除奇怪的檔案名稱 `Optional[Dict[str`

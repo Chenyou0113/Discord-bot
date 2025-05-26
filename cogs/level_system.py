@@ -166,11 +166,12 @@ class LevelSystem(commands.Cog):
         # 如果升級了，發送通知
         if level_up:
             user_data = self.get_user_data(message.author.id, message.guild.id)
-            await self.send_level_up_notification(message.author, user_data['level'], message.guild)
-
-    @app_commands.command(name='level', description='查看你的等級資訊')
+            await self.send_level_up_notification(message.author, user_data['level'], message.guild)    @app_commands.command(name='level', description='查看你的等級資訊')
     async def level(self, interaction: discord.Interaction):
         """查看等級資訊指令"""
+        # 先延遲回應
+        await interaction.response.defer()
+        
         user_data = self.get_user_data(interaction.user.id, interaction.guild_id)
         current_xp = user_data['xp']
         level = user_data['level']
@@ -205,11 +206,13 @@ class LevelSystem(commands.Cog):
             inline=False
         )
         
-        await interaction.response.send_message(embed=embed)
-
-    @app_commands.command(name="rank", description="查看自己或其他人的等級")
+        # 使用 followup 而非 response
+        await interaction.followup.send(embed=embed)@app_commands.command(name="rank", description="查看自己或其他人的等級")
     async def rank(self, interaction: discord.Interaction, member: discord.Member = None):
         """查看等級狀態"""
+        # 先延遲回應
+        await interaction.response.defer()
+        
         if member is None:
             member = interaction.user
             
@@ -226,14 +229,16 @@ class LevelSystem(commands.Cog):
         embed.add_field(name="總經驗值", value=str(user_data['total_xp']), inline=True)
         embed.add_field(name="進度", value=f"{progress:.1f}%", inline=True)
         
-        await interaction.response.send_message(embed=embed)
-
-    @app_commands.command(name="leaderboard", description="顯示伺服器等級排行榜")
+        # 使用 followup 而非 response
+        await interaction.followup.send(embed=embed)    @app_commands.command(name="leaderboard", description="顯示伺服器等級排行榜")
     async def leaderboard(self, interaction: discord.Interaction):
         """顯示排行榜"""
+        # 先延遲回應，避免互動超時
+        await interaction.response.defer()
+        
         guild_id = str(interaction.guild_id)
         if guild_id not in self.user_data:
-            await interaction.response.send_message("目前還沒有任何等級記錄！", ephemeral=True)
+            await interaction.followup.send("目前還沒有任何等級記錄！", ephemeral=True)
             return
             
         # 獲取所有用戶資料並排序
@@ -244,11 +249,14 @@ class LevelSystem(commands.Cog):
         
         embed = discord.Embed(title="🏆 等級排行榜", color=discord.Color.gold())
         
+        # 使用更高效的方式獲取成員資訊
         for index, (user_id, data) in enumerate(sorted_users, 1):
             try:
-                member = await interaction.guild.fetch_member(int(user_id))
-                name = member.display_name
-            except:
+                # 使用 get_member 替代從整個成員列表構建字典
+                # 這樣更高效，特別是在大型伺服器中
+                member = interaction.guild.get_member(int(user_id))
+                name = member.display_name if member else f"未知用戶 ({user_id})"
+            except Exception as e:
                 name = f"未知用戶 ({user_id})"
                 
             embed.add_field(
@@ -257,7 +265,8 @@ class LevelSystem(commands.Cog):
                 inline=False
             )
         
-        await interaction.response.send_message(embed=embed)
+        # 使用 followup 發送結果
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(
         name="set_level_channel",
