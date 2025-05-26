@@ -2,11 +2,23 @@ import sys
 import os
 
 # 添加父目錄到路徑
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, parent_dir)
 
 # 嘗試導入模組
 try:
-    from cogs.info_commands_fixed_v2 import InfoCommands
+    # 檢查文件是否存在
+    module_path = os.path.join(parent_dir, "cogs", "info_commands_fixed_v4.py")
+    if not os.path.exists(module_path):
+        print(f"❌ 模組文件不存在: {module_path}")
+        raise FileNotFoundError(f"模組文件不存在: {module_path}")
+    
+    # 使用 importlib 動態導入模組
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("info_commands_fixed_v4", module_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    InfoCommands = module.InfoCommands
     print("✅ 成功導入 InfoCommands 模組！")
     print("語法檢查通過")
 except SyntaxError as e:

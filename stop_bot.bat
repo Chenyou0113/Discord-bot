@@ -3,28 +3,30 @@ echo ===================================
 echo Discord Bot 停止腳本
 echo ===================================
 echo.
-echo 此腳本將嘗試停止正在運行的 Discord 機器人
+echo 正在尋找並停止 Discord 機器人進程...
 echo.
 
-echo 正在尋找運行中的機器人進程...
-tasklist /FI "IMAGENAME eq python.exe" /FO LIST | find "python.exe" > nul
-if %errorlevel% neq 0 (
-    echo [資訊] 未發現運行中的 Python 進程。機器人可能已經停止。
-    goto :end
+:: 查找包含 bot.py 的 Python 進程並取得其 PID
+for /f "tokens=2" %%i in ('tasklist /fi "imagename eq python.exe" /nh ^| findstr /i "bot.py"') do (
+    set PID=%%i
+    goto :found
 )
 
-echo 找到運行中的 Python 進程，嘗試終止與機器人相關的進程...
+:notfound
+echo 找不到運行中的 Discord 機器人進程！
+goto :end
 
-for /f "tokens=2" %%a in ('tasklist /FI "IMAGENAME eq python.exe" /FI "WINDOWTITLE eq *bot.py*" /NH /FO csv ^| findstr "python.exe"') do (
-    echo 正在終止進程 ID: %%a
-    taskkill /PID %%a /F
+:found
+echo 找到 Discord 機器人進程，PID: %PID%
+echo 正在停止進程...
+taskkill /PID %PID% /F
+if %ERRORLEVEL% EQU 0 (
+    echo Discord 機器人已成功停止！
+) else (
+    echo 停止 Discord 機器人時發生錯誤。錯誤代碼：%ERRORLEVEL%
 )
-
-echo.
-echo 進程終止完成。
-echo 如果仍有機器人視窗運行，請直接關閉該視窗。
 
 :end
 echo.
 echo 按任意鍵退出...
-pause > nul
+pause
