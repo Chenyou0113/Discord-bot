@@ -66,8 +66,7 @@ async def main():
         # 獲取修補後的模組
         module = patch_info_commands()
         InfoCommands = module.InfoCommands
-        
-        # 創建一個簡單的機器人實例用於測試
+          # 創建一個簡單的機器人實例用於測試
         class MockBot:
             def __init__(self):
                 self.loop = asyncio.get_event_loop()
@@ -75,167 +74,164 @@ async def main():
             async def wait_until_ready(self):
                 pass
                 
+            def is_closed(self):
+                return False
+                
         bot = MockBot()
         
         # 初始化 InfoCommands
-        info_cog = InfoCommands(bot)
-          # 模擬天氣資料結構
+        info_cog = InfoCommands(bot)        # 模擬天氣資料結構
         mock_weather_data = {
-            "success": "true",
-            "result": {
-                "resource_id": "F-C0032-001",
-                "fields": [
-                    {"id": "locationName", "type": "String"},
-                    {"id": "weatherElement", "type": "Array"}
-                ],
-                "records": {
-                    "datasetDescription": "一般天氣預報-36小時天氣預報",
-                    "location": [
-                        {
-                            "locationName": "臺北市",
-                            "weatherElement": [
-                                {
-                                    "elementName": "Wx",
-                                    "time": [
-                                        {
-                                            "startTime": "2025-05-26 18:00:00",
-                                            "endTime": "2025-05-27 06:00:00",
-                                            "parameter": {
-                                                "parameterName": "晴時多雲",
-                                                "parameterValue": "2"
-                                            }
-                                        },
-                                        {
-                                            "startTime": "2025-05-27 06:00:00",
-                                            "endTime": "2025-05-27 18:00:00",
-                                            "parameter": {
-                                                "parameterName": "多雲",
-                                                "parameterValue": "4"
-                                            }
-                                        },
-                                        {
-                                            "startTime": "2025-05-27 18:00:00",
-                                            "endTime": "2025-05-28 06:00:00",
-                                            "parameter": {
-                                                "parameterName": "陰短暫雨",
-                                                "parameterValue": "10"
-                                            }
+            "records": {
+                "location": [
+                    {
+                        "locationName": "臺北市",
+                        "weatherElement": [
+                            {
+                                "elementName": "Wx",
+                                "time": [
+                                    {
+                                        "startTime": "2025-05-26 18:00:00",
+                                        "endTime": "2025-05-27 06:00:00",
+                                        "parameter": {
+                                            "parameterName": "晴時多雲",
+                                            "parameterValue": "2"
                                         }
-                                    ]
-                                },                                {
-                                    "elementName": "PoP",
-                                    "time": [
-                                        {
-                                            "startTime": "2025-05-26 18:00:00",
-                                            "endTime": "2025-05-27 06:00:00",
-                                            "parameter": {
-                                                "parameterName": "10",
-                                                "parameterUnit": "百分比"
-                                            }
-                                        },
-                                        {
-                                            "startTime": "2025-05-27 06:00:00",
-                                            "endTime": "2025-05-27 18:00:00",
-                                            "parameter": {
-                                                "parameterName": "30",
-                                                "parameterUnit": "百分比"
-                                            }
-                                        },
-                                        {
-                                            "startTime": "2025-05-27 18:00:00",
-                                            "endTime": "2025-05-28 06:00:00",
-                                            "parameter": {
-                                                "parameterName": "80",
-                                                "parameterUnit": "百分比"
-                                            }
+                                    },
+                                    {
+                                        "startTime": "2025-05-27 06:00:00",
+                                        "endTime": "2025-05-27 18:00:00",
+                                        "parameter": {
+                                            "parameterName": "多雲",
+                                            "parameterValue": "4"
                                         }
-                                    ]
-                                },                                {
-                                    "elementName": "MinT",
-                                    "time": [
-                                        {
-                                            "startTime": "2025-05-26 18:00:00",
-                                            "endTime": "2025-05-27 06:00:00",
-                                            "parameter": {
-                                                "parameterName": "22",
-                                                "parameterUnit": "攝氏度"
-                                            }
-                                        },
-                                        {
-                                            "startTime": "2025-05-27 06:00:00",
-                                            "endTime": "2025-05-27 18:00:00",
-                                            "parameter": {
-                                                "parameterName": "20",
-                                                "parameterUnit": "攝氏度"
-                                            }
-                                        },
-                                        {
-                                            "startTime": "2025-05-27 18:00:00",
-                                            "endTime": "2025-05-28 06:00:00",
-                                            "parameter": {
-                                                "parameterName": "19",
-                                                "parameterUnit": "攝氏度"
-                                            }
+                                    },
+                                    {
+                                        "startTime": "2025-05-27 18:00:00",
+                                        "endTime": "2025-05-28 06:00:00",
+                                        "parameter": {
+                                            "parameterName": "陰短暫雨",
+                                            "parameterValue": "10"
                                         }
-                                    ]
-                                },                                {
-                                    "elementName": "MaxT",
-                                    "time": [
-                                        {
-                                            "startTime": "2025-05-26 18:00:00",
-                                            "endTime": "2025-05-27 06:00:00",
-                                            "parameter": {
-                                                "parameterName": "28",
-                                                "parameterUnit": "攝氏度"
-                                            }
-                                        },
-                                        {
-                                            "startTime": "2025-05-27 06:00:00",
-                                            "endTime": "2025-05-27 18:00:00",
-                                            "parameter": {
-                                                "parameterName": "30",
-                                                "parameterUnit": "攝氏度"
-                                            }
-                                        },
-                                        {
-                                            "startTime": "2025-05-27 18:00:00",
-                                            "endTime": "2025-05-28 06:00:00",
-                                            "parameter": {
-                                                "parameterName": "25",
-                                                "parameterUnit": "攝氏度"
-                                            }
+                                    }
+                                ]
+                            },
+                            {
+                                "elementName": "PoP",
+                                "time": [
+                                    {
+                                        "startTime": "2025-05-26 18:00:00",
+                                        "endTime": "2025-05-27 06:00:00",
+                                        "parameter": {
+                                            "parameterName": "10",
+                                            "parameterUnit": "百分比"
                                         }
-                                    ]
-                                },                                {
-                                    "elementName": "CI",
-                                    "time": [
-                                        {
-                                            "startTime": "2025-05-26 18:00:00",
-                                            "endTime": "2025-05-27 06:00:00",
-                                            "parameter": {
-                                                "parameterName": "舒適"
-                                            }
-                                        },
-                                        {
-                                            "startTime": "2025-05-27 06:00:00",
-                                            "endTime": "2025-05-27 18:00:00",
-                                            "parameter": {
-                                                "parameterName": "悶熱"
-                                            }
-                                        },
-                                        {
-                                            "startTime": "2025-05-27 18:00:00",
-                                            "endTime": "2025-05-28 06:00:00",
-                                            "parameter": {
-                                                "parameterName": "舒適"
-                                            }
+                                    },
+                                    {
+                                        "startTime": "2025-05-27 06:00:00",
+                                        "endTime": "2025-05-27 18:00:00",
+                                        "parameter": {
+                                            "parameterName": "30",
+                                            "parameterUnit": "百分比"
                                         }
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
-                }
+                                    },
+                                    {
+                                        "startTime": "2025-05-27 18:00:00",
+                                        "endTime": "2025-05-28 06:00:00",
+                                        "parameter": {
+                                            "parameterName": "80",
+                                            "parameterUnit": "百分比"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "elementName": "MinT",
+                                "time": [
+                                    {
+                                        "startTime": "2025-05-26 18:00:00",
+                                        "endTime": "2025-05-27 06:00:00",
+                                        "parameter": {
+                                            "parameterName": "22",
+                                            "parameterUnit": "攝氏度"
+                                        }
+                                    },
+                                    {
+                                        "startTime": "2025-05-27 06:00:00",
+                                        "endTime": "2025-05-27 18:00:00",
+                                        "parameter": {
+                                            "parameterName": "20",
+                                            "parameterUnit": "攝氏度"
+                                        }
+                                    },
+                                    {
+                                        "startTime": "2025-05-27 18:00:00",
+                                        "endTime": "2025-05-28 06:00:00",
+                                        "parameter": {
+                                            "parameterName": "19",
+                                            "parameterUnit": "攝氏度"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "elementName": "MaxT",
+                                "time": [
+                                    {
+                                        "startTime": "2025-05-26 18:00:00",
+                                        "endTime": "2025-05-27 06:00:00",
+                                        "parameter": {
+                                            "parameterName": "28",
+                                            "parameterUnit": "攝氏度"
+                                        }
+                                    },
+                                    {
+                                        "startTime": "2025-05-27 06:00:00",
+                                        "endTime": "2025-05-27 18:00:00",
+                                        "parameter": {
+                                            "parameterName": "30",
+                                            "parameterUnit": "攝氏度"
+                                        }
+                                    },
+                                    {
+                                        "startTime": "2025-05-27 18:00:00",
+                                        "endTime": "2025-05-28 06:00:00",
+                                        "parameter": {
+                                            "parameterName": "25",
+                                            "parameterUnit": "攝氏度"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "elementName": "CI",
+                                "time": [
+                                    {
+                                        "startTime": "2025-05-26 18:00:00",
+                                        "endTime": "2025-05-27 06:00:00",
+                                        "parameter": {
+                                            "parameterName": "舒適"
+                                        }
+                                    },
+                                    {
+                                        "startTime": "2025-05-27 06:00:00",
+                                        "endTime": "2025-05-27 18:00:00",
+                                        "parameter": {
+                                            "parameterName": "悶熱"
+                                        }
+                                    },
+                                    {
+                                        "startTime": "2025-05-27 18:00:00",
+                                        "endTime": "2025-05-28 06:00:00",
+                                        "parameter": {
+                                            "parameterName": "舒適"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
             }
         }
         
@@ -244,8 +240,7 @@ async def main():
             return mock_weather_data
             
         # 替換方法
-        info_cog.fetch_weather_data = mock_fetch_weather_data
-          # 測試天氣預報格式化功能
+        info_cog.fetch_weather_data = mock_fetch_weather_data        # 測試天氣預報格式化功能
         try:
             embed = await info_cog.format_weather_data("臺北市")
             
