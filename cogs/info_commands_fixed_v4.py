@@ -621,12 +621,12 @@ class InfoCommands(commands.Cog):
                     weather_emoji = WEATHER_EMOJI.get(wx_desc, "🌈")
                     
                     # 建立資訊字串
-                    info = []
-                    info.append(f"**天氣狀況:** {wx_desc}")
+                    info = []                    info.append(f"**天氣狀況:** {wx_desc}")
                     
                     if pop_data:
                         info.append(f"**降雨機率:** {pop_data.get('parameterName', '未知')}%")
-                      if min_t_data and max_t_data:
+                    
+                    if min_t_data and max_t_data:
                         info.append(f"**溫度範圍:** {min_t_data.get('parameterName', '未知')}°C - {max_t_data.get('parameterName', '未知')}°C")
                     
                     if ci_data:
