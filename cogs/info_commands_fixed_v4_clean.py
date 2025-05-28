@@ -134,11 +134,13 @@ class InfoCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.earthquake_cache = {}
+        self.tsunami_cache = {}  # 新增海嘯資料快取
         self.weather_cache = {}
         self.weather_alert_cache = {}
         self.reservoir_cache = {}
         self.water_info_cache = {}  # 新增水情資料快取
         self.cache_time = 0
+        self.tsunami_cache_time = 0  # 新增海嘯資料快取時間
         self.weather_cache_time = 0
         self.weather_alert_cache_time = 0
         self.reservoir_cache_time = 0
@@ -619,14 +621,13 @@ class InfoCommands(commands.Cog):
                     # 取得天氣描述和表情符號
                     wx_desc = wx_data.get('parameterName', '未知')
                     weather_emoji = WEATHER_EMOJI.get(wx_desc, "🌈")
-                    
-                    # 建立資訊字串
+                      # 建立資訊字串
                     info = []
                     info.append(f"**天氣狀況:** {wx_desc}")
                     
                     if pop_data:
                         info.append(f"**降雨機率:** {pop_data.get('parameterName', '未知')}%")
-                      if min_t_data and max_t_data:
+                    if min_t_data and max_t_data:
                         info.append(f"**溫度範圍:** {min_t_data.get('parameterName', '未知')}°C - {max_t_data.get('parameterName', '未知')}°C")
                     
                     if ci_data:
@@ -867,14 +868,200 @@ class InfoCommands(commands.Cog):
                 await channel.send(embed=embed)
             except Exception as e:
                 logger.error(f"發送測試訊息時發生錯誤: {str(e)}")
-        else:
-            # 清除設定
+        else:            # 清除設定
             if interaction.guild.id in self.notification_channels:
                 del self.notification_channels[interaction.guild.id]
             if interaction.guild.id in self.last_eq_time:
                 del self.last_eq_time[interaction.guild.id]
                 
             await interaction.response.send_message("✅ 已清除地震通知頻道設定。", ephemeral=True)
+
+    async def format_tsunami_data(self, tsunami_data: Dict[str, Any]) -> Optional[discord.Embed]:
+        """將海嘯資料格式化為Discord嵌入訊息"""
+        try:
+            # 確認必要的欄位是否存在
+            if not all(key in tsunami_data for key in ['ReportContent', 'ReportType']):
+                return None
+                
+            # 取得海嘯資訊
+            report_content = tsunami_data.get('ReportContent', '海嘯資料不完整')
+            report_color = tsunami_data.get('ReportColor', '綠色')
+            report_type = tsunami_data.get('ReportType', '海嘯消息')
+            report_no = tsunami_data.get('ReportNo', '未知')
+            report_web = tsunami_data.get('Web', '')
+            
+            # 設定嵌入顏色
+            color = discord.Color.green()
+            if report_color == '黃色':
+                color = discord.Color.gold()
+            elif report_color == '橘色':
+                color = discord.Color.orange()
+            elif report_color == '紅色':
+                color = discord.Color.red()
+                
+            # 設置標題
+            title = "🌊 海嘯消息"
+            if "警報" in report_type:
+                title = "⚠️ 海嘯警報"
+            elif "解除" in report_type:
+                title = "✅ 海嘯警報解除"
+                
+            # 建立嵌入訊息
+            embed = discord.Embed(
+                title=title,
+                description=report_content,
+                color=color,
+                url=report_web if report_web else None
+            )
+            
+            # 添加海嘯相關資訊
+            if 'EarthquakeInfo' in tsunami_data:
+                eq_info = tsunami_data['EarthquakeInfo']
+                epicenter = eq_info.get('Epicenter', {})
+                magnitude = eq_info.get('EarthquakeMagnitude', {})
+                
+                location = epicenter.get('Location', '未知位置')
+                focal_depth = eq_info.get('FocalDepth', '未知')
+                magnitude_value = magnitude.get('MagnitudeValue', '未知')
+                origin_time = eq_info.get('OriginTime', '未知時間')
+                source = eq_info.get('Source', '未知來源')
+                
+                embed.add_field(
+                    name="📍 地震位置",
+                    value=location,
+                    inline=True
+                )
+                
+                embed.add_field(
+                    name="🔍 規模",
+                    value=f"{magnitude_value}",
+                    inline=True
+                )
+                
+                embed.add_field(
+                    name="⬇️ 深度",
+                    value=f"{focal_depth} 公里",
+                    inline=True
+                )
+                
+                embed.add_field(
+                    name="📊 資料來源",
+                    value=source,
+                    inline=True
+                )
+                
+                embed.add_field(
+                    name="⏰ 發生時間",
+                    value=origin_time,
+                    inline=True
+                )
+            
+            # 添加影響地區資訊（如果有）
+            if 'TsunamiWave' in tsunami_data and 'WarningArea' in tsunami_data['TsunamiWave']:
+                warning_areas = tsunami_data['TsunamiWave']['WarningArea']
+                if isinstance(warning_areas, list) and warning_areas:
+                    area_descriptions = []
+                    for area in warning_areas:
+                        area_desc = area.get('AreaDesc', '')
+                        wave_height = area.get('WaveHeight', '')
+                        arrival_time = area.get('ArrivalTime', '')
+                        if area_desc:
+                            area_info = f"{area_desc} - 預估波高: {wave_height}, 預估抵達時間: {arrival_time}"
+                            area_descriptions.append(area_info)
+                    
+                    if area_descriptions:
+                        embed.add_field(
+                            name="⚠️ 影響地區",
+                            value="\n".join(area_descriptions),
+                            inline=False
+                        )
+            
+            # 添加觀測站資訊（如果有）
+            if 'TsunamiWave' in tsunami_data and 'TsuStation' in tsunami_data['TsunamiWave']:
+                stations = tsunami_data['TsunamiWave']['TsuStation']
+                if isinstance(stations, list) and stations:
+                    station_info = []
+                    for station in stations[:5]:  # 只顯示前5個，避免超過嵌入限制
+                        station_name = station.get('StationName', '')
+                        wave_height = station.get('WaveHeight', '')
+                        arrival_time = station.get('ArrivalTime', '')
+                        if station_name:
+                            info = f"{station_name} - 觀測波高: {wave_height}, 抵達時間: {arrival_time}"
+                            station_info.append(info)
+                    
+                    if station_info:
+                        embed.add_field(
+                            name="📡 觀測站資料",
+                            value="\n".join(station_info),
+                            inline=False
+                        )
+                        
+                        if len(stations) > 5:
+                            embed.add_field(
+                                name="",
+                                value=f"*尚有 {len(stations) - 5} 筆觀測站資料未顯示*",
+                                inline=False
+                            )
+            
+            # 添加頁尾資訊
+            footer_text = f"{report_type} 第{report_no}"
+            if 'TsunamiNo' in tsunami_data:
+                footer_text += f" | 海嘯編號: {tsunami_data.get('TsunamiNo', '未知')}"
+                
+            embed.set_footer(text=footer_text)
+            
+            return embed
+            
+        except Exception as e:
+            logger.error(f"格式化海嘯資料時發生錯誤: {str(e)}")
+            return None
+
+    @app_commands.command(name="tsunami", description="查詢最新海嘯資訊")
+    async def tsunami(self, interaction: discord.Interaction):
+        """查詢最新海嘯資訊"""
+        await interaction.response.defer()
+        
+        try:
+            # 添加超時處理，防止 Discord 交互超時
+            tsunami_data = await asyncio.wait_for(
+                self.fetch_tsunami_data(), 
+                timeout=8.0  # 8秒超時，留足夠時間給 Discord 回應
+            )
+            
+            if not tsunami_data:
+                await interaction.followup.send("❌ 無法獲取海嘯資料，請稍後再試。")
+                return
+                
+            # 檢查資料結構
+            if ('result' not in tsunami_data or 'records' not in tsunami_data['result'] or 
+                'Tsunami' not in tsunami_data['result']['records']):
+                logger.warning("tsunami指令：API回傳異常格式，顯示友善錯誤訊息")
+                await interaction.followup.send("❌ 海嘯資料服務目前無法取得實際資料，請稍後再試。")
+                return
+                
+            # 取得最新海嘯資料
+            tsunami_records = tsunami_data['result']['records']['Tsunami']
+            if not tsunami_records or not isinstance(tsunami_records, list) or len(tsunami_records) == 0:
+                await interaction.followup.send("✅ 目前沒有海嘯資料或警報。")
+                return
+                
+            # 取得最新一筆資料
+            latest_tsunami = tsunami_records[0]
+            
+            # 格式化為Discord嵌入訊息
+            embed = await self.format_tsunami_data(latest_tsunami)
+            
+            if embed:
+                await interaction.followup.send(embed=embed)
+            else:
+                await interaction.followup.send("❌ 無法解析海嘯資料，請稍後再試。")
+                
+        except asyncio.TimeoutError:
+            logger.warning("tsunami指令：API請求超時")
+            await interaction.followup.send("❌ 海嘯資料查詢超時，請稍後再試。")
+        except Exception as e:
+            logger.error(f"tsunami指令執行時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
 
 async def setup(bot):
     await bot.add_cog(InfoCommands(bot))
