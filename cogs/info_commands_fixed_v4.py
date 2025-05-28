@@ -635,8 +635,7 @@ class InfoCommands(commands.Cog):
                         name=f"{weather_emoji} {time_range}",
                         value="\n".join(info),
                         inline=True
-                    )
-              # 添加資料來源和更新時間
+                    )            # 添加資料來源和更新時間
             embed.set_footer(text=f"資料來源: 中央氣象署 | 查詢時間: {datetime.datetime.now().strftime('%Y/%m/%d %H:%M')}")
             
             return embed
@@ -646,14 +645,24 @@ class InfoCommands(commands.Cog):
             return None
     
     @app_commands.command(name="earthquake", description="查詢最新地震資訊")
-    async def earthquake(self, interaction: discord.Interaction):
-        """查詢最新地震資訊 - v4 增強版本，具備多格式資料處理能力"""
+    @app_commands.describe(
+        earthquake_type="地震資料類型"
+    )
+    @app_commands.choices(earthquake_type=[
+        app_commands.Choice(name="有感地震報告 (一般地震)", value="normal"),
+        app_commands.Choice(name="小區域地震報告 (小區域地震)", value="small")
+    ])
+    async def earthquake(self, interaction: discord.Interaction, earthquake_type: str = "normal"):
+        """查詢最新地震資訊 - v4 增強版本，具備多格式資料處理能力 + 雙API支援"""
         await interaction.response.defer()
         
         try:
+            # 根據選擇的類型決定是否使用小區域地震API
+            small_area = (earthquake_type == "small")
+            
             # 添加超時處理，防止 Discord 交互超時
             eq_data = await asyncio.wait_for(
-                self.fetch_earthquake_data(), 
+                self.fetch_earthquake_data(small_area=small_area), 
                 timeout=8.0  # 8秒超時，留足夠時間給 Discord 回應
             )
             
