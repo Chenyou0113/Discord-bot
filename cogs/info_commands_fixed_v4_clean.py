@@ -619,12 +619,14 @@ class InfoCommands(commands.Cog):
                     # 取得天氣描述和表情符號
                     wx_desc = wx_data.get('parameterName', '未知')
                     weather_emoji = WEATHER_EMOJI.get(wx_desc, "🌈")
-                      # 建立資訊字串
+                    
+                    # 建立資訊字串
                     info = []
                     info.append(f"**天氣狀況:** {wx_desc}")
+                    
                     if pop_data:
                         info.append(f"**降雨機率:** {pop_data.get('parameterName', '未知')}%")
-                    if min_t_data and max_t_data:
+                      if min_t_data and max_t_data:
                         info.append(f"**溫度範圍:** {min_t_data.get('parameterName', '未知')}°C - {max_t_data.get('parameterName', '未知')}°C")
                     
                     if ci_data:
@@ -636,7 +638,8 @@ class InfoCommands(commands.Cog):
                         value="\n".join(info),
                         inline=True
                     )
-              # 添加資料來源和更新時間
+            
+            # 添加資料來源和更新時間
             embed.set_footer(text=f"資料來源: 中央氣象署 | 查詢時間: {datetime.datetime.now().strftime('%Y/%m/%d %H:%M')}")
             
             return embed
@@ -644,29 +647,18 @@ class InfoCommands(commands.Cog):
         except Exception as e:
             logger.error(f"格式化天氣資料時發生錯誤: {str(e)}")
             return None
-    
+            
     @app_commands.command(name="earthquake", description="查詢最新地震資訊")
     async def earthquake(self, interaction: discord.Interaction):
         """查詢最新地震資訊 - v4 增強版本，具備多格式資料處理能力"""
         await interaction.response.defer()
         
         try:
-            # 添加超時處理，防止 Discord 交互超時
-            eq_data = await asyncio.wait_for(
-                self.fetch_earthquake_data(), 
-                timeout=8.0  # 8秒超時，留足夠時間給 Discord 回應
-            )
+            # 獲取地震資料
+            eq_data = await self.fetch_earthquake_data()
             
             if not eq_data:
                 await interaction.followup.send("❌ 無法獲取地震資料，請稍後再試。")
-                return
-                
-            # 檢查是否為API異常格式（只有resource_id和fields）
-            if (eq_data and 'result' in eq_data and 
-                isinstance(eq_data['result'], dict) and 
-                set(eq_data['result'].keys()) == {'resource_id', 'fields'}):
-                logger.warning("earthquake指令：API回傳異常格式，顯示友善錯誤訊息")
-                await interaction.followup.send("❌ 地震資料服務目前無法取得實際資料，請稍後再試。")
                 return
                 
             # 在日誌中記錄完整的資料結構以進行調試
@@ -743,9 +735,6 @@ class InfoCommands(commands.Cog):
                 logger.warning(f"v4 所有解析方法都失敗，原始資料結構: {str(eq_data)[:200]}...")
                 await interaction.followup.send("❌ 目前沒有可用的地震資料，請稍後再試。")
                 
-        except asyncio.TimeoutError:
-            logger.warning("earthquake指令：API請求超時")
-            await interaction.followup.send("❌ 地震資料查詢超時，請稍後再試。")
         except Exception as e:
             logger.error(f"earthquake指令執行時發生錯誤: {str(e)}")
             await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")

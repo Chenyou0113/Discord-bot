@@ -193,6 +193,14 @@ class InfoCommands(commands.Cog):
             try:
                 # 檢查一般地震
                 data = await self.fetch_earthquake_data(small_area=False)
+                
+                # 跳過異常資料格式
+                if (data and 'result' in data and isinstance(data['result'], dict) and 
+                    set(data['result'].keys()) == {'resource_id', 'fields'}):
+                    logger.warning("地震監控：API 回傳異常格式，跳過此次檢查")
+                    await asyncio.sleep(self.check_interval)
+                    continue
+                
                 if data and 'result' in data and 'records' in data['result']:
                     records = data['result']['records']
                     latest_eq = None
@@ -302,10 +310,32 @@ class InfoCommands(commands.Cog):
                 url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization={self.api_auth}&limit=1"  # 一般地震
             
             logger.info(f"正在獲取地震資料，URL: {url}")
-            
-            # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
+              # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
             try:
-                data = await self.fetch_with_retry(url, timeout=30, max_retries=3)
+                data = await self.fetch_with_retry(url, timeout=8, max_retries=2)  # 縮短超時到8秒，減少重試次數# 新增：API 回傳異常資料結構防呆
+                if data and set(data.keys()) == {"resource_id", "fields"}:
+                    logger.warning("API 回傳異常資料結構（僅有 resource_id 和 fields），可能為授權失敗或流量限制。")
+                    return None
+                
+                # 新增：檢查 result 中是否只有 resource_id 和 fields（新的異常格式）
+                if (data and "result" in data and 
+                    isinstance(data["result"], dict) and 
+                    set(data["result"].keys()) == {"resource_id", "fields"}):
+                    logger.warning("API 回傳異常資料結構（result 中僅有 resource_id 和 fields），可能為授權失敗或 API 參數錯誤。")
+                    return None
+                
+                # 檢查是否有基本的資料結構
+                if data and "result" not in data:
+                    logger.warning(f"API 回傳缺少 result 欄位: {list(data.keys())}")
+                    return None
+                
+                # 檢查 result 欄位中是否有 records（某些 API 版本的結構）
+                if (data and "result" in data and 
+                    isinstance(data["result"], dict) and 
+                    "records" not in data["result"] and 
+                    "records" not in data):
+                    logger.warning(f"API 回傳缺少 records 欄位: result中有{list(data['result'].keys())}, 根層級有{list(data.keys())}")
+                    return None
                 
                 if data and isinstance(data, dict):
                     # 驗證資料結構
@@ -619,11 +649,14 @@ class InfoCommands(commands.Cog):
                     # 取得天氣描述和表情符號
                     wx_desc = wx_data.get('parameterName', '未知')
                     weather_emoji = WEATHER_EMOJI.get(wx_desc, "🌈")
-                      # 建立資訊字串
+                    
+                    # 建立資訊字串
                     info = []
                     info.append(f"**天氣狀況:** {wx_desc}")
+                    
                     if pop_data:
                         info.append(f"**降雨機率:** {pop_data.get('parameterName', '未知')}%")
+                    
                     if min_t_data and max_t_data:
                         info.append(f"**溫度範圍:** {min_t_data.get('parameterName', '未知')}°C - {max_t_data.get('parameterName', '未知')}°C")
                     
@@ -636,37 +669,28 @@ class InfoCommands(commands.Cog):
                         value="\n".join(info),
                         inline=True
                     )
-              # 添加資料來源和更新時間
+            
+            # 添加資料來源和更新時間
             embed.set_footer(text=f"資料來源: 中央氣象署 | 查詢時間: {datetime.datetime.now().strftime('%Y/%m/%d %H:%M')}")
             
-            return embed
-            
-        except Exception as e:
+            return embed        except Exception as e:
             logger.error(f"格式化天氣資料時發生錯誤: {str(e)}")
             return None
-    
+            
     @app_commands.command(name="earthquake", description="查詢最新地震資訊")
     async def earthquake(self, interaction: discord.Interaction):
-        """查詢最新地震資訊 - v4 增強版本，具備多格式資料處理能力"""
+        """查詢最新地震資訊 - v4 增強版本，具備多格式資料處理能力 + 超時優化"""
         await interaction.response.defer()
         
         try:
-            # 添加超時處理，防止 Discord 交互超時
+            # 在 asyncio 超時內獲取地震資料，防止 Discord 交互超時
             eq_data = await asyncio.wait_for(
                 self.fetch_earthquake_data(), 
-                timeout=8.0  # 8秒超時，留足夠時間給 Discord 回應
+                timeout=10.0  # 10秒超時，給 Discord 留有餘地
             )
             
             if not eq_data:
                 await interaction.followup.send("❌ 無法獲取地震資料，請稍後再試。")
-                return
-                
-            # 檢查是否為API異常格式（只有resource_id和fields）
-            if (eq_data and 'result' in eq_data and 
-                isinstance(eq_data['result'], dict) and 
-                set(eq_data['result'].keys()) == {'resource_id', 'fields'}):
-                logger.warning("earthquake指令：API回傳異常格式，顯示友善錯誤訊息")
-                await interaction.followup.send("❌ 地震資料服務目前無法取得實際資料，請稍後再試。")
                 return
                 
             # 在日誌中記錄完整的資料結構以進行調試
@@ -721,11 +745,24 @@ class InfoCommands(commands.Cog):
                 elif isinstance(earthquake_data, dict):
                     latest_eq = earthquake_data
                     logger.info("✅ 使用根層級字典地震資料")
-                    
-            # v4 新增：處理完全不同的API格式
+                      # v4 新增：處理完全不同的API格式
             elif isinstance(eq_data, dict) and ('EarthquakeNo' in eq_data or 'EarthquakeInfo' in eq_data):
                 latest_eq = eq_data
                 logger.info("✅ 使用根層級單一地震資料")
+            
+            # v5 新增：檢查 API 是否回傳欄位定義而非實際資料
+            elif ('result' in eq_data and 
+                  isinstance(eq_data['result'], dict) and 
+                  set(eq_data['result'].keys()) == {'resource_id', 'fields'}):
+                logger.error("API 回傳的是欄位定義而非實際地震資料，可能為授權問題或API參數錯誤")
+                await interaction.followup.send(
+                    "❌ 地震資料服務目前無法取得實際資料，可能原因：\n"
+                    "• API 授權金鑰問題\n"
+                    "• 請求參數錯誤\n"
+                    "• 氣象署服務暫時異常\n"
+                    "請稍後再試或聯繫管理員。"
+                )
+                return
             
             # 處理結果
             if latest_eq:
@@ -744,8 +781,107 @@ class InfoCommands(commands.Cog):
                 await interaction.followup.send("❌ 目前沒有可用的地震資料，請稍後再試。")
                 
         except asyncio.TimeoutError:
-            logger.warning("earthquake指令：API請求超時")
-            await interaction.followup.send("❌ 地震資料查詢超時，請稍後再試。")
+            logger.error("地震資料請求超時（10秒）")
+            await interaction.followup.send("❌ 地震資料請求超時，請稍後再試。")
+            return
+        except Exception as e:
+            logger.error(f"earthquake指令執行時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+            
+            if not eq_data:
+                await interaction.followup.send("❌ 無法獲取地震資料，請稍後再試。")
+                return
+                
+            # 在日誌中記錄完整的資料結構以進行調試
+            logger.info(f"Earthquake 指令獲取的資料結構: {str(eq_data.keys())}")
+            
+            # v4 增強功能：智能資料結構解析
+            latest_eq = None
+            
+            # 嘗試標準資料格式
+            if 'result' in eq_data and 'records' in eq_data['result']:
+                records = eq_data['result']['records']
+                
+                # 標準格式檢查
+                if isinstance(records, dict) and 'Earthquake' in records:
+                    earthquake_data = records['Earthquake']
+                    if isinstance(earthquake_data, list) and len(earthquake_data) > 0:
+                        latest_eq = earthquake_data[0]
+                        logger.info("✅ 使用標準列表格式地震資料")
+                    elif isinstance(earthquake_data, dict):
+                        latest_eq = earthquake_data
+                        logger.info("✅ 使用標準字典格式地震資料")
+                        
+                # v4 新增：處理2025年新格式 - datasetDescription + Earthquake
+                elif isinstance(records, dict) and 'datasetDescription' in records and 'Earthquake' in records:
+                    earthquake_data = records['Earthquake']
+                    if isinstance(earthquake_data, list) and len(earthquake_data) > 0:
+                        latest_eq = earthquake_data[0]
+                        logger.info("✅ 使用2025年新格式地震資料")
+                    elif isinstance(earthquake_data, dict):
+                        latest_eq = earthquake_data
+                        logger.info("✅ 使用2025年新格式字典地震資料")
+                        
+                # v4 新增：處理直接資料格式（無 Earthquake 層級）
+                elif isinstance(records, list) and len(records) > 0:
+                    # 檢查列表中的第一個元素是否包含地震資料特徵
+                    first_record = records[0]
+                    if isinstance(first_record, dict) and ('EarthquakeNo' in first_record or 'EarthquakeInfo' in first_record):
+                        latest_eq = first_record
+                        logger.info("✅ 使用直接列表格式地震資料")
+                        
+                # v4 新增：處理單一記錄格式
+                elif isinstance(records, dict) and ('EarthquakeNo' in records or 'EarthquakeInfo' in records):
+                    latest_eq = records
+                    logger.info("✅ 使用單一記錄格式地震資料")
+                
+            # v4 新增：處理缺少 result 或 records 的情況
+            elif 'Earthquake' in eq_data:
+                earthquake_data = eq_data['Earthquake']
+                if isinstance(earthquake_data, list) and len(earthquake_data) > 0:
+                    latest_eq = earthquake_data[0]
+                    logger.info("✅ 使用根層級地震資料")
+                elif isinstance(earthquake_data, dict):
+                    latest_eq = earthquake_data
+                    logger.info("✅ 使用根層級字典地震資料")
+                      # v4 新增：處理完全不同的API格式
+            elif isinstance(eq_data, dict) and ('EarthquakeNo' in eq_data or 'EarthquakeInfo' in eq_data):
+                latest_eq = eq_data
+                logger.info("✅ 使用根層級單一地震資料")
+            
+            # v5 新增：檢查 API 是否回傳欄位定義而非實際資料
+            elif ('result' in eq_data and 
+                  isinstance(eq_data['result'], dict) and 
+                  set(eq_data['result'].keys()) == {'resource_id', 'fields'}):
+                logger.error("API 回傳的是欄位定義而非實際地震資料，可能為授權問題或API參數錯誤")
+                await interaction.followup.send(
+                    "❌ 地震資料服務目前無法取得實際資料，可能原因：\n"
+                    "• API 授權金鑰問題\n"
+                    "• 請求參數錯誤\n"
+                    "• 氣象署服務暫時異常\n"
+                    "請稍後再試或聯繫管理員。"
+                )
+                return
+            
+            # 處理結果
+            if latest_eq:
+                # v4 增強：在格式化前進行資料完整性檢查和修復
+                latest_eq = self.enhance_earthquake_data(latest_eq)
+                
+                # 格式化為Discord嵌入訊息
+                embed = await self.format_earthquake_data(latest_eq)
+                
+                if embed:
+                    await interaction.followup.send(embed=embed)
+                else:
+                    await interaction.followup.send("❌ 無法解析地震資料，請稍後再試。")
+            else:
+                logger.warning(f"v4 所有解析方法都失敗，原始資料結構: {str(eq_data)[:200]}...")
+                await interaction.followup.send("❌ 目前沒有可用的地震資料，請稍後再試。")
+                  except asyncio.TimeoutError:
+            logger.error("地震資料請求超時（10秒）")
+            await interaction.followup.send("❌ 地震資料請求超時，請稍後再試。")
+            return
         except Exception as e:
             logger.error(f"earthquake指令執行時發生錯誤: {str(e)}")
             await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
