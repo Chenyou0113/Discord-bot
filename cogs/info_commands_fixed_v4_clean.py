@@ -325,13 +325,7 @@ class InfoCommands(commands.Cog):
                             if 'records' in data['result']:
                                 # 檢查資料格式
                                 records = data['result']['records']
-                                if isinstance(records, dict):
-                                    logger.info(f"records欄位的內容: {str(records.keys())}")
-                                else:
-                                    logger.info(f"records不是字典而是 {type(records)}")
-                                
-                                # 檢查是否有 Earthquake 列表或其他可能的格式
-                                if isinstance(records, dict) and 'Earthquake' in records and records['Earthquake']:
+                                if isinstance(records, dict) and 'Earthquake' in records:
                                     logger.info(f"找到標準Earthquake資料格式")
                                 # 處理2025年新格式：records可能包含datasetDescription和Earthquake
                                 elif isinstance(records, dict) and 'datasetDescription' in records and 'Earthquake' in records:
@@ -418,6 +412,61 @@ class InfoCommands(commands.Cog):
             if self.weather_cache:
                 logger.info("發生錯誤，使用天氣預報快取資料")
                 return self.weather_cache
+                
+            return None
+
+    async def fetch_tsunami_data(self) -> Optional[Dict[str, Any]]:
+        """從氣象局取得最新海嘯資料 (使用非同步請求)"""
+        current_time = datetime.datetime.now().timestamp()
+        
+        logger.info("開始獲取海嘯資料")
+        
+        # 如果快取資料未過期（5分鐘內），直接返回快取
+        if (self.tsunami_cache and 
+            current_time - self.tsunami_cache_time < 300):
+            logger.info("使用快取的海嘯資料")
+            return self.tsunami_cache
+
+        try:
+            # 使用海嘯資料API端點
+            url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0014-001?Authorization={self.api_auth}"
+            
+            logger.info(f"正在獲取海嘯資料，URL: {url}")
+            
+            # 使用非同步請求獲取資料
+            data = await self.fetch_with_retry(url, timeout=30, max_retries=3)
+            
+            if data and isinstance(data, dict):
+                # 驗證資料結構
+                if 'success' in data and (data['success'] == 'true' or data['success'] is True):
+                    # 記錄完整的資料結構，以便調試
+                    logger.info(f"海嘯API返回的資料結構: {str(data.keys())}")
+                    
+                    # 更新快取
+                    self.tsunami_cache = data
+                    self.tsunami_cache_time = current_time
+                    logger.info("成功獲取並更新海嘯資料快取")
+                    
+                    return data
+                else:
+                    logger.error(f"海嘯API請求不成功: {data}")
+            else:
+                logger.error(f"獲取到的海嘯資料格式不正確: {data}")
+                
+            # 如果請求失敗，檢查是否有快取資料可用
+            if self.tsunami_cache:
+                logger.warning("使用過期的海嘯資料快取")
+                return self.tsunami_cache
+                
+            return None
+                
+        except Exception as e:
+            logger.error(f"獲取海嘯資料時發生錯誤: {str(e)}")
+            
+            # 如果發生錯誤，檢查是否有快取資料可用
+            if self.tsunami_cache:
+                logger.info("發生錯誤，使用海嘯快取資料")
+                return self.tsunami_cache
                 
             return None
 
@@ -1014,9 +1063,7 @@ class InfoCommands(commands.Cog):
             
         except Exception as e:
             logger.error(f"格式化海嘯資料時發生錯誤: {str(e)}")
-            return None
-
-    @app_commands.command(name="tsunami", description="查詢最新海嘯資訊")
+            return None    @app_commands.command(name="tsunami", description="查詢最新海嘯資訊")
     async def tsunami(self, interaction: discord.Interaction):
         """查詢最新海嘯資訊"""
         await interaction.response.defer()
@@ -1027,20 +1074,22 @@ class InfoCommands(commands.Cog):
                 self.fetch_tsunami_data(), 
                 timeout=8.0  # 8秒超時，留足夠時間給 Discord 回應
             )
-            
             if not tsunami_data:
                 await interaction.followup.send("❌ 無法獲取海嘯資料，請稍後再試。")
                 return
-                
-            # 檢查資料結構
-            if ('result' not in tsunami_data or 'records' not in tsunami_data['result'] or 
-                'Tsunami' not in tsunami_data['result']['records']):
+            
+            # 檢查資料結構 - 修正API結構：records是根層級的
+            if ('records' not in tsunami_data or 
+                'Tsunami' not in tsunami_data['records']):
                 logger.warning("tsunami指令：API回傳異常格式，顯示友善錯誤訊息")
+                logger.info(f"海嘯資料實際結構: {list(tsunami_data.keys())}")
+                if 'records' in tsunami_data:
+                    logger.info(f"records內容: {list(tsunami_data['records'].keys()) if isinstance(tsunami_data['records'], dict) else type(tsunami_data['records'])}")
                 await interaction.followup.send("❌ 海嘯資料服務目前無法取得實際資料，請稍後再試。")
                 return
                 
             # 取得最新海嘯資料
-            tsunami_records = tsunami_data['result']['records']['Tsunami']
+            tsunami_records = tsunami_data['records']['Tsunami']
             if not tsunami_records or not isinstance(tsunami_records, list) or len(tsunami_records) == 0:
                 await interaction.followup.send("✅ 目前沒有海嘯資料或警報。")
                 return

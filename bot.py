@@ -111,7 +111,7 @@ class CustomBot(commands.Bot):
         self.initial_extensions = [
             'cogs.admin_commands_fixed',
             'cogs.basic_commands',
-            'cogs.info_commands_fixed_v4',
+            'cogs.info_commands_fixed_v4_clean',
             'cogs.level_system',
             'cogs.monitor_system',
             'cogs.voice_system',
