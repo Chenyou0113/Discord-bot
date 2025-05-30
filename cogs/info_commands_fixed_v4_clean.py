@@ -304,17 +304,23 @@ class InfoCommands(commands.Cog):
                 url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization={self.api_auth}&limit=1"  # 一般地震
             
             logger.info(f"正在獲取地震資料，URL: {url}")
-            
-            # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
+              # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
             try:
                 data = await self.fetch_with_retry(url, timeout=30, max_retries=3)
                 
                 if data and isinstance(data, dict):
                     # 驗證資料結構
                     if 'success' in data and (data['success'] == 'true' or data['success'] is True):
+                        # 檢查是否為API異常格式（只有欄位定義，無實際資料）
+                        if ('result' in data and isinstance(data['result'], dict) and 
+                            set(data['result'].keys()) == {'resource_id', 'fields'}):
+                            logger.warning("API回傳異常資料結構（result中僅有resource_id和fields），可能為授權失敗或API參數錯誤")
+                            return None
+                        
                         # 記錄完整的資料結構，以便調試
                         logger.info(f"API返回的資料結構: {str(data.keys())}")
-                          # 直接更新快取，無論資料結構如何，只要API返回成功
+                        
+                        # 直接更新快取，無論資料結構如何，只要API返回成功
                         self.earthquake_cache[cache_key] = data
                         self.cache_time = current_time
                         logger.info(f"成功獲取並更新地震資料快取")
@@ -710,9 +716,20 @@ class InfoCommands(commands.Cog):
             if not eq_data:
                 await interaction.followup.send("❌ 無法獲取地震資料，請稍後再試。")
                 return
-                
-            # 在日誌中記錄完整的資料結構以進行調試
+                  # 在日誌中記錄完整的資料結構以進行調試
             logger.info(f"Earthquake 指令獲取的資料結構: {str(eq_data.keys())}")
+            
+            # 檢查是否為API異常格式（只有resource_id和fields）
+            if ('result' in eq_data and isinstance(eq_data['result'], dict) and 
+                set(eq_data['result'].keys()) == {'resource_id', 'fields'}):
+                logger.warning("earthquake指令：API回傳異常格式，顯示友善錯誤訊息")
+                await interaction.followup.send(
+                    "❌ 地震資料服務目前無法取得實際資料，可能原因：\n"
+                    "• API 授權金鑰問題\n"
+                    "• 服務暫時無法使用\n"
+                    "• 請稍後再試或聯繫管理員"
+                )
+                return
             
             # v4 增強功能：智能資料結構解析
             latest_eq = None
@@ -1051,8 +1068,7 @@ class InfoCommands(commands.Cog):
                                 value=f"*尚有 {len(stations) - 5} 筆觀測站資料未顯示*",
                                 inline=False
                             )
-            
-            # 添加頁尾資訊
+              # 添加頁尾資訊
             footer_text = f"{report_type} 第{report_no}"
             if 'TsunamiNo' in tsunami_data:
                 footer_text += f" | 海嘯編號: {tsunami_data.get('TsunamiNo', '未知')}"
@@ -1063,7 +1079,9 @@ class InfoCommands(commands.Cog):
             
         except Exception as e:
             logger.error(f"格式化海嘯資料時發生錯誤: {str(e)}")
-            return None    @app_commands.command(name="tsunami", description="查詢最新海嘯資訊")
+            return None
+
+    @app_commands.command(name="tsunami", description="查詢最新海嘯資訊")
     async def tsunami(self, interaction: discord.Interaction):
         """查詢最新海嘯資訊"""
         await interaction.response.defer()

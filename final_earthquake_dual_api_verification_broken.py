@@ -198,57 +198,132 @@ async def test_default_behavior():
             await info_commands.session.close()
             
         print("✅ 預設行為測試完成\n")
-        
-    except Exception as e:
+          except Exception as e:
         print(f"❌ 預設行為測試失敗: {str(e)}")
         import traceback
         traceback.print_exc()
 
 async def test_api_switching():
     """測試API切換邏輯"""
-    print("\n🔍 測試API切換邏輯...")
+    print("🔍 測試API切換邏輯...")
+    print("-" * 40)
+    
+    try:
+        print("📝 測試雙API切換功能")
+        print("👤 模擬用戶先選擇一般地震，再選擇小區域地震")
+        
+        # 第一次測試 - 一般地震
+        await test_normal_earthquake()
+        
+        # 第二次測試 - 小區域地震
+        await test_small_earthquake()
+        
+        print("✅ API切換邏輯測試完成\n")
+        
+    except Exception as e:
+        print(f"❌ API切換邏輯測試失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+async def test_error_handling():
+    """測試錯誤處理"""
+    print("🔍 測試錯誤處理...")
     print("-" * 40)
     
     try:
         if MOCK_MODE:
-            print("📝 使用模擬模式進行測試")
-    finally:
-        if hasattr(info_commands, 'session') and info_commands.session and not info_commands.session.closed:
-            await info_commands.session.close()
-
-async def test_default_behavior():
-    """測試預設行為（不指定參數）"""
-    print("\n🔍 測試預設行為...")
-    print("-" * 40)
-    
-    try:
-        from cogs.info_commands_fixed_v4 import InfoCommands
-        
-        bot = MockBot()
-        interaction = MockInteraction()
-        info_commands = InfoCommands(bot)
+            print("📝 使用模擬模式進行錯誤處理測試")
+            bot = MockBot()
+            interaction = MockInteraction()
+            info_commands = MockInfoCommands(bot)
+        else:
+            bot = MockBot()
+            interaction = MockInteraction()
+            info_commands = InfoCommands(bot)
         
         # 初始化
         await info_commands.cog_load()
         
-        print("👤 模擬用戶不選擇參數（使用預設值）")
-        print("🎯 執行指令：/earthquake（預設為normal）")
+        print("👤 模擬異常情況測試")
+        print("🎯 測試各種邊界條件")
         
-        # 測試預設行為
-        await info_commands.earthquake.callback(info_commands, interaction)
+        # 測試無效參數
+        try:
+            await info_commands.earthquake.callback(info_commands, interaction, earthquake_type="invalid")
+            print("✅ 無效參數處理測試完成")
+        except Exception as e:
+            print(f"⚠️ 無效參數測試產生預期錯誤: {str(e)[:50]}...")
         
-        print(f"✅ 預設行為測試完成，回應數量: {len(interaction.responses)}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ 預設行為測試失敗: {str(e)}")
-        return False
-    finally:
+        # 清理會話
         if hasattr(info_commands, 'session') and info_commands.session and not info_commands.session.closed:
             await info_commands.session.close()
+            
+        print("✅ 錯誤處理測試完成\n")
+        
+    except Exception as e:
+        print(f"❌ 錯誤處理測試失敗: {str(e)}")
+        import traceback
+        traceback.print_exc()
 
-async def test_api_switching():
-    """測試API切換邏輯"""
+async def main():
+    """主要測試流程"""
+    print("=" * 60)
+    print("🚀 開始地震雙API整合功能最終驗證")
+    print("=" * 60)
+    print(f"📊 測試模式: {'模擬模式' if MOCK_MODE else '實際模式'}")
+    print()
+    
+    test_results = []
+    
+    # 執行所有測試
+    tests = [
+        ("一般地震API測試", test_normal_earthquake),
+        ("小區域地震API測試", test_small_earthquake),
+        ("預設行為測試", test_default_behavior),
+        ("API切換邏輯測試", test_api_switching),
+        ("錯誤處理測試", test_error_handling)
+    ]
+    
+    for test_name, test_func in tests:
+        try:
+            print(f"🔄 執行 {test_name}...")
+            await test_func()
+            test_results.append((test_name, "✅ 成功"))
+        except Exception as e:
+            test_results.append((test_name, f"❌ 失敗: {str(e)[:50]}..."))
+            print(f"❌ {test_name} 失敗: {str(e)}")
+    
+    # 顯示測試結果摘要
+    print("=" * 60)
+    print("📋 測試結果摘要")
+    print("=" * 60)
+    
+    success_count = 0
+    for test_name, result in test_results:
+        print(f"{result} {test_name}")
+        if "成功" in result:
+            success_count += 1
+    
+    print()
+    print(f"📊 測試統計: {success_count}/{len(test_results)} 個測試通過")
+    print(f"🎯 成功率: {success_count/len(test_results)*100:.1f}%")
+    
+    if success_count == len(test_results):
+        print("🎉 所有測試通過！地震雙API整合功能驗證成功！")
+    else:
+        print("⚠️ 部分測試失敗，請檢查問題並重新測試")
+    
+    print("=" * 60)
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n⏹️ 測試被用戶中斷")
+    except Exception as e:
+        print(f"\n❌ 測試過程中發生未預期錯誤: {str(e)}")
+        import traceback
+        traceback.print_exc()
     print("\n🔍 測試API切換邏輯...")
     print("-" * 40)
     

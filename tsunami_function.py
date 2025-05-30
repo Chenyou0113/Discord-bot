@@ -1,4 +1,13 @@
-async def fetch_tsunami_data(self) -> Optional[Dict[str, Any]]:
+from typing import Any, Dict, Optional
+import datetime
+import logging
+
+# 設定 logger
+logger = logging.getLogger(__name__)
+
+# 這個函數應該是一個獨立的工具函數，或者需要被整合到 InfoCommands 類別中
+# 目前移除 self 參數，使其成為獨立函數
+async def fetch_tsunami_data_standalone(api_auth: str, tsunami_cache=None, tsunami_cache_time=0, fetch_with_retry_func=None) -> Optional[Dict[str, Any]]:
         """從氣象局取得最新海嘯資料 (使用非同步請求)"""
         current_time = datetime.datetime.now().timestamp()
         

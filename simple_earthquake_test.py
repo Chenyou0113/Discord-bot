@@ -12,12 +12,26 @@ def test_import():
     """測試模組導入"""
     try:
         print("🔍 測試模組導入...")
+        # Check if the file exists first
+        import os
+        module_path = os.path.join("cogs", "info_commands_fixed_v4.py")
+        if not os.path.exists(module_path):
+            print(f"❌ 模組檔案不存在: {module_path}")
+            return False
+        
+def test_earthquake_method_signature():
+    """測試地震方法簽名"""
+    try:
+        print("\n🔍 檢查地震方法簽名...")
+        # Check if module exists before importing
+        import os
+        module_path = os.path.join("cogs", "info_commands_fixed_v4.py")
+        if not os.path.exists(module_path):
+            print(f"❌ 模組檔案不存在: {module_path}")
+            return False
+            
         from cogs.info_commands_fixed_v4 import InfoCommands
-        print("✅ InfoCommands 模組導入成功")
-        return True
-    except Exception as e:
-        print(f"❌ 模組導入失敗: {str(e)}")
-        return False
+        import inspect
 
 def test_earthquake_method_signature():
     """測試地震方法簽名"""
@@ -47,11 +61,18 @@ def test_earthquake_method_signature():
                 print("✅ earthquake_type參數存在")
                 param = sig.parameters['earthquake_type']
                 print(f"📝 參數預設值: {param.default}")
-                return True
-            else:
-                print("❌ earthquake_type參數不存在")
-                return False
-        else:
+def test_app_commands_decorator():
+    """測試app_commands裝飾器"""
+    try:
+        print("\n🔍 檢查app_commands裝飾器...")
+        # Check if module exists before importing
+        import os
+        module_path = os.path.join("cogs", "info_commands_fixed_v4.py")
+        if not os.path.exists(module_path):
+            print(f"❌ 模組檔案不存在: {module_path}")
+            return False
+            
+        from cogs.info_commands_fixed_v4 import InfoCommands
             print("❌ 不是有效的Command對象")
             return False
             

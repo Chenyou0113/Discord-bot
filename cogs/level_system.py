@@ -162,11 +162,12 @@ class LevelSystem(commands.Cog):
         # 隨機給予 15-25 經驗值
         xp = random.randint(15, 25)
         level_up = await self.add_xp(message.author.id, message.guild.id, xp)
-        
-        # 如果升級了，發送通知
+          # 如果升級了，發送通知
         if level_up:
             user_data = self.get_user_data(message.author.id, message.guild.id)
-            await self.send_level_up_notification(message.author, user_data['level'], message.guild)    @app_commands.command(name='level', description='查看你的等級資訊')
+            await self.send_level_up_notification(message.author, user_data['level'], message.guild)
+    
+    @app_commands.command(name='level', description='查看你的等級資訊')
     async def level(self, interaction: discord.Interaction):
         """查看等級資訊指令"""
         # 先延遲回應
@@ -201,13 +202,14 @@ class LevelSystem(commands.Cog):
         )
         
         embed.add_field(
-            name="統計資訊",
-            value=f"總經驗值: {total_xp}\n發送訊息數: {messages}",
+            name="統計資訊",        value=f"總經驗值: {total_xp}\n發送訊息數: {messages}",
             inline=False
         )
         
         # 使用 followup 而非 response
-        await interaction.followup.send(embed=embed)@app_commands.command(name="rank", description="查看自己或其他人的等級")
+        await interaction.followup.send(embed=embed)
+
+    @app_commands.command(name="rank", description="查看自己或其他人的等級")
     async def rank(self, interaction: discord.Interaction, member: discord.Member = None):
         """查看等級狀態"""
         # 先延遲回應
@@ -221,7 +223,6 @@ class LevelSystem(commands.Cog):
         current_xp = user_data['xp']
         
         progress = (current_xp / next_level_xp) * 100
-        
         embed = discord.Embed(title="等級資訊", color=discord.Color.blue())
         embed.set_author(name=member.display_name, icon_url=member.avatar.url if member.avatar else member.default_avatar.url)
         embed.add_field(name="等級", value=str(user_data['level']), inline=True)
@@ -230,7 +231,9 @@ class LevelSystem(commands.Cog):
         embed.add_field(name="進度", value=f"{progress:.1f}%", inline=True)
         
         # 使用 followup 而非 response
-        await interaction.followup.send(embed=embed)    @app_commands.command(name="leaderboard", description="顯示伺服器等級排行榜")
+        await interaction.followup.send(embed=embed)
+
+    @app_commands.command(name="leaderboard", description="顯示伺服器等級排行榜")
     async def leaderboard(self, interaction: discord.Interaction):
         """顯示排行榜"""
         # 先延遲回應，避免互動超時

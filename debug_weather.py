@@ -28,7 +28,7 @@ async def debug_weather():
             # 嘗試匯入實際的模組
             from cogs.info_commands import InfoCommands
             print("✅ 成功匯入 info_commands")
-        except ImportError:
+        except (ImportError, ModuleNotFoundError):
             print("⚠️ 無法匯入 info_commands，使用模擬類別...")
             # 如果都找不到，創建一個簡單的模擬類別
             class InfoCommands:

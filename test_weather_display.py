@@ -22,8 +22,20 @@ sys.path.append(os.getcwd())
 # 修正 info_commands_fixed_v4 中的問題
 def patch_info_commands():
     try:
-        import cogs.info_commands_fixed_v4 as module
-        print("✅ 成功匯入 info_commands_fixed_v4 模組")
+        import cogs.info_commands_fixed_v4_clean as module
+        print("✅ 成功匯入 info_commands_fixed_v4_clean 模組")
+    except ImportError as e:
+        print(f"❌ 無法匯入 info_commands_fixed_v4_clean 模組: {str(e)}")
+        print("請確認以下事項:")
+        print("1. cogs 資料夾是否存在")
+        print("2. info_commands_fixed_v4_clean.py 檔案是否存在於 cogs 資料夾中")
+        print("3. cogs 資料夾中是否有 __init__.py 檔案")
+        return None
+    except Exception as e:
+        print(f"❌ 匯入 info_commands_fixed_v4_clean 時發生其他錯誤: {str(e)}")
+        return None
+    
+    try:
         
         # 儲存原始方法
         original_format_weather = module.InfoCommands.format_weather_data
