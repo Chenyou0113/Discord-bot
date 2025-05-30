@@ -1068,12 +1068,12 @@ class InfoCommands(commands.Cog):
                                 value=f"*尚有 {len(stations) - 5} 筆觀測站資料未顯示*",
                                 inline=False
                             )
-              # 添加頁尾資訊
+            
+            # 添加頁尾資訊
             footer_text = f"{report_type} 第{report_no}"
             if 'TsunamiNo' in tsunami_data:
                 footer_text += f" | 海嘯編號: {tsunami_data.get('TsunamiNo', '未知')}"
-                
-            embed.set_footer(text=footer_text)
+                  embed.set_footer(text=footer_text)
             
             return embed
             
