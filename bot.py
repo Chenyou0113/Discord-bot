@@ -155,6 +155,51 @@ class CustomBot(commands.Bot):
             await self.connector.close()
             logger.info('已關閉 aiohttp 連接器')
         await super().close()
+    
+    def _try_register_basic_commands(self):
+        """嘗試手動註冊基本命令"""
+        try:
+            logger.info('正在嘗試手動註冊基本命令...')
+            
+            # 檢查並重新載入所有cogs的命令
+            for cog_name, cog in self.cogs.items():
+                if hasattr(cog, '__cog_app_commands__'):
+                    for command in cog.__cog_app_commands__:
+                        if command not in self.tree._global_commands:
+                            self.tree.add_command(command)
+                            logger.info(f'已重新註冊命令: {command.name} (來自 {cog_name})')
+                
+            logger.info('基本命令手動註冊完成')
+            
+        except Exception as e:
+            logger.error(f'手動註冊基本命令時發生錯誤: {str(e)}')
+    
+    async def force_sync_commands(self, guild=None):
+        """強制同步命令的輔助方法"""
+        try:
+            logger.info('開始強制同步命令...')
+            
+            # 清空並重新同步
+            self.tree.clear_commands(guild=guild)
+            await asyncio.sleep(1)
+            
+            # 手動註冊基本命令
+            self._try_register_basic_commands()
+            await asyncio.sleep(1)
+            
+            # 執行同步
+            if guild:
+                result = await self.tree.sync(guild=guild)
+                logger.info(f'已同步 {len(result)} 個命令到伺服器 {guild.name}')
+            else:
+                result = await self.tree.sync()
+                logger.info(f'已同步 {len(result)} 個全局命令')
+                
+            return result
+            
+        except Exception as e:
+            logger.error(f'強制同步命令時發生錯誤: {str(e)}')
+            return []
 
 # 創建機器人實例
 bot = CustomBot()

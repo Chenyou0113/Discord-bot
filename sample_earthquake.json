@@ -1,0 +1,45 @@
+{
+  "success": "true",
+  "result": {
+    "resource_id": "E-A0016-001",
+    "fields": [
+      {"id": "EarthquakeNo", "type": "Integer"},
+      {"id": "ReportType", "type": "String"},
+      {"id": "ReportColor", "type": "String"},
+      {"id": "ReportContent", "type": "String"},
+      {"id": "ReportImageURI", "type": "String"},
+      {"id": "ReportRemark", "type": "String"},
+      {"id": "Web", "type": "String"},
+      {"id": "ShakemapImageURI", "type": "String"},
+      {"id": "EarthquakeInfo", "type": "Object"}
+    ]
+  },
+  "records": {
+    "Earthquake": [
+      {
+        "EarthquakeNo": 113001,
+        "ReportType": "地震報告",
+        "ReportColor": "綠色",
+        "ReportContent": "今(30)日14時23分發生規模4.2有感地震，震央位於花蓮縣政府東南方 28.6 公里 (位於花蓮縣卓溪鄉)，震源深度18.8公里，各地震度如下：花蓮縣地區最大震度2級。",
+        "ReportImageURI": "https://www.cwa.gov.tw/Data/earthquake/img/EC1130014_I.png",
+        "ReportRemark": "本報告係中央氣象署地震觀測網即時地震資料地震速報之結果。",
+        "Web": "https://www.cwa.gov.tw/V8/C/E/EQ/EQ113001.html",
+        "ShakemapImageURI": "https://www.cwa.gov.tw/Data/earthquake/img/EC1130014_H.png",
+        "EarthquakeInfo": {
+          "OriginTime": "2025-05-30T14:23:42",
+          "Source": "中央氣象署",
+          "FocalDepth": "18.8",
+          "Epicenter": {
+            "Location": "花蓮縣政府東南方 28.6 公里 (位於花蓮縣卓溪鄉)",
+            "EpicenterLatitude": "23.46",
+            "EpicenterLongitude": "121.33"
+          },
+          "EarthquakeMagnitude": {
+            "MagnitudeType": "ML",
+            "MagnitudeValue": "4.2"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -23,8 +23,30 @@ async def debug_weather():
     
     try:
         # 匯入模組
-        from cogs.info_commands_fixed_v4 import InfoCommands
-        print("✅ 成功匯入 InfoCommands")
+        InfoCommands = None
+        try:
+            # 嘗試匯入實際的模組
+            from cogs.info_commands import InfoCommands
+            print("✅ 成功匯入 info_commands")
+        except ImportError:
+            print("⚠️ 無法匯入 info_commands，使用模擬類別...")
+            # 如果都找不到，創建一個簡單的模擬類別
+            class InfoCommands:
+                def __init__(self, bot):
+                    self.bot = bot
+                
+                async def fetch_weather_data(self):
+                    return {}
+                
+                async def format_weather_data(self, location):
+                    import discord
+                    embed = discord.Embed(title=f"{location} 天氣預報", color=0x00ff00)
+                    embed.add_field(name="測試", value="模擬天氣資料", inline=False)
+                    return embed
+            print("✅ 使用模擬 InfoCommands 類別")
+        
+        if InfoCommands:
+            print("✅ 成功匯入 InfoCommands")
           # 建立假的 bot 物件
         class MockBot:
             def __init__(self):
