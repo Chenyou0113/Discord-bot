@@ -41,7 +41,7 @@ for %%F in (
     "cogs\admin_commands_fixed.py"
     "cogs\basic_commands.py"
     "cogs\chat_commands.py"
-    "cogs\info_commands_fixed_v4.py"
+    "cogs\info_commands_fixed_v4_clean.py"
     "cogs\level_system.py"
     "cogs\monitor_system.py"
     "cogs\voice_system.py"

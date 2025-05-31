@@ -6,16 +6,15 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
 
 # 嘗試導入模組
-try:
-    # 檢查文件是否存在
-    module_path = os.path.join(parent_dir, "cogs", "info_commands_fixed_v4.py")
+try:    # 檢查文件是否存在
+    module_path = os.path.join(parent_dir, "cogs", "info_commands_fixed_v4_clean.py")
     if not os.path.exists(module_path):
         print(f"❌ 模組文件不存在: {module_path}")
         raise FileNotFoundError(f"模組文件不存在: {module_path}")
     
     # 使用 importlib 動態導入模組
     import importlib.util
-    spec = importlib.util.spec_from_file_location("info_commands_fixed_v4", module_path)
+    spec = importlib.util.spec_from_file_location("info_commands_fixed_v4_clean", module_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     InfoCommands = module.InfoCommands

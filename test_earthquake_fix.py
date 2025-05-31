@@ -22,7 +22,7 @@ async def test_earthquake_fetch():
     
     try:
         # 導入修正後的模組
-        from cogs.info_commands_fixed_v4 import InfoCommands
+        from cogs.info_commands_fixed_v4_clean import InfoCommands
         
         # 創建模擬機器人
         bot = MockBot()

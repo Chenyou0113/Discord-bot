@@ -223,7 +223,7 @@ class LevelSystem(commands.Cog):
         current_xp = user_data['xp']
         
         progress = (current_xp / next_level_xp) * 100
-          embed = discord.Embed(title="等級資訊", color=discord.Color.blue())
+        embed = discord.Embed(title="等級資訊", color=discord.Color.blue())
         embed.set_author(name=member.display_name, icon_url=member.avatar.url if member.avatar else member.default_avatar.url)
         embed.add_field(name="等級", value=str(user_data['level']), inline=True)
         embed.add_field(name="經驗值", value=f"{current_xp}/{next_level_xp}", inline=True)

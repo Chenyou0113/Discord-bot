@@ -8,10 +8,10 @@ if exist "bot.py" (
     echo ❌ bot.py 檔案不存在
 )
 
-if exist "cogs\info_commands_fixed_v4.py" (
-    echo ✅ info_commands_fixed_v4.py 檔案存在
+if exist "cogs\info_commands_fixed_v4_clean.py" (
+    echo ✅ info_commands_fixed_v4_clean.py 檔案存在
 ) else (
-    echo ❌ info_commands_fixed_v4.py 檔案不存在
+    echo ❌ info_commands_fixed_v4_clean.py 檔案不存在
 )
 
 if exist "cogs\admin_commands_fixed.py" (

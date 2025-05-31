@@ -692,8 +692,7 @@ class InfoCommands(commands.Cog):
                     embed.add_field(
                         name=f"{weather_emoji} {time_range}",
                         value="\n".join(info),
-                        inline=True
-                    )
+                        inline=True            )
             
             # 添加資料來源和更新時間
             embed.set_footer(text=f"資料來源: 中央氣象署 | 查詢時間: {datetime.datetime.now().strftime('%Y/%m/%d %H:%M')}")
@@ -705,13 +704,19 @@ class InfoCommands(commands.Cog):
             return None
             
     @app_commands.command(name="earthquake", description="查詢最新地震資訊")
-    async def earthquake(self, interaction: discord.Interaction):
+    @app_commands.describe(earthquake_type="選擇地震資料類型")
+    @app_commands.choices(earthquake_type=[
+        app_commands.Choice(name="一般地震", value="normal"),
+        app_commands.Choice(name="小區域地震", value="small_area")
+    ])
+    async def earthquake(self, interaction: discord.Interaction, earthquake_type: str = "normal"):
         """查詢最新地震資訊 - v4 增強版本，具備多格式資料處理能力"""
         await interaction.response.defer()
         
         try:
-            # 獲取地震資料
-            eq_data = await self.fetch_earthquake_data()
+            # 根據類型獲取地震資料
+            small_area = earthquake_type == "small_area"
+            eq_data = await self.fetch_earthquake_data(small_area=small_area)
             
             if not eq_data:
                 await interaction.followup.send("❌ 無法獲取地震資料，請稍後再試。")
@@ -1068,12 +1073,12 @@ class InfoCommands(commands.Cog):
                                 value=f"*尚有 {len(stations) - 5} 筆觀測站資料未顯示*",
                                 inline=False
                             )
-            
-            # 添加頁尾資訊
+              # 添加頁尾資訊
             footer_text = f"{report_type} 第{report_no}"
             if 'TsunamiNo' in tsunami_data:
                 footer_text += f" | 海嘯編號: {tsunami_data.get('TsunamiNo', '未知')}"
-                  embed.set_footer(text=footer_text)
+                
+            embed.set_footer(text=footer_text)
             
             return embed
             

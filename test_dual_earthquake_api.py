@@ -11,7 +11,7 @@ import os
 import datetime
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from cogs.info_commands_fixed_v4 import InfoCommands
+from cogs.info_commands_fixed_v4_clean import InfoCommands
 
 class MockBot:
     """模擬 Discord Bot"""

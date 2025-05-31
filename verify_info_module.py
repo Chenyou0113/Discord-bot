@@ -7,25 +7,24 @@ import sys
 import traceback
 
 print("Python 版本:", sys.version)
-print("測試匯入 info_commands_fixed_v4 模組...\n")
+print("測試匯入 info_commands_fixed_v4_clean 模組...\n")
 
 try:
-    from cogs import info_commands_fixed_v4
-    print("✅ 成功匯入 info_commands_fixed_v4 模組")
+    from cogs import info_commands_fixed_v4_clean
+    print("✅ 成功匯入 info_commands_fixed_v4_clean 模組")
     # 嘗試訪問一些重要的類或方法來確認模組完整性
-    if hasattr(info_commands_fixed_v4, 'InfoCommands'):
+    if hasattr(info_commands_fixed_v4_clean, 'InfoCommands'):
         print("✅ 模組包含 InfoCommands 類")
     else:
         print("❌ 模組缺少 InfoCommands 類")
         
-    if hasattr(info_commands_fixed_v4, 'WeatherView'):
+    if hasattr(info_commands_fixed_v4_clean, 'WeatherView'):
         print("✅ 模組包含 WeatherView 類")
     else:
         print("❌ 模組缺少 WeatherView 類")
-        
-    # 檢查天氣表情符號字典
-    if hasattr(info_commands_fixed_v4, 'WEATHER_EMOJI'):
-        print(f"✅ 模組包含 WEATHER_EMOJI 字典 (含 {len(info_commands_fixed_v4.WEATHER_EMOJI)} 個項目)")
+          # 檢查天氣表情符號字典
+    if hasattr(info_commands_fixed_v4_clean, 'WEATHER_EMOJI'):
+        print(f"✅ 模組包含 WEATHER_EMOJI 字典 (含 {len(info_commands_fixed_v4_clean.WEATHER_EMOJI)} 個項目)")
     else:
         print("❌ 模組缺少 WEATHER_EMOJI 字典")
         

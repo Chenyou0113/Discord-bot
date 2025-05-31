@@ -12,7 +12,7 @@ def test_import():
     """測試模組導入"""
     try:
         print("🔍 測試模組導入...")
-        from cogs.info_commands_fixed_v4 import InfoCommands
+        from cogs.info_commands_fixed_v4_clean import InfoCommands
         print("✅ InfoCommands 模組導入成功")
         return True
     except Exception as e:
@@ -23,7 +23,7 @@ def test_earthquake_method_signature():
     """測試地震方法簽名"""
     try:
         print("\n🔍 檢查地震方法簽名...")
-        from cogs.info_commands_fixed_v4 import InfoCommands
+        from cogs.info_commands_fixed_v4_clean import InfoCommands
         import inspect
         
         # 檢查earthquake方法
@@ -65,7 +65,7 @@ def test_app_commands_decorator():
     """測試app_commands裝飾器"""
     try:
         print("\n🔍 檢查app_commands裝飾器...")
-        from cogs.info_commands_fixed_v4 import InfoCommands
+        from cogs.info_commands_fixed_v4_clean import InfoCommands
         
         # 檢查earthquake方法是否有choices裝飾器
         earthquake_method = getattr(InfoCommands, 'earthquake', None)
@@ -106,7 +106,7 @@ def test_file_syntax():
     try:
         print("\n🔍 檢查檔案語法...")
         import py_compile
-        py_compile.compile('cogs/info_commands_fixed_v4.py', doraise=True)
+        py_compile.compile('cogs/info_commands_fixed_v4_clean.py', doraise=True)
         print("✅ 檔案語法檢查通過")
         return True
     except Exception as e:

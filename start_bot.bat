@@ -40,7 +40,7 @@ if not exist "bot.py" (
     goto :error
 )
 
-if not exist "cogs\info_commands_fixed_v4.py" (
+if not exist "cogs\info_commands_fixed_v4_clean.py" (
     echo [錯誤] 找不到資訊指令模組
     goto :error
 )

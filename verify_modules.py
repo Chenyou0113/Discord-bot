@@ -24,16 +24,15 @@ async def main():
     try:
         logger.info("開始驗證修復後的功能")
         
-        # 測試模組匯入
-        logger.info("測試 info_commands_fixed_v4 模組匯入:")
+        # 測試模組匯入        logger.info("測試 info_commands_fixed_v4_clean 模組匯入:")
         try:
             # 確保 cogs 目錄在搜尋路徑中
             if os.path.abspath('cogs') not in sys.path:
                 sys.path.append(os.path.abspath('cogs'))
             
             # 嘗試匯入模組
-            info_commands = importlib.import_module('info_commands_fixed_v4')
-            logger.info("✅ 成功匯入 info_commands_fixed_v4 模組")
+            info_commands = importlib.import_module('info_commands_fixed_v4_clean')
+            logger.info("✅ 成功匯入 info_commands_fixed_v4_clean 模組")
             
             # 檢查主要類別是否存在
             if hasattr(info_commands, 'InfoCommands'):

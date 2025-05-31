@@ -56,7 +56,7 @@ def main():
         ("cogs/admin_commands_fixed.py", "admin_commands_fixed"),
         ("cogs/basic_commands.py", "basic_commands"),
         ("cogs/chat_commands.py", "chat_commands"),
-        ("cogs/info_commands_fixed_v4.py", "info_commands_fixed_v4"),
+        ("cogs/info_commands_fixed_v4_clean.py", "info_commands_fixed_v4_clean"),
         ("cogs/level_system.py", "level_system"),
         ("cogs/monitor_system.py", "monitor_system"),
         ("cogs/voice_system.py", "voice_system")

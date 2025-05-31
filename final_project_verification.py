@@ -34,9 +34,8 @@ async def test_import_modules():
     """測試所有模組匯入"""
     print("🔍 測試模組匯入...")
     
-    try:
-        from cogs.info_commands_fixed_v4 import InfoCommands
-        print("  ✅ info_commands_fixed_v4")
+    try:        from cogs.info_commands_fixed_v4_clean import InfoCommands
+        print("  ✅ info_commands_fixed_v4_clean")
         
         from cogs.level_system import LevelSystem
         print("  ✅ level_system")
@@ -65,9 +64,8 @@ async def test_import_modules():
 async def test_weather_function():
     """測試天氣預報功能"""
     print("\n🌤️ 測試天氣預報功能...")
-    
-    try:
-        from cogs.info_commands_fixed_v4 import InfoCommands
+      try:
+        from cogs.info_commands_fixed_v4_clean import InfoCommands
         
         bot = MockBot()
         info_cog = InfoCommands(bot)
@@ -171,7 +169,7 @@ def test_file_structure():
         "bot.py",
         "requirements.txt",
         "start_bot_unified.bat",
-        "cogs/info_commands_fixed_v4.py",
+        "cogs/info_commands_fixed_v4_clean.py",
         "cogs/level_system.py",
         "cogs/admin_commands_fixed.py",
         "cogs/basic_commands.py",

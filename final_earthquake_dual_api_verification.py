@@ -217,12 +217,11 @@ async def test_api_switching():
             await info_commands.session.close()
 
 async def test_default_behavior():
-    """測試預設行為（不指定參數）"""
-    print("\n🔍 測試預設行為...")
+    """測試預設行為（不指定參數）"""    print("\n🔍 測試預設行為...")
     print("-" * 40)
     
     try:
-        from cogs.info_commands_fixed_v4 import InfoCommands
+        from cogs.info_commands_fixed_v4_clean import InfoCommands
         
         bot = MockBot()
         interaction = MockInteraction()

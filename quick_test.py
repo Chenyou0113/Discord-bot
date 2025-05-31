@@ -17,7 +17,7 @@ def test_module_import():
         ('cogs.admin_commands_fixed', 'AdminCommands'),
         ('cogs.basic_commands', 'BasicCommands'),
         ('cogs.chat_commands', 'ChatCommands'),
-        ('cogs.info_commands_fixed_v4', 'InfoCommands'),
+        ('cogs.info_commands_fixed_v4_clean', 'InfoCommands'),
         ('cogs.level_system', 'LevelSystem'),
         ('cogs.monitor_system', 'MonitorSystem'),
         ('cogs.voice_system', 'VoiceSystem')
