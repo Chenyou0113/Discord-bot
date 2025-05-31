@@ -34,6 +34,9 @@ async def verify_fixes():
                 self.guilds = []
                 self.loop = asyncio.get_event_loop()
                 
+            def is_closed(self):
+                return False
+                
             async def wait_until_ready(self):
                 pass
         

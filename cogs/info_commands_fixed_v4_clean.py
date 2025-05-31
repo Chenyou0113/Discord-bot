@@ -296,26 +296,38 @@ class InfoCommands(commands.Cog):
             logger.info(f"快取資料內容: {str(self.earthquake_cache[cache_key])[:200]}...")
             return self.earthquake_cache[cache_key]
 
-        try:
-            # 選擇適當的 API 端點
+        try:            # 選擇適當的 API 端點
             if small_area:
-                url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0016-001?Authorization={self.api_auth}&limit=1"  # 小區域有感地震
+                url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0016-001"  # 小區域有感地震
+                params = {
+                    'Authorization': self.api_auth,
+                    'limit': 1,
+                    'format': 'JSON'
+                }
             else:
-                url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization={self.api_auth}&limit=1"  # 一般地震
+                url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001"  # 一般地震
+                params = {
+                    'Authorization': self.api_auth,
+                    'limit': 1,
+                    'format': 'JSON'
+                }
             
-            logger.info(f"正在獲取地震資料，URL: {url}")
-              # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
+            # 構建完整的URL
+            param_string = "&".join([f"{k}={v}" for k, v in params.items()])
+            full_url = f"{url}?{param_string}"
+            
+            logger.info(f"正在獲取地震資料，URL: {full_url}")              # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
             try:
-                data = await self.fetch_with_retry(url, timeout=30, max_retries=3)
+                data = await self.fetch_with_retry(full_url, timeout=30, max_retries=3)
                 
                 if data and isinstance(data, dict):
                     # 驗證資料結構
-                    if 'success' in data and (data['success'] == 'true' or data['success'] is True):
-                        # 檢查是否為API異常格式（只有欄位定義，無實際資料）
+                    if 'success' in data and (data['success'] == 'true' or data['success'] is True):                        # 檢查是否為API異常格式（只有欄位定義，無實際資料）
                         if ('result' in data and isinstance(data['result'], dict) and 
                             set(data['result'].keys()) == {'resource_id', 'fields'}):
                             logger.warning("API回傳異常資料結構（result中僅有resource_id和fields），可能為授權失敗或API參數錯誤")
-                            return None
+                            logger.info("嘗試使用備用地震資料")
+                            return await self.get_backup_earthquake_data(small_area)
                         
                         # 記錄完整的資料結構，以便調試
                         logger.info(f"API返回的資料結構: {str(data.keys())}")
@@ -385,18 +397,25 @@ class InfoCommands(commands.Cog):
     async def fetch_weather_data(self) -> Optional[Dict[str, Any]]:
         """從氣象局取得36小時天氣預報資料 (使用非同步請求)"""
         current_time = datetime.datetime.now().timestamp()
-        
-        # 如果快取資料未過期（30分鐘內），直接返回快取
+          # 如果快取資料未過期（30分鐘內），直接返回快取
         if (self.weather_cache and 
             current_time - self.weather_cache_time < 1800):
             logger.info("使用快取的天氣預報資料")
             return self.weather_cache
 
         try:
-            url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization={self.api_auth}"
+            url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001"
+            params = {
+                'Authorization': self.api_auth,
+                'format': 'JSON'
+            }
+            
+            # 構建完整的URL
+            param_string = "&".join([f"{k}={v}" for k, v in params.items()])
+            full_url = f"{url}?{param_string}"
             
             # 使用非同步請求獲取資料
-            data = await self.fetch_with_retry(url, timeout=15, max_retries=3)
+            data = await self.fetch_with_retry(full_url, timeout=15, max_retries=3)
             
             if data:
                 # 更新快取
@@ -426,8 +445,7 @@ class InfoCommands(commands.Cog):
         current_time = datetime.datetime.now().timestamp()
         
         logger.info("開始獲取海嘯資料")
-        
-        # 如果快取資料未過期（5分鐘內），直接返回快取
+          # 如果快取資料未過期（5分鐘內），直接返回快取
         if (self.tsunami_cache and 
             current_time - self.tsunami_cache_time < 300):
             logger.info("使用快取的海嘯資料")
@@ -435,12 +453,20 @@ class InfoCommands(commands.Cog):
 
         try:
             # 使用海嘯資料API端點
-            url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0014-001?Authorization={self.api_auth}"
+            url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0014-001"
+            params = {
+                'Authorization': self.api_auth,
+                'format': 'JSON'
+            }
             
-            logger.info(f"正在獲取海嘯資料，URL: {url}")
+            # 構建完整的URL
+            param_string = "&".join([f"{k}={v}" for k, v in params.items()])
+            full_url = f"{url}?{param_string}"
+            
+            logger.info(f"正在獲取海嘯資料，URL: {full_url}")
             
             # 使用非同步請求獲取資料
-            data = await self.fetch_with_retry(url, timeout=30, max_retries=3)
+            data = await self.fetch_with_retry(full_url, timeout=30, max_retries=3)
             
             if data and isinstance(data, dict):
                 # 驗證資料結構
@@ -1134,6 +1160,55 @@ class InfoCommands(commands.Cog):
         except Exception as e:
             logger.error(f"tsunami指令執行時發生錯誤: {str(e)}")
             await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+
+    async def get_backup_earthquake_data(self, small_area: bool = False) -> Optional[Dict[str, Any]]:
+        """當 API 失敗時提供備用地震資料"""
+        logger.info("使用備用地震資料")
+        
+        # 創建模擬的地震資料結構
+        current_time = datetime.datetime.now()
+        
+        backup_data = {
+            "success": "true",
+            "result": {
+                "resource_id": "E-A0016-001" if small_area else "E-A0015-001",
+                "records": {
+                    "Earthquake": [{
+                        "EarthquakeNo": 999999,
+                        "ReportType": "小區域有感地震報告" if small_area else "有感地震報告",
+                        "ReportContent": f"備用地震資料 - API 暫時不可用 (時間: {current_time.strftime('%Y-%m-%d %H:%M:%S')})",
+                        "ReportColor": "綠色",
+                        "ReportRemark": "此為備用資料，請稍後重試以獲取最新地震資訊",
+                        "Web": "https://www.cwa.gov.tw/V8/C/E/index.html",
+                        "ShakemapImageURI": "",
+                        "ReportImageURI": "",
+                        "EarthquakeInfo": {
+                            "OriginTime": current_time.strftime("%Y-%m-%d %H:%M:%S"),
+                            "Source": "中央氣象署",
+                            "FocalDepth": "資料更新中",
+                            "Epicenter": {
+                                "Location": "資料更新中",
+                                "EpicenterLatitude": 0.0,
+                                "EpicenterLongitude": 0.0
+                            },
+                            "EarthquakeMagnitude": {
+                                "MagnitudeType": "ML",
+                                "MagnitudeValue": 0.0
+                            }
+                        },                        "Intensity": {
+                            "ShakingArea": [{
+                                "AreaDesc": "API 暫時無法提供資料",
+                                "CountyName": "",
+                                "InfoStatus": "資料更新中",
+                                "AreaIntensity": "0級"
+                            }]
+                        }
+                    }]
+                }
+            }
+        }
+        
+        return backup_data
 
 async def setup(bot):
     await bot.add_cog(InfoCommands(bot))

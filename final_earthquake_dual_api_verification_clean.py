@@ -126,11 +126,13 @@ async def test_normal_earthquake():
             await info_commands.session.close()
             
         print("✅ 一般地震API測試完成\n")
+        return True
         
     except Exception as e:
         print(f"❌ 一般地震API測試失敗: {str(e)}")
         import traceback
         traceback.print_exc()
+        return False
 
 async def test_small_earthquake():
     """測試小區域地震API"""
@@ -162,11 +164,13 @@ async def test_small_earthquake():
             await info_commands.session.close()
             
         print("✅ 小區域地震API測試完成\n")
+        return True
         
     except Exception as e:
         print(f"❌ 小區域地震API測試失敗: {str(e)}")
         import traceback
         traceback.print_exc()
+        return False
 
 async def test_default_behavior():
     """測試預設行為（不指定參數）"""
@@ -198,72 +202,37 @@ async def test_default_behavior():
             await info_commands.session.close()
             
         print("✅ 預設行為測試完成\n")
+        return True
         
     except Exception as e:
         print(f"❌ 預設行為測試失敗: {str(e)}")
         import traceback
         traceback.print_exc()
+        return False
 
 async def test_api_switching():
     """測試API切換邏輯"""
-    print("\n🔍 測試API切換邏輯...")
+    print("🔍 測試API切換邏輯...")
     print("-" * 40)
     
     try:
         if MOCK_MODE:
             print("📝 使用模擬模式進行測試")
-    finally:
-        if hasattr(info_commands, 'session') and info_commands.session and not info_commands.session.closed:
-            await info_commands.session.close()
-
-async def test_default_behavior():
-    """測試預設行為（不指定參數）"""    print("\n🔍 測試預設行為...")
-    print("-" * 40)
-    
-    try:
-        from cogs.info_commands_fixed_v4_clean import InfoCommands
+            bot = MockBot()
+            info_commands = MockInfoCommands(bot)
+        else:
+            from cogs.info_commands_fixed_v4_clean import InfoCommands
+            bot = MockBot()
+            info_commands = InfoCommands(bot)
         
-        bot = MockBot()
-        interaction = MockInteraction()
-        info_commands = InfoCommands(bot)
-        
-        # 初始化
-        await info_commands.cog_load()
-        
-        print("👤 模擬用戶不選擇參數（使用預設值）")
-        print("🎯 執行指令：/earthquake（預設為normal）")
-        
-        # 測試預設行為
-        await info_commands.earthquake.callback(info_commands, interaction)
-        
-        print(f"✅ 預設行為測試完成，回應數量: {len(interaction.responses)}")
-        return True
-        
-    except Exception as e:
-        print(f"❌ 預設行為測試失敗: {str(e)}")
-        return False
-    finally:
-        if hasattr(info_commands, 'session') and info_commands.session and not info_commands.session.closed:
-            await info_commands.session.close()
-
-async def test_api_switching():
-    """測試API切換邏輯"""
-    print("\n🔍 測試API切換邏輯...")
-    print("-" * 40)
-    
-    try:
-        from cogs.info_commands_fixed_v4 import InfoCommands
-        
-        bot = MockBot()
-        info_commands = InfoCommands(bot)
         await info_commands.cog_load()
         
         print("📡 測試API切換邏輯...")
         
         # 測試small_area參數邏輯
         print("  🔸 normal -> small_area=False")
-        result1 = ("small" == "small")  # 模擬 small_area = (earthquake_type == "small")
-        print(f"    earthquake_type='normal' -> small_area={not result1}")
+        result1 = ("normal" == "small")  # 模擬 small_area = (earthquake_type == "small")
+        print(f"    earthquake_type='normal' -> small_area={result1}")
         
         print("  🔸 small -> small_area=True") 
         result2 = ("small" == "small")
