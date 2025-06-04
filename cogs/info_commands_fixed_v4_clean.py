@@ -296,94 +296,87 @@ class InfoCommands(commands.Cog):
             logger.info(f"快取資料內容: {str(self.earthquake_cache[cache_key])[:200]}...")
             return self.earthquake_cache[cache_key]
 
-        try:            # 選擇適當的 API 端點
-            if small_area:
-                url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0016-001"  # 小區域有感地震
-                params = {
+        # 選擇適當的 API 端點
+        if small_area:
+            endpoint = "E-A0016-001"  # 小區域有感地震
+        else:
+            endpoint = "E-A0015-001"  # 一般地震
+            
+        url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/{endpoint}"
+        
+        # 嘗試多種 API 調用方式
+        api_attempts = [
+            {
+                "name": "無認證模式",
+                "params": {
+                    'limit': 1,
+                    'format': 'JSON'
+                }
+            },
+            {
+                "name": "有認證模式", 
+                "params": {
                     'Authorization': self.api_auth,
                     'limit': 1,
                     'format': 'JSON'
                 }
-            else:
-                url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001"  # 一般地震
-                params = {
-                    'Authorization': self.api_auth,
-                    'limit': 1,
-                    'format': 'JSON'
-                }
-            
-            # 構建完整的URL
-            param_string = "&".join([f"{k}={v}" for k, v in params.items()])
-            full_url = f"{url}?{param_string}"
-            
-            logger.info(f"正在獲取地震資料，URL: {full_url}")              # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
-            try:
-                data = await self.fetch_with_retry(full_url, timeout=30, max_retries=3)
+            }
+        ]
+
+        try:
+            # 按順序嘗試不同的 API 調用方式
+            for attempt in api_attempts:
+                logger.info(f"嘗試{attempt['name']}獲取地震資料")
                 
-                if data and isinstance(data, dict):
-                    # 驗證資料結構
-                    if 'success' in data and (data['success'] == 'true' or data['success'] is True):                        # 檢查是否為API異常格式（只有欄位定義，無實際資料）
-                        if ('result' in data and isinstance(data['result'], dict) and 
-                            set(data['result'].keys()) == {'resource_id', 'fields'}):
-                            logger.warning("API回傳異常資料結構（result中僅有resource_id和fields），可能為授權失敗或API參數錯誤")
-                            logger.info("嘗試使用備用地震資料")
-                            return await self.get_backup_earthquake_data(small_area)
-                        
-                        # 記錄完整的資料結構，以便調試
-                        logger.info(f"API返回的資料結構: {str(data.keys())}")
-                        
-                        # 直接更新快取，無論資料結構如何，只要API返回成功
-                        self.earthquake_cache[cache_key] = data
-                        self.cache_time = current_time
-                        logger.info(f"成功獲取並更新地震資料快取")
-                        
-                        if 'result' in data:
-                            logger.info(f"result欄位的內容: {str(data['result'].keys() if isinstance(data['result'], dict) else 'not a dict')}")
+                # 構建完整的URL
+                param_string = "&".join([f"{k}={v}" for k, v in attempt['params'].items()])
+                full_url = f"{url}?{param_string}"
+                
+                logger.info(f"正在獲取地震資料，URL: {full_url}")
+                
+                # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
+                try:
+                    data = await self.fetch_with_retry(full_url, timeout=30, max_retries=3)                    
+                    if data and isinstance(data, dict):
+                        # 驗證資料結構
+                        if 'success' in data and (data['success'] == 'true' or data['success'] is True):
+                            # 檢查是否為API異常格式（只有欄位定義，無實際資料）
+                            if ('result' in data and isinstance(data['result'], dict) and 
+                                set(data['result'].keys()) == {'resource_id', 'fields'}):
+                                logger.warning(f"API回傳異常資料結構（{attempt['name']}失敗），嘗試下一種方式")
+                                continue  # 嘗試下一種 API 調用方式
                             
-                            if 'records' in data['result']:
-                                # 檢查資料格式
-                                records = data['result']['records']
-                                if isinstance(records, dict) and 'Earthquake' in records:
-                                    logger.info(f"找到標準Earthquake資料格式")
-                                # 處理2025年新格式：records可能包含datasetDescription和Earthquake
-                                elif isinstance(records, dict) and 'datasetDescription' in records and 'Earthquake' in records:
-                                    logger.info(f"找到2025年新Earthquake資料格式")
-                                else:
-                                    # 嘗試直接使用records，可能API結構已變更
-                                    logger.info(f"地震資料結構異常，但仍然接受: {str(records)[:200]}...")
+                            # 檢查是否有實際的地震資料
+                            if ('result' in data and 'records' in data.get('result', {}) and 
+                                isinstance(data['result']['records'], dict) and 
+                                'Earthquake' in data['result']['records'] and
+                                data['result']['records']['Earthquake']):
+                                
+                                logger.info(f"✅ {attempt['name']}成功獲取地震資料")
+                                
+                                # 更新快取
+                                self.earthquake_cache[cache_key] = data
+                                self.cache_time = current_time
+                                logger.info(f"成功獲取並更新地震資料快取")
+                                
+                                return data
                             else:
-                                # 處理缺少 records 欄位的情況
-                                logger.info(f"地震資料缺少 records 欄位，檢查是否有其他資料結構: {list(data['result'].keys())}")
-                                # 可能 API 結構已經改變，但我們仍然接受這個資料
+                                logger.warning(f"{attempt['name']}獲取的資料結構不完整，嘗試下一種方式")
+                                continue
                         else:
-                            logger.warning(f"地震資料缺少 result 欄位，但仍嘗試使用資料")
-                        
-                        return data
+                            logger.warning(f"{attempt['name']} API 請求不成功: {data.get('success', 'unknown')}")
+                            continue
                     else:
-                        logger.error(f"API 請求不成功: {data}")
-                else:
-                    logger.error(f"獲取到的資料格式不正確: {data}")
+                        logger.warning(f"{attempt['name']}獲取到的資料格式不正確")
+                        continue
+                        
+                except Exception as api_e:
+                    logger.error(f"{attempt['name']}請求失敗: {str(api_e)}")
+                    continue  # 嘗試下一種方式
+              # 如果所有 API 調用方式都失敗，使用備用資料
+            logger.warning("所有 API 調用方式都失敗，使用備用地震資料")
+            return await self.get_backup_earthquake_data(small_area)
             
-            except Exception as e:
-                logger.error(f"地震資料請求失敗: {str(e)}")
-                if 'SSL' in str(e):
-                    logger.warning("SSL 驗證錯誤，嘗試重新初始化連線")
-                    # 重新初始化工作階段並重試
-                    await self.init_aiohttp_session()
-                    try:
-                        data = await self.fetch_with_retry(url, timeout=30, max_retries=3)
-                        if data and isinstance(data, dict) and data.get('success') == 'true':
-                            return data
-                    except Exception as retry_e:
-                        logger.error(f"重試請求也失敗了: {str(retry_e)}")
-            
-            # 如果請求失敗，檢查是否有快取資料可用
-            if cache_key in self.earthquake_cache:
-                logger.warning("使用過期的地震資料快取")
-                return self.earthquake_cache[cache_key]
-            
-            return None
-                
         except Exception as e:
             logger.error(f"獲取地震資料時發生錯誤: {str(e)}")
             
@@ -392,7 +385,9 @@ class InfoCommands(commands.Cog):
                 logger.info("發生錯誤，使用地震快取資料")
                 return self.earthquake_cache[cache_key]
             
-            return None
+            # 最後的備用方案
+            logger.warning("沒有可用的快取資料，使用備用地震資料")
+            return await self.get_backup_earthquake_data(small_area)
 
     async def fetch_weather_data(self) -> Optional[Dict[str, Any]]:
         """從氣象局取得36小時天氣預報資料 (使用非同步請求)"""
