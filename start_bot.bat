@@ -60,14 +60,9 @@ if not exist ".env" (
 
 echo [成功] 所有必要檔案檢查通過
 
-REM 運行最終驗證
-echo [檢查] 正在執行最終驗證...
-python final_verification.py
-if %errorlevel% neq 0 (
-    echo [警告] 最終驗證發現一些問題，但仍將嘗試啟動機器人
-) else (
-    echo [成功] 最終驗證通過
-)
+REM 檢查環境變數配置
+echo [檢查] 正在檢查環境變數配置...
+python -c "import os; from dotenv import load_dotenv; load_dotenv(); print('[成功] 環境變數載入完成' if os.getenv('DISCORD_TOKEN') and os.getenv('GOOGLE_API_KEY') else '[警告] 請檢查 .env 文件中的 TOKEN 配置')"
 
 echo.
 echo [啟動] 正在啟動 Discord 機器人...
