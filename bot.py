@@ -98,7 +98,9 @@ class CustomBot(commands.Bot):
             loop = asyncio.get_event_loop()
         except RuntimeError:
             loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)              super().__init__(
+            asyncio.set_event_loop(loop)
+        
+        super().__init__(
             command_prefix='!',
             intents=intents,
             application_id=1357968654423162941,
