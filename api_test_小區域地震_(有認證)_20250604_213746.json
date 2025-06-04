@@ -1,0 +1,346 @@
+{
+  "success": "true",
+  "result": {
+    "resource_id": "E-A0016-001",
+    "fields": [
+      {
+        "id": "ReportType",
+        "type": "String"
+      },
+      {
+        "id": "EarthquakeNo",
+        "type": "Integer"
+      },
+      {
+        "id": "ReportContent",
+        "type": "String"
+      },
+      {
+        "id": "ReportColor",
+        "type": "String"
+      },
+      {
+        "id": "Web",
+        "type": "String"
+      },
+      {
+        "id": "ReportImageURI",
+        "type": "String"
+      },
+      {
+        "id": "OriginTime",
+        "type": "Timestamp"
+      },
+      {
+        "id": "FocalDepth",
+        "type": "Float"
+      },
+      {
+        "id": "Location",
+        "type": "String"
+      },
+      {
+        "id": "EpicenterLatitude",
+        "type": "Float"
+      },
+      {
+        "id": "EpicenterLongitude",
+        "type": "Float"
+      },
+      {
+        "id": "AreaIntensity",
+        "type": "String"
+      },
+      {
+        "id": "IntScaleValue",
+        "type": "Float"
+      },
+      {
+        "id": "IntScaleValue",
+        "type": "Float"
+      },
+      {
+        "id": "IntScaleValue",
+        "type": "String"
+      },
+      {
+        "id": "StationLatitude",
+        "type": "Float"
+      },
+      {
+        "id": "StationLongitude",
+        "type": "Float"
+      },
+      {
+        "id": "unit",
+        "type": "String"
+      },
+      {
+        "id": "MagnitudeType",
+        "type": "String"
+      },
+      {
+        "id": "MagnitudeValue",
+        "type": "Float"
+      },
+      {
+        "id": "Source",
+        "type": "String"
+      },
+      {
+        "id": "AreaDesc",
+        "type": "String"
+      },
+      {
+        "id": "CountyName",
+        "type": "String"
+      },
+      {
+        "id": "InfoStatus",
+        "type": "String"
+      },
+      {
+        "id": "StationName",
+        "type": "String"
+      },
+      {
+        "id": "StationID",
+        "type": "String"
+      },
+      {
+        "id": "VComponent",
+        "type": "String"
+      },
+      {
+        "id": "NSComponent",
+        "type": "String"
+      },
+      {
+        "id": "EWComponent",
+        "type": "String"
+      },
+      {
+        "id": "IntScaleValue",
+        "type": "String"
+      },
+      {
+        "id": "ReportRemark",
+        "type": "String"
+      }
+    ]
+  },
+  "records": {
+    "datasetDescription": "地震報告",
+    "Earthquake": [
+      {
+        "EarthquakeNo": 114000,
+        "ReportType": "地震報告",
+        "ReportColor": "綠色",
+        "ReportContent": "06/04-01:53臺灣東南部海域發生規模3.8有感地震，最大震度臺東縣綠島2級。",
+        "ReportImageURI": "https://scweb.cwa.gov.tw/webdata/OLDEQ/202506/2025060401531838_H.png",
+        "ReportRemark": "本報告係中央氣象署地震觀測網即時地震資料地震速報之結果。",
+        "Web": "https://scweb.cwa.gov.tw/zh-tw/earthquake/details/2025060401531838",
+        "EarthquakeInfo": {
+          "OriginTime": "2025-06-04 01:53:18",
+          "Source": "中央氣象署",
+          "FocalDepth": 20.1,
+          "Epicenter": {
+            "Location": "臺東縣政府東北方  19.7  公里 (位於臺灣東南部海域)",
+            "EpicenterLatitude": 22.86,
+            "EpicenterLongitude": 121.31
+          },
+          "EarthquakeMagnitude": {
+            "MagnitudeType": "芮氏規模",
+            "MagnitudeValue": 3.8
+          }
+        },
+        "Intensity": {
+          "ShakingArea": [
+            {
+              "AreaDesc": "最大震度2級地區",
+              "CountyName": "臺東縣",
+              "AreaIntensity": "2級",
+              "EqStation": []
+            },
+            {
+              "AreaDesc": "臺東縣地區",
+              "CountyName": "臺東縣",
+              "InfoStatus": "observe",
+              "AreaIntensity": "2級",
+              "EqStation": [
+                {
+                  "pga": {
+                    "unit": "gal",
+                    "EWComponent": 2.88,
+                    "NSComponent": 1.93,
+                    "VComponent": 2.16,
+                    "IntScaleValue": 2.56
+                  },
+                  "pgv": {
+                    "unit": "kine",
+                    "EWComponent": 0.07,
+                    "NSComponent": 0.05,
+                    "VComponent": 0.04,
+                    "IntScaleValue": 0.09
+                  },
+                  "StationName": "綠島",
+                  "StationID": "LDU",
+                  "InfoStatus": "observe",
+                  "BackAzimuth": 321.09,
+                  "EpicenterDistance": 26.8,
+                  "SeismicIntensity": "2級",
+                  "StationLatitude": 22.673,
+                  "StationLongitude": 121.469
+                },
+                {
+                  "pga": {
+                    "unit": "gal",
+                    "EWComponent": 5.16,
+                    "NSComponent": 2.88,
+                    "VComponent": 1.31,
+                    "IntScaleValue": 3.17
+                  },
+                  "pgv": {
+                    "unit": "kine",
+                    "EWComponent": 0.14,
+                    "NSComponent": 0.08,
+                    "VComponent": 0.03,
+                    "IntScaleValue": 0.15
+                  },
+                  "StationName": "成功",
+                  "StationID": "CHK",
+                  "InfoStatus": "observe",
+                  "BackAzimuth": 194.83,
+                  "EpicenterDistance": 27.14,
+                  "SeismicIntensity": "2級",
+                  "StationLatitude": 23.098,
+                  "StationLongitude": 121.373
+                },
+                {
+                  "pga": {
+                    "unit": "gal",
+                    "EWComponent": 3.83,
+                    "NSComponent": 3.85,
+                    "VComponent": 2.19,
+                    "IntScaleValue": 2.39
+                  },
+                  "pgv": {
+                    "unit": "kine",
+                    "EWComponent": 0.07,
+                    "NSComponent": 0.06,
+                    "VComponent": 0.05,
+                    "IntScaleValue": 0.07
+                  },
+                  "StationName": "東河",
+                  "StationID": "EDH",
+                  "InfoStatus": "observe",
+                  "BackAzimuth": 179.32,
+                  "EpicenterDistance": 12.33,
+                  "SeismicIntensity": "1級",
+                  "StationLatitude": 22.973,
+                  "StationLongitude": 121.304
+                },
+                {
+                  "pga": {
+                    "unit": "gal",
+                    "EWComponent": 2.13,
+                    "NSComponent": 1.6,
+                    "VComponent": 1.41,
+                    "IntScaleValue": 2.23
+                  },
+                  "pgv": {
+                    "unit": "kine",
+                    "EWComponent": 0.06,
+                    "NSComponent": 0.04,
+                    "VComponent": 0.03,
+                    "IntScaleValue": 0.07
+                  },
+                  "StationName": "鹿野",
+                  "StationID": "LONT",
+                  "InfoStatus": "observe",
+                  "BackAzimuth": 105.54,
+                  "EpicenterDistance": 18.62,
+                  "SeismicIntensity": "1級",
+                  "StationLatitude": 22.906,
+                  "StationLongitude": 121.131
+                },
+                {
+                  "pga": {
+                    "unit": "gal",
+                    "EWComponent": 0.96,
+                    "NSComponent": 0.85,
+                    "VComponent": 0.44,
+                    "IntScaleValue": 0.95
+                  },
+                  "pgv": {
+                    "unit": "kine",
+                    "EWComponent": 0.03,
+                    "NSComponent": 0.03,
+                    "VComponent": 0.01,
+                    "IntScaleValue": 0.03
+                  },
+                  "StationName": "臺東市",
+                  "StationID": "TTN",
+                  "InfoStatus": "observe",
+                  "BackAzimuth": 51.93,
+                  "EpicenterDistance": 19.58,
+                  "SeismicIntensity": "1級",
+                  "StationLatitude": 22.753,
+                  "StationLongitude": 121.155
+                },
+                {
+                  "pga": {
+                    "unit": "gal",
+                    "EWComponent": 1.9,
+                    "NSComponent": 1.46,
+                    "VComponent": 1.29,
+                    "IntScaleValue": 2.14
+                  },
+                  "pgv": {
+                    "unit": "kine",
+                    "EWComponent": 0.06,
+                    "NSComponent": 0.05,
+                    "VComponent": 0.05,
+                    "IntScaleValue": 0.07
+                  },
+                  "StationName": "池上",
+                  "StationID": "ECS",
+                  "InfoStatus": "observe",
+                  "BackAzimuth": 161.2,
+                  "EpicenterDistance": 27.4,
+                  "SeismicIntensity": "1級",
+                  "StationLatitude": 23.095,
+                  "StationLongitude": 121.219
+                },
+                {
+                  "pga": {
+                    "unit": "gal",
+                    "EWComponent": 0.67,
+                    "NSComponent": 0.8,
+                    "VComponent": 0.62,
+                    "IntScaleValue": 0.81
+                  },
+                  "pgv": {
+                    "unit": "kine",
+                    "EWComponent": 0.03,
+                    "NSComponent": 0.03,
+                    "VComponent": 0.01,
+                    "IntScaleValue": 0.04
+                  },
+                  "StationName": "海端",
+                  "StationID": "EHD",
+                  "InfoStatus": "observe",
+                  "BackAzimuth": 162.31,
+                  "EpicenterDistance": 33.47,
+                  "SeismicIntensity": "1級",
+                  "StationLatitude": 23.149,
+                  "StationLongitude": 121.206
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
