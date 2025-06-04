@@ -17,9 +17,12 @@ echo.
 
 REM 檢查環境
 echo [檢查] 正在檢查必要環境...
-python --version > nul 2>&1
-if %errorlevel% neq 0 (
+python --version >nul 2>&1
+if errorlevel 1 (
     echo [錯誤] 找不到 Python。請確認 Python 已安裝且添加到系統路徑中。
+    echo [調試] 嘗試直接顯示 Python 版本...
+    python --version
+    pause
     goto :error
 )
 echo [成功] Python 已安裝
