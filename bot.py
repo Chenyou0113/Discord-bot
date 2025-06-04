@@ -92,13 +92,12 @@ bot_permissions = discord.Permissions(
 )
 
 class CustomBot(commands.Bot):
-    def __init__(self):
-        # 確保事件循環存在
+    def __init__(self):        # 確保事件循環存在
         try:
-            loop = asyncio.get_event_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            # 沒有運行中的事件循環，這是正常的
+            pass
         
         super().__init__(
             command_prefix='!',
