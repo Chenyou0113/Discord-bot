@@ -108,8 +108,7 @@ class CustomBot(commands.Bot):
             proxy_auth=None,
             assume_unsync_clock=True
         )
-        
-        # 初始化其他屬性
+          # 初始化其他屬性
         self._loaded_cogs = set()
         self.initial_extensions = [
             'cogs.admin_commands_fixed',
@@ -118,7 +117,8 @@ class CustomBot(commands.Bot):
             'cogs.level_system',
             'cogs.monitor_system',
             'cogs.voice_system',
-            'cogs.chat_commands'
+            'cogs.chat_commands',
+            'cogs.search_commands'
         ]
         self.startup_channels = {}
         self._sync_in_progress = False

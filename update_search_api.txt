@@ -1,0 +1,17 @@
+請將您獲得的 Google Search API 金鑰替換到 .env 檔案中：
+
+找到這一行：
+GOOGLE_SEARCH_API_KEY=your_google_search_api_key_here
+
+替換為：
+GOOGLE_SEARCH_API_KEY=您的實際API金鑰
+
+例如：
+GOOGLE_SEARCH_API_KEY=AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+注意：
+- 請勿加引號
+- 確保沒有多餘的空格
+- 保存檔案後重新啟動Bot
+
+搜尋引擎ID已經設定完成：80bda9688e81247b8
