@@ -23,12 +23,11 @@ class SearchCommands(commands.Cog):
         # Google Custom Search API 設定
         self.google_api_key = os.getenv('GOOGLE_SEARCH_API_KEY')
         self.search_engine_id = os.getenv('GOOGLE_SEARCH_ENGINE_ID')
-        
-        # Google Gemini AI 設定
+          # Google Gemini AI 設定
         self.gemini_api_key = os.getenv('GOOGLE_API_KEY')
         if self.gemini_api_key:
             genai.configure(api_key=self.gemini_api_key)
-            self.gemini_model = genai.GenerativeModel('gemini-pro')
+            self.gemini_model = genai.GenerativeModel('gemini-1.5-flash')
         else:
             self.gemini_model = None
         
