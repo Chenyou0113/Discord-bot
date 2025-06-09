@@ -30,12 +30,15 @@ class SearchCommands(commands.Cog):
             self.gemini_model = genai.GenerativeModel('gemini-1.5-flash')
         else:
             self.gemini_model = None
-        
-        # 速率限制設定
+          # 速率限制設定
         self.search_cooldowns = {}  # 用戶冷卻時間
         self.cooldown_time = 10  # 10秒冷卻時間
         self.max_daily_searches = 50  # 每日搜尋限制
         self.daily_search_count = {}  # 每日搜尋計數
+        
+        # 自動搜尋設定
+        self.auto_search_enabled = {}  # 每個伺服器的自動搜尋開關 {guild_id: bool}
+        self.auto_search_keywords = ["搜尋", "搜索", "查找"]  # 觸發關鍵字
         
         # 管理員權限檢查
         self.admin_user_ids = [
@@ -521,8 +524,7 @@ class SearchCommands(commands.Cog):
             embed.add_field(
                 name="✅ 可用狀態",
                 value="您可以立即進行搜尋",
-                inline=False
-            )
+                inline=False        )
         
         embed.add_field(
             name="⚙️ 系統設定",
@@ -531,6 +533,207 @@ class SearchCommands(commands.Cog):
         )
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
+    
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """監聽訊息中的搜尋關鍵字並自動執行搜尋"""
+        # 忽略機器人自己的訊息
+        if message.author == self.bot.user:
+            return
+            
+        # 忽略私人訊息
+        if not message.guild:
+            return
+            
+        # 檢查該伺服器是否啟用自動搜尋
+        guild_id = message.guild.id
+        if not self.auto_search_enabled.get(guild_id, False):
+            return
+        
+        # 檢查訊息是否包含搜尋關鍵字
+        message_lower = message.content.lower()
+        triggered_keyword = None
+        
+        for keyword in self.auto_search_keywords:
+            if keyword in message_lower:
+                triggered_keyword = keyword
+                break
+                
+        if not triggered_keyword:
+            return
+            
+        user_id = message.author.id
+        
+        # 檢查冷卻時間
+        cooldown = self._check_cooldown(user_id)
+        if cooldown and not self._is_admin(user_id):
+            await message.add_reaction("⏰")  # 使用反應而不是回覆，避免干擾
+            return
+        
+        # 檢查每日限制
+        if not self._check_daily_limit(user_id) and not self._is_admin(user_id):
+            await message.add_reaction("📈")  # 使用反應表示達到限制
+            return
+        
+        try:
+            # 提取搜尋關鍵字
+            content = message.content
+            
+            # 尋找搜尋關鍵字並提取查詢內容
+            query = ""
+            for pattern in self.auto_search_keywords:
+                if pattern in content:
+                    # 嘗試不同的提取方式
+                    parts = content.split(pattern, 1)
+                    if len(parts) > 1:
+                        potential_query = parts[1].strip()
+                        # 檢查是否有實際內容
+                        if potential_query and len(potential_query) > 1:
+                            query = potential_query
+                            break
+            
+            # 如果沒有找到明確查詢，嘗試其他方式
+            if not query:
+                # 移除觸發關鍵字後的內容
+                query = content
+                for keyword in self.auto_search_keywords:
+                    query = query.replace(keyword, "").strip()
+            
+            # 清理查詢字串
+            query = query.strip("，。！？；：\"'()（）[]【】{}").strip()
+            
+            # 檢查查詢有效性
+            if not query or len(query.strip()) < 2:
+                await message.add_reaction("❓")  # 表示需要更明確的搜尋內容
+                return
+            
+            # 限制查詢長度
+            if len(query) > 100:
+                query = query[:100] + "..."
+            
+            # 添加搜尋反應表示正在處理
+            await message.add_reaction("🔍")
+            
+            async with message.channel.typing():
+                # 執行搜尋
+                search_data = await self._google_search(query, 3)  # 自動搜尋時只顯示 3 個結果
+                
+                if "error" not in search_data:
+                    # 更新限制
+                    self._update_cooldown(user_id)
+                    self._increment_daily_count(user_id)
+                    
+                    # 移除搜尋反應，添加完成反應
+                    await message.remove_reaction("🔍", self.bot.user)
+                    await message.add_reaction("✅")
+                else:
+                    # 搜尋失敗
+                    await message.remove_reaction("🔍", self.bot.user)
+                    await message.add_reaction("❌")
+                
+                # 格式化結果
+                embed = self._format_search_results(search_data, False)
+                
+                # 添加自動搜尋標記
+                embed.set_footer(
+                    text=f"🤖 自動搜尋 | 關鍵字: {query} | 觸發詞: {triggered_keyword}",
+                    icon_url=message.author.display_avatar.url
+                )
+                
+                # 回覆原訊息
+                await message.reply(embed=embed)
+                
+        except Exception as e:
+            logger.error(f"Auto search error: {e}")
+            try:
+                await message.remove_reaction("🔍", self.bot.user)
+                await message.add_reaction("❌")
+            except:
+                pass
 
+    @app_commands.command(name="auto_search", description="管理自動搜尋功能設定 (管理員限定)")
+    @app_commands.describe(
+        enable="是否啟用自動搜尋功能",
+        keywords="設定觸發關鍵字（用逗號分隔）"
+    )
+    async def auto_search_settings(
+        self, 
+        interaction: discord.Interaction,
+        enable: Optional[bool] = None,
+        keywords: Optional[str] = None
+    ):
+        """管理自動搜尋功能設定"""
+        # 檢查權限 - 需要管理員權限或Bot管理員
+        if not (self._is_admin(interaction.user.id) or 
+                interaction.user.guild_permissions.manage_guild):
+            embed = discord.Embed(
+                title="❌ 權限不足",
+                description="此指令需要伺服器管理權限或Bot管理員權限",
+                color=discord.Color.red()
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            return
+        
+        guild_id = interaction.guild.id
+        current_status = self.auto_search_enabled.get(guild_id, False)
+        current_keywords = self.auto_search_keywords.copy()
+        
+        updated = []
+        
+        # 更新啟用狀態
+        if enable is not None:
+            self.auto_search_enabled[guild_id] = enable
+            status_text = "啟用" if enable else "停用"
+            updated.append(f"自動搜尋功能: {status_text}")
+        
+        # 更新關鍵字
+        if keywords is not None:
+            keyword_list = [kw.strip() for kw in keywords.split(",") if kw.strip()]
+            if keyword_list:
+                self.auto_search_keywords = keyword_list
+                updated.append(f"觸發關鍵字: {', '.join(keyword_list)}")
+            else:
+                embed = discord.Embed(
+                    title="❌ 錯誤",
+                    description="請提供至少一個有效的觸發關鍵字",
+                    color=discord.Color.red()
+                )
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                return
+        
+        # 顯示設定結果
+        embed = discord.Embed(
+            title="🔧 自動搜尋功能設定",
+            color=discord.Color.blue()
+        )
+        
+        current_status = self.auto_search_enabled.get(guild_id, False)
+        status_emoji = "✅" if current_status else "❌"
+        
+        embed.add_field(
+            name="📊 目前狀態",
+            value=f"{status_emoji} 自動搜尋: {'啟用' if current_status else '停用'}\n"
+                  f"🔑 觸發關鍵字: {', '.join(self.auto_search_keywords)}",
+            inline=False
+        )
+        
+        if updated:
+            embed.add_field(
+                name="✅ 已更新",
+                value="\n".join(updated),
+                inline=False
+            )
+        
+        embed.add_field(
+            name="ℹ️ 使用說明",
+            value="• 當用戶訊息包含觸發關鍵字時，Bot會自動執行搜尋\n"
+                  "• 自動搜尋仍受冷卻時間和每日限制約束\n"
+                  "• 使用表情符號反應來減少對話干擾\n"
+                  "• 僅在啟用的伺服器中生效",
+            inline=False
+        )
+        
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    
 async def setup(bot):
     await bot.add_cog(SearchCommands(bot))
