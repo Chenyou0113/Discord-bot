@@ -27,13 +27,12 @@ if (Test-Path $VenvPython) {
     $PythonCmd = $VenvPython
 } else {
     Write-Host "❌ 找不到虛擬環境，嘗試使用系統 Python..."
-    
-    # 嘗試使用系統 Python
+      # 嘗試使用系統 Python
     try {
         $result = & python --version 2>&1
         if ($LASTEXITCODE -eq 0) {
             $PythonCmd = "python"
-            Write-Host "✅ 使用系統 Python"
+            Write-Host "✅ 使用系統 Python ($result)"
         } else {
             throw "Python 不可用"
         }
@@ -42,7 +41,7 @@ if (Test-Path $VenvPython) {
             $result = & py --version 2>&1
             if ($LASTEXITCODE -eq 0) {
                 $PythonCmd = "py"
-                Write-Host "✅ 使用 Python Launcher"
+                Write-Host "✅ 使用 Python Launcher ($result)"
             } else {
                 throw "Python Launcher 不可用"
             }
