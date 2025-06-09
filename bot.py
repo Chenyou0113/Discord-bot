@@ -248,17 +248,12 @@ async def reboot_command(ctx):
                     await channel.send(embed=embed)
                 except:
                     continue
-    
-    # 等待訊息發送完成
+      # 等待訊息發送完成
     await asyncio.sleep(2)
     
-    # 系統重啟
-    import os
-    import sys
-    
-    logger.info('機器人正在重啟...')
-    # 使用 Python 重啟程序
-    os.execv(sys.executable, ['python'] + sys.argv)
+    # 優雅關閉機器人
+    logger.info('機器人正在關閉，等待外部腳本重啟...')
+    await bot.close()
 
 # 定義同步指令
 @bot.command(name="resync", aliases=["rs"])
