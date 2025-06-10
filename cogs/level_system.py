@@ -10,8 +10,8 @@ from datetime import datetime, timedelta
 class LevelSystem(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.data_file = 'levels.json'
-        self.config_file = 'level_config.json'
+        self.data_file = 'config_files/levels.json'
+        self.config_file = 'config_files/level_config.json'
         self.user_data = {}
         self.cooldowns = {}
         self.level_channels = {}  # 儲存每個伺服器的等級通知頻道

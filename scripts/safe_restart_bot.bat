@@ -4,8 +4,8 @@ echo 🤖 Discord Bot 安全重啟腳本
 echo ================================
 echo.
 
-REM 切換到正確的目錄
-cd /d "%~dp0"
+REM 切換到腳本的上層目錄（專案根目錄）
+cd /d "%~dp0.."
 echo 📁 工作目錄: %CD%
 echo.
 

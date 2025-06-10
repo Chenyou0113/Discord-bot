@@ -13,9 +13,10 @@ Write-Host "🤖 Discord Bot 安全重啟腳本" -ForegroundColor Cyan
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 切換到腳本所在目錄
+# 切換到專案根目錄
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $ScriptDir
+$ProjectRoot = Split-Path -Parent $ScriptDir
+Set-Location $ProjectRoot
 Write-Host "📁 工作目錄: $((Get-Location).Path)" -ForegroundColor Yellow
 Write-Host ""
 

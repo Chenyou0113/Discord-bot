@@ -6,13 +6,14 @@ Write-Host "        Discord Bot 啟動器 (PS)"
 Write-Host "========================================"
 Write-Host ""
 
-# 設定工作目錄
+# 設定工作目錄 - 切換到專案根目錄
 $ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition
-Set-Location $ScriptPath
+$ProjectRoot = Split-Path -Parent $ScriptPath
+Set-Location $ProjectRoot
 
 Write-Host "[1/4] 檢查虛擬環境..."
-$VenvPython = Join-Path $ScriptPath "venv\Scripts\python.exe"
-$VenvActivate = Join-Path $ScriptPath "venv\Scripts\Activate.ps1"
+$VenvPython = Join-Path $ProjectRoot "venv\Scripts\python.exe"
+$VenvActivate = Join-Path $ProjectRoot "venv\Scripts\Activate.ps1"
 
 if (Test-Path $VenvPython) {
     Write-Host "✅ 找到虛擬環境 Python: $VenvPython"

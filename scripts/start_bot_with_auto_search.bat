@@ -6,8 +6,8 @@ echo 🤖 啟動 Discord Bot (含自動搜尋功能)
 echo =====================================
 echo.
 
-REM 切換到腳本所在目錄
-cd /d "%~dp0"
+REM 切換到腳本的上層目錄（專案根目錄）
+cd /d "%~dp0.."
 
 REM 檢查必要文件
 if not exist "bot.py" (

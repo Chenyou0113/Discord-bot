@@ -17,9 +17,10 @@ Write-Host "最大重啟次數: $MaxRestarts" -ForegroundColor Yellow
 Write-Host "按 Ctrl+C 可停止監控並退出" -ForegroundColor Yellow
 Write-Host ""
 
-# 切換到腳本所在目錄
+# 切換到專案根目錄
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $ScriptDir
+$ProjectRoot = Split-Path -Parent $ScriptDir
+Set-Location $ProjectRoot
 Write-Host "📁 工作目錄: $((Get-Location).Path)" -ForegroundColor Green
 Write-Host ""
 

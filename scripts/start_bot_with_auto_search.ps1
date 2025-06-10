@@ -11,9 +11,10 @@ Write-Host "🤖 啟動 Discord Bot (含自動搜尋功能)" -ForegroundColor Cy
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 切換到腳本目錄
+# 切換到專案根目錄
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $ScriptDir
+$ProjectRoot = Split-Path -Parent $ScriptDir
+Set-Location $ProjectRoot
 
 # 檢查必要文件
 if (-not (Test-Path "bot.py")) {

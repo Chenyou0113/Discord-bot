@@ -9,8 +9,8 @@ echo 此腳本將監控機器人運行狀態，並在機器人關閉時自動重
 echo 按 Ctrl+C 可停止監控並退出
 echo.
 
-REM 切換到正確的目錄
-cd /d "%~dp0"
+REM 切換到專案根目錄
+cd /d "%~dp0.."
 
 REM 檢查必要檔案
 if not exist "bot.py" (

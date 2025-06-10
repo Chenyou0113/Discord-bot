@@ -192,20 +192,28 @@ class InfoCommands(commands.Cog):
         """定期檢查是否有新地震"""
         await self.bot.wait_until_ready()
         while not self.bot.is_closed():
-            try:
-                # 檢查一般地震
+            try:                # 檢查一般地震
                 data = await self.fetch_earthquake_data(small_area=False)
-                if data and 'result' in data and 'records' in data['result']:
-                    records = data['result']['records']
-                    latest_eq = None
+                if data:
+                    # 支援兩種資料結構
+                    records = None
+                    if 'records' in data:
+                        # 有認證模式：records 在根級別
+                        records = data['records']
+                    elif 'result' in data and 'records' in data['result']:
+                        # 無認證模式：records 在 result 內
+                        records = data['result']['records']
                     
-                    # 檢查不同可能的資料格式
-                    if isinstance(records, dict) and 'Earthquake' in records:
-                        earthquake_data = records['Earthquake']
-                        if isinstance(earthquake_data, list) and len(earthquake_data) > 0:
-                            latest_eq = earthquake_data[0]
-                        elif isinstance(earthquake_data, dict):
-                            latest_eq = earthquake_data
+                    if records:
+                        latest_eq = None
+                        
+                        # 檢查不同可能的資料格式
+                        if isinstance(records, dict) and 'Earthquake' in records:
+                            earthquake_data = records['Earthquake']
+                            if isinstance(earthquake_data, list) and len(earthquake_data) > 0:
+                                latest_eq = earthquake_data[0]
+                            elif isinstance(earthquake_data, dict):
+                                latest_eq = earthquake_data
                     
                     if latest_eq:
                         report_time = latest_eq.get('EarthquakeNo', '')
@@ -345,12 +353,17 @@ class InfoCommands(commands.Cog):
                                 set(data['result'].keys()) == {'resource_id', 'fields'}):
                                 logger.warning(f"API回傳異常資料結構（{attempt['name']}失敗），嘗試下一種方式")
                                 continue  # 嘗試下一種 API 調用方式
+                              # 檢查是否有實際的地震資料 (支援兩種資料結構)
+                            records_data = None
+                            if 'records' in data:
+                                # 有認證模式：records 在根級別
+                                records_data = data['records']
+                            elif 'result' in data and 'records' in data.get('result', {}):
+                                # 無認證模式：records 在 result 內
+                                records_data = data['result']['records']
                             
-                            # 檢查是否有實際的地震資料
-                            if ('result' in data and 'records' in data.get('result', {}) and 
-                                isinstance(data['result']['records'], dict) and 
-                                'Earthquake' in data['result']['records'] and
-                                data['result']['records']['Earthquake']):
+                            if (records_data and isinstance(records_data, dict) and
+                                'Earthquake' in records_data and records_data['Earthquake']):
                                 
                                 logger.info(f"✅ {attempt['name']}成功獲取地震資料")
                                 
@@ -756,14 +769,21 @@ class InfoCommands(commands.Cog):
                     "• 請稍後再試或聯繫管理員"
                 )
                 return
-            
-            # v4 增強功能：智能資料結構解析
+              # v4 增強功能：智能資料結構解析
             latest_eq = None
+            records = None
             
-            # 嘗試標準資料格式
-            if 'result' in eq_data and 'records' in eq_data['result']:
+            # 支援兩種資料結構
+            if 'records' in eq_data:
+                # 有認證模式：records 在根級別
+                records = eq_data['records']
+                logger.info("✅ 檢測到有認證模式資料結構")
+            elif 'result' in eq_data and 'records' in eq_data['result']:
+                # 無認證模式：records 在 result 內
                 records = eq_data['result']['records']
-                
+                logger.info("✅ 檢測到無認證模式資料結構")
+            
+            if records:
                 # 標準格式檢查
                 if isinstance(records, dict) and 'Earthquake' in records:
                     earthquake_data = records['Earthquake']
@@ -935,13 +955,24 @@ class InfoCommands(commands.Cog):
                 
             # 設定通知頻道
             self.notification_channels[interaction.guild.id] = channel.id
-            
-            # 初始化最後地震時間
+              # 初始化最後地震時間
             try:
                 eq_data = await self.fetch_earthquake_data()
-                if eq_data and 'result' in eq_data and 'records' in eq_data['result'] and 'Earthquake' in eq_data['result']['records']:
-                    latest_eq = eq_data['result']['records']['Earthquake'][0]
-                    self.last_eq_time[interaction.guild.id] = latest_eq.get('EarthquakeNo', '')
+                if eq_data:
+                    # 支援兩種資料結構
+                    records = None
+                    if 'records' in eq_data:
+                        # 有認證模式：records 在根級別
+                        records = eq_data['records']
+                    elif 'result' in eq_data and 'records' in eq_data['result']:
+                        # 無認證模式：records 在 result 內
+                        records = eq_data['result']['records']
+                    
+                    if records and isinstance(records, dict) and 'Earthquake' in records:
+                        earthquake_data = records['Earthquake']
+                        if isinstance(earthquake_data, list) and len(earthquake_data) > 0:
+                            latest_eq = earthquake_data[0]
+                            self.last_eq_time[interaction.guild.id] = latest_eq.get('EarthquakeNo', '')
             except Exception as e:
                 logger.error(f"初始化最後地震時間時發生錯誤: {str(e)}")
                 self.last_eq_time[interaction.guild.id] = ""

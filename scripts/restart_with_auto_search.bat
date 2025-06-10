@@ -4,8 +4,8 @@ echo 🤖 重啟 Discord Bot (自動搜尋功能)
 echo ===================================
 echo.
 
-REM 切換到正確的目錄
-cd /d "%~dp0"
+REM 切換到專案根目錄
+cd /d "%~dp0.."
 echo 📁 目前目錄: %CD%
 echo.
 
