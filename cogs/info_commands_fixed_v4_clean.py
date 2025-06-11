@@ -345,22 +345,26 @@ class InfoCommands(commands.Cog):
                 # 使用非同步請求獲取資料，並處理 SSL 相關錯誤
                 try:
                     data = await self.fetch_with_retry(full_url, timeout=30, max_retries=3)                    
-                    if data and isinstance(data, dict):
-                        # 驗證資料結構
+                    if data and isinstance(data, dict):                        # 驗證資料結構
                         if 'success' in data and (data['success'] == 'true' or data['success'] is True):
                             # 檢查是否為API異常格式（只有欄位定義，無實際資料）
+                            # 修復：有認證模式的 result 也會包含 records
                             if ('result' in data and isinstance(data['result'], dict) and 
-                                set(data['result'].keys()) == {'resource_id', 'fields'}):
+                                set(data['result'].keys()) == {'resource_id', 'fields'} and 
+                                'records' not in data):
                                 logger.warning(f"API回傳異常資料結構（{attempt['name']}失敗），嘗試下一種方式")
                                 continue  # 嘗試下一種 API 調用方式
-                              # 檢查是否有實際的地震資料 (支援兩種資料結構)
+                            
+                            # 檢查是否有實際的地震資料 (支援兩種資料結構)
                             records_data = None
                             if 'records' in data:
                                 # 有認證模式：records 在根級別
                                 records_data = data['records']
+                                logger.info(f"使用有認證模式資料結構 (根級別 records)")
                             elif 'result' in data and 'records' in data.get('result', {}):
                                 # 無認證模式：records 在 result 內
                                 records_data = data['result']['records']
+                                logger.info(f"使用無認證模式資料結構 (result.records)")
                             
                             if (records_data and isinstance(records_data, dict) and
                                 'Earthquake' in records_data and records_data['Earthquake']):
@@ -375,6 +379,7 @@ class InfoCommands(commands.Cog):
                                 return data
                             else:
                                 logger.warning(f"{attempt['name']}獲取的資料結構不完整，嘗試下一種方式")
+                                logger.warning(f"records_data 內容: {records_data}")
                                 continue
                         else:
                             logger.warning(f"{attempt['name']} API 請求不成功: {data.get('success', 'unknown')}")
@@ -757,10 +762,10 @@ class InfoCommands(commands.Cog):
                 return
                   # 在日誌中記錄完整的資料結構以進行調試
             logger.info(f"Earthquake 指令獲取的資料結構: {str(eq_data.keys())}")
-            
-            # 檢查是否為API異常格式（只有resource_id和fields）
+              # 檢查是否為API異常格式（只有resource_id和fields，且沒有records）
             if ('result' in eq_data and isinstance(eq_data['result'], dict) and 
-                set(eq_data['result'].keys()) == {'resource_id', 'fields'}):
+                set(eq_data['result'].keys()) == {'resource_id', 'fields'} and 
+                'records' not in eq_data):
                 logger.warning("earthquake指令：API回傳異常格式，顯示友善錯誤訊息")
                 await interaction.followup.send(
                     "❌ 地震資料服務目前無法取得實際資料，可能原因：\n"
