@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 async def test_bot_earthquake_api():
     """測試 Bot 的地震 API 功能"""
-      print("Bot 測試修復後的地震 API 功能")
+    print("Bot 測試修復後的地震 API 功能")
     print("=" * 60)
     
     try:
@@ -37,7 +37,7 @@ async def test_bot_earthquake_api():
         # 初始化 InfoCommands
         info_commands = InfoCommands(mock_bot)
         await info_commands.cog_load()
-          print("OK Bot 和 InfoCommands 初始化成功")
+        print("OK Bot 和 InfoCommands 初始化成功")
         
         # 測試一般地震資料獲取
         print("\n>> 測試一般地震資料獲取...")
