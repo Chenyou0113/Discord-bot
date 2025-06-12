@@ -759,13 +759,13 @@ class InfoCommands(commands.Cog):
             
             if not eq_data:
                 await interaction.followup.send("❌ 無法獲取地震資料，請稍後再試。")
-                return
-                  # 在日誌中記錄完整的資料結構以進行調試
+                return            # 在日誌中記錄完整的資料結構以進行調試
             logger.info(f"Earthquake 指令獲取的資料結構: {str(eq_data.keys())}")
-              # 檢查是否為API異常格式（只有resource_id和fields，且沒有records）
+              # 檢查是否為API異常格式（只有resource_id和fields，無實際資料）
+            # 修復：正確檢查異常格式 - 真正的異常是只有result含有resource_id和fields，且沒有任何records
             if ('result' in eq_data and isinstance(eq_data['result'], dict) and 
                 set(eq_data['result'].keys()) == {'resource_id', 'fields'} and 
-                'records' not in eq_data):
+                'records' not in eq_data and 'records' not in eq_data.get('result', {})):
                 logger.warning("earthquake指令：API回傳異常格式，顯示友善錯誤訊息")
                 await interaction.followup.send(
                     "❌ 地震資料服務目前無法取得實際資料，可能原因：\n"
