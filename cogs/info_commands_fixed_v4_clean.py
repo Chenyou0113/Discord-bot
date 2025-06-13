@@ -311,20 +311,19 @@ class InfoCommands(commands.Cog):
             endpoint = "E-A0015-001"  # 一般地震
             
         url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/{endpoint}"
-        
-        # 嘗試多種 API 調用方式
+          # 嘗試多種 API 調用方式 - 優先使用有認證模式
         api_attempts = [
             {
-                "name": "無認證模式",
+                "name": "有認證模式", 
                 "params": {
+                    'Authorization': self.api_auth,
                     'limit': 1,
                     'format': 'JSON'
                 }
             },
             {
-                "name": "有認證模式", 
+                "name": "無認證模式",
                 "params": {
-                    'Authorization': self.api_auth,
                     'limit': 1,
                     'format': 'JSON'
                 }
@@ -523,11 +522,13 @@ class InfoCommands(commands.Cog):
             # 確認必要的欄位是否存在
             if not all(k in eq_data for k in ['ReportContent', 'EarthquakeNo']):
                 return None
-                
-            # 取得地震資訊
+                  # 取得地震資訊
             report_content = eq_data.get('ReportContent', '地震資料不完整')
             report_color = eq_data.get('ReportColor', '綠色')
+            # 優先從 EarthquakeInfo 獲取 OriginTime，如果沒有則從根級別獲取
             report_time = eq_data.get('OriginTime', '未知時間')
+            if 'EarthquakeInfo' in eq_data and 'OriginTime' in eq_data['EarthquakeInfo']:
+                report_time = eq_data['EarthquakeInfo']['OriginTime']
             report_web = eq_data.get('Web', '')
             report_image = eq_data.get('ReportImageURI', '')
             
