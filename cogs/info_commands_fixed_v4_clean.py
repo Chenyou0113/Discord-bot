@@ -506,23 +506,23 @@ class InfoCommands(commands.Cog):
                 
         except Exception as e:
             logger.error(f"獲取海嘯資料時發生錯誤: {str(e)}")
-            
-            # 如果發生錯誤，檢查是否有快取資料可用
+              # 如果發生錯誤，檢查是否有快取資料可用
             if self.tsunami_cache:
                 logger.info("發生錯誤，使用海嘯快取資料")
                 return self.tsunami_cache
-                
+            
             return None
 
     # 這裡添加其他方法 (如 format_weather_data, format_earthquake_data 等)...
-
+    
     async def format_earthquake_data(self, eq_data: Dict[str, Any]) -> Optional[discord.Embed]:
         """將地震資料格式化為Discord嵌入訊息"""
         try:
             # 確認必要的欄位是否存在
             if not all(k in eq_data for k in ['ReportContent', 'EarthquakeNo']):
                 return None
-                  # 取得地震資訊
+                
+            # 取得地震資訊
             report_content = eq_data.get('ReportContent', '地震資料不完整')
             report_color = eq_data.get('ReportColor', '綠色')
             # 優先從 EarthquakeInfo 獲取 OriginTime，如果沒有則從根級別獲取
@@ -836,20 +836,30 @@ class InfoCommands(commands.Cog):
             # v4 新增：處理完全不同的API格式
             elif isinstance(eq_data, dict) and ('EarthquakeNo' in eq_data or 'EarthquakeInfo' in eq_data):
                 latest_eq = eq_data
-                logger.info("✅ 使用根層級單一地震資料")
-            
-            # 處理結果
+                logger.info("✅ 使用根層級單一地震資料")            # 處理結果
             if latest_eq:
                 # v4 增強：在格式化前進行資料完整性檢查和修復
-                latest_eq = self.enhance_earthquake_data(latest_eq)
+                enhanced_data = self.enhance_earthquake_data(latest_eq)
                 
-                # 格式化為Discord嵌入訊息
-                embed = await self.format_earthquake_data(latest_eq)
+                # 從增強後的數據中提取實際的地震記錄用於格式化
+                earthquake_record = None
+                if 'records' in enhanced_data and 'Earthquake' in enhanced_data['records']:
+                    earthquakes = enhanced_data['records']['Earthquake']
+                    if isinstance(earthquakes, list) and len(earthquakes) > 0:
+                        earthquake_record = earthquakes[0]
+                elif isinstance(enhanced_data, dict) and ('EarthquakeNo' in enhanced_data or 'EarthquakeInfo' in enhanced_data):
+                    earthquake_record = enhanced_data
                 
-                if embed:
-                    await interaction.followup.send(embed=embed)
+                if earthquake_record:
+                    # 格式化為Discord嵌入訊息
+                    embed = await self.format_earthquake_data(earthquake_record)
+                    
+                    if embed:
+                        await interaction.followup.send(embed=embed)
+                    else:
+                        await interaction.followup.send("❌ 無法解析地震資料，請稍後再試。")
                 else:
-                    await interaction.followup.send("❌ 無法解析地震資料，請稍後再試。")
+                    await interaction.followup.send("❌ 地震資料結構異常，無法解析。")
             else:
                 logger.warning(f"v4 所有解析方法都失敗，原始資料結構: {str(eq_data)[:200]}...")
                 await interaction.followup.send("❌ 目前沒有可用的地震資料，請稍後再試。")
