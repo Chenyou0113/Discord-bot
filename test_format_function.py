@@ -8,10 +8,10 @@ import sys
 import os
 import logging
 
-# 添加 cogs 目錄到 sys.path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'cogs'))
+# 添加專案根目錄到 Python 路徑
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from info_commands_fixed_v4_clean import InfoCommands
+from cogs.info_commands_fixed_v4_clean import InfoCommands
 
 # 設置日誌
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
