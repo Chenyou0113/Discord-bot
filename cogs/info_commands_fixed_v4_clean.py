@@ -149,13 +149,15 @@ class InfoCommands(commands.Cog):
         self.notification_channels = {}
         self.last_eq_time = {}
         self.check_interval = 300  # 每5分鐘檢查一次
-        
-        # 建立 aiohttp 工作階段
+          # 建立 aiohttp 工作階段
         self.session = None
-        self.bot.loop.create_task(self.init_aiohttp_session())
+        self.eq_check_task = None
         
+    async def cog_load(self):
+        """Cog 載入時的初始化"""
+        await self.init_aiohttp_session()
         # 開始地震監控
-        self.eq_check_task = self.bot.loop.create_task(self.check_earthquake_updates())
+        self.eq_check_task = asyncio.create_task(self.check_earthquake_updates())
 
     async def init_aiohttp_session(self):
         """初始化 aiohttp 工作階段"""
@@ -247,8 +249,8 @@ class InfoCommands(commands.Cog):
                 logger.error(f"檢查地震更新時發生錯誤: {str(e)}")
                 
             await asyncio.sleep(self.check_interval)
-
-    async def fetch_with_retry(self, url: str, timeout: int = 20, max_retries: int = 3) -> Optional[Dict[str, Any]]:
+    
+    async def fetch_with_retry(self, url: str, params: Dict[str, Any] = None, timeout: int = 20, max_retries: int = 3) -> Optional[Dict[str, Any]]:
         """以重試機制發送非同步請求"""
         for attempt in range(max_retries):
             try:
@@ -263,7 +265,7 @@ class InfoCommands(commands.Cog):
                     logger.info("已創建新的 aiohttp 工作階段")
 
                 logger.info(f"正在發送請求到 {url} (嘗試 {attempt + 1}/{max_retries})")
-                async with self.session.get(url, timeout=timeout) as response:
+                async with self.session.get(url, params=params, timeout=timeout) as response:
                     if response.status == 200:
                         try:
                             data = await response.json()
@@ -511,6 +513,29 @@ class InfoCommands(commands.Cog):
                 logger.info("發生錯誤，使用海嘯快取資料")
                 return self.tsunami_cache
             
+            return None
+
+    async def fetch_weather_station_data(self) -> Optional[Dict[str, Any]]:
+        """獲取自動氣象站觀測資料"""
+        try:
+            url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0001-001"
+            params = {
+                'Authorization': self.api_auth,
+                'format': 'JSON'
+            }
+            
+            logger.info("開始獲取自動氣象站觀測資料")
+            weather_station_data = await self.fetch_with_retry(url, params=params)
+            
+            if weather_station_data:
+                logger.info("✅ 成功獲取自動氣象站觀測資料")
+                return weather_station_data
+            else:
+                logger.warning("❌ 無法獲取自動氣象站觀測資料")
+                return None
+                
+        except Exception as e:
+            logger.error(f"獲取自動氣象站觀測資料時發生錯誤: {str(e)}")
             return None
 
     # 這裡添加其他方法 (如 format_weather_data, format_earthquake_data 等)...
@@ -1244,13 +1269,217 @@ class InfoCommands(commands.Cog):
                                 "InfoStatus": "資料更新中",
                                 "AreaIntensity": "0級"
                             }]
-                        }
-                    }]
+                        }                    }]
                 }
             }
         }
-        
         return backup_data
+
+    @app_commands.command(name="weather_station", description="查詢自動氣象站觀測資料")
+    @app_commands.describe(
+        station_id="氣象站代碼（如：466920）",
+        location="地區名稱（如：台北、高雄）"
+    )
+    async def weather_station(self, interaction: discord.Interaction, station_id: str = None, location: str = None):
+        """查詢自動氣象站觀測資料"""
+        await interaction.response.defer()
+        
+        try:
+            embed = await self.format_weather_station_data(station_id, location)
+            
+            if embed:
+                await interaction.followup.send(embed=embed)
+            else:
+                if station_id:
+                    await interaction.followup.send(f"❌ 找不到測站代碼 {station_id} 的觀測資料")
+                elif location:
+                    await interaction.followup.send(f"❌ 找不到 {location} 地區的氣象站資料")
+                else:
+                    await interaction.followup.send("❌ 無法獲取氣象站觀測資料，請稍後再試")
+                    
+        except Exception as e:
+            logger.error(f"weather_station 指令執行錯誤: {str(e)}")
+            await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試")
+
+    async def format_weather_station_data(self, station_id: str = None, location: str = None) -> Optional[discord.Embed]:
+        """將自動氣象站觀測資料格式化為Discord嵌入訊息"""
+        try:
+            # 獲取氣象站觀測資料
+            station_data = await self.fetch_weather_station_data()
+            
+            if not station_data or 'records' not in station_data:
+                return None
+            
+            records = station_data['records']
+            if 'Station' not in records:
+                return None
+                
+            stations = records['Station']
+            
+            # 如果指定了測站ID，尋找該測站
+            if station_id:
+                target_station = None
+                for station in stations:
+                    if station.get('StationId') == station_id:
+                        target_station = station
+                        break
+                
+                if not target_station:
+                    return None
+                    
+                return self._create_single_station_embed(target_station)
+            
+            # 如果指定了地區名稱，尋找該地區的測站
+            elif location:
+                target_stations = []
+                for station in stations:
+                    station_name = station.get('StationName', '')
+                    county_name = station.get('GeoInfo', {}).get('CountyName', '')
+                    if (location in station_name or station_name in location or 
+                        location in county_name or county_name in location):
+                        target_stations.append(station)
+                
+                if not target_stations:
+                    return None
+                
+                if len(target_stations) == 1:
+                    return self._create_single_station_embed(target_stations[0])
+                else:
+                    return self._create_multiple_stations_embed(target_stations, location)
+            
+            # 如果沒有指定條件，顯示主要縣市的概況
+            else:
+                return self._create_overview_embed(stations)
+                
+        except Exception as e:
+            logger.error(f"格式化氣象站資料時發生錯誤: {str(e)}")
+            return None
+
+    def _create_single_station_embed(self, station_data: Dict[str, Any]) -> discord.Embed:
+        """創建單一測站的詳細資料嵌入"""
+        station_name = station_data.get('StationName', '未知測站')
+        station_id = station_data.get('StationId', '未知')
+        
+        embed = discord.Embed(
+            title=f"🌡️ {station_name} 氣象觀測",
+            description=f"測站代碼: {station_id}",
+            color=discord.Color.blue()
+        )
+        
+        # 獲取觀測時間
+        obs_time = station_data.get('ObsTime', {}).get('DateTime', '未知時間')
+        
+        # 獲取氣象要素
+        weather_element = station_data.get('WeatherElement', {})
+        
+        # 解析氣象要素
+        temp = weather_element.get('AirTemperature', 'N/A')
+        humidity = weather_element.get('RelativeHumidity', 'N/A')
+        pressure = weather_element.get('AirPressure', 'N/A')
+        wind_dir = weather_element.get('WindDirection', 'N/A')
+        wind_speed = weather_element.get('WindSpeed', 'N/A')
+        weather = weather_element.get('Weather', 'N/A')
+        rainfall = weather_element.get('Now', {}).get('Precipitation', 'N/A')
+        
+        if weather != 'N/A':
+            embed.add_field(name="☁️ 天氣", value=weather, inline=True)
+        if temp != 'N/A':
+            embed.add_field(name="🌡️ 溫度", value=f"{temp}°C", inline=True)
+        if humidity != 'N/A':
+            embed.add_field(name="💧 相對濕度", value=f"{humidity}%", inline=True)
+        if pressure != 'N/A':
+            embed.add_field(name="📊 氣壓", value=f"{pressure} hPa", inline=True)
+        if wind_dir != 'N/A':
+            embed.add_field(name="🧭 風向", value=f"{wind_dir}°", inline=True)
+        if wind_speed != 'N/A':
+            embed.add_field(name="💨 風速", value=f"{wind_speed} m/s", inline=True)
+        if rainfall != 'N/A':
+            embed.add_field(name="🌧️ 降雨量", value=f"{rainfall} mm", inline=True)
+        
+        # 添加地理資訊
+        geo_info = station_data.get('GeoInfo', {})
+        county = geo_info.get('CountyName', '')
+        town = geo_info.get('TownName', '')
+        if county and town:
+            embed.add_field(name="📍 位置", value=f"{county}{town}", inline=True)
+        
+        embed.set_footer(text=f"觀測時間: {obs_time} | 資料來源: 中央氣象署")
+        return embed
+
+    def _create_multiple_stations_embed(self, stations: List[Dict[str, Any]], location: str) -> discord.Embed:
+        """創建多個測站的概況嵌入"""
+        embed = discord.Embed(
+            title=f"🌡️ {location} 地區氣象觀測",
+            description=f"找到 {len(stations)} 個測站",
+            color=discord.Color.blue()
+        )
+        
+        for station in stations[:10]:  # 最多顯示10個測站
+            station_name = station.get('StationName', '未知測站')
+            station_id = station.get('StationId', '未知')
+            
+            weather_element = station.get('WeatherElement', {})
+            temp = weather_element.get('AirTemperature', 'N/A')
+            humidity = weather_element.get('RelativeHumidity', 'N/A')
+            
+            temp_str = f"{temp}°C" if temp != 'N/A' else "N/A"
+            humidity_str = f"{humidity}%" if humidity != 'N/A' else "N/A"
+            
+            embed.add_field(
+                name=f"📍 {station_name} ({station_id})",
+                value=f"🌡️{temp_str} 💧{humidity_str}",
+                inline=True
+            )
+        
+        obs_time = stations[0].get('ObsTime', {}).get('DateTime', '未知時間') if stations else '未知時間'
+        embed.set_footer(text=f"觀測時間: {obs_time} | 資料來源: 中央氣象署")
+        return embed
+
+    def _create_overview_embed(self, stations: List[Dict[str, Any]]) -> discord.Embed:
+        """創建全台氣象概況嵌入"""
+        embed = discord.Embed(
+            title="🌡️ 全台氣象觀測概況",
+            description="主要縣市氣象觀測資料",
+            color=discord.Color.blue()
+        )
+        
+        # 主要縣市測站代碼
+        major_stations = {
+            '466920': '臺北',
+            '467410': '板橋', 
+            'C0C480': '桃園',
+            '467490': '新竹',
+            '467440': '臺中',
+            '467480': '臺南',
+            '467570': '高雄',
+            '466990': '宜蘭',
+            '467660': '花蓮',
+            '467770': '臺東'
+        }
+        
+        found_stations = 0
+        for station in stations:
+            station_id = station.get('StationId', '')
+            if station_id in major_stations and found_stations < 8:
+                station_name = major_stations[station_id]
+                
+                weather_element = station.get('WeatherElement', {})
+                temp = weather_element.get('AirTemperature', 'N/A')
+                humidity = weather_element.get('RelativeHumidity', 'N/A')
+                
+                temp_str = f"{temp}°C" if temp != 'N/A' else "N/A"
+                humidity_str = f"{humidity}%" if humidity != 'N/A' else "N/A"
+                
+                embed.add_field(
+                    name=f"📍 {station_name}",
+                    value=f"🌡️{temp_str}\n💧{humidity_str}",
+                    inline=True
+                )
+                found_stations += 1
+        
+        obs_time = stations[0].get('ObsTime', {}).get('DateTime', '未知時間') if stations else '未知時間' 
+        embed.set_footer(text=f"觀測時間: {obs_time} | 資料來源: 中央氣象署")
+        return embed
 
 async def setup(bot):
     await bot.add_cog(InfoCommands(bot))
