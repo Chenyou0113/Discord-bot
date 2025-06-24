@@ -58,7 +58,7 @@ async def test_weather_station_functionality():
         # 測試 1: 獲取氣象站資料
         print("\n📊 測試 1: 獲取氣象站觀測資料...")
         station_data = await info_commands.fetch_weather_station_data()
-          if station_data:
+        if station_data:
             print("✅ 成功獲取氣象站觀測資料")
             print(f"   資料結構: {list(station_data.keys()) if isinstance(station_data, dict) else 'Not dict'}")
             
