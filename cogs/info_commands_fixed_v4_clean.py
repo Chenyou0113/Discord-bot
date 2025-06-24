@@ -185,7 +185,8 @@ class InfoCommands(commands.Cog):
 
     async def cog_unload(self):
         """當Cog被卸載時停止地震檢查任務和關閉aiohttp工作階段"""
-        self.eq_check_task.cancel()
+        if self.eq_check_task:
+            self.eq_check_task.cancel()
         if self.session and not self.session.closed:
             await self.session.close()
             logger.info("已關閉 aiohttp 工作階段")
@@ -1285,18 +1286,84 @@ class InfoCommands(commands.Cog):
         await interaction.response.defer()
         
         try:
-            embed = await self.format_weather_station_data(station_id, location)
+            # 獲取氣象站觀測資料
+            station_data = await self.fetch_weather_station_data()
             
-            if embed:
-                await interaction.followup.send(embed=embed)
-            else:
-                if station_id:
+            if not station_data or 'records' not in station_data:
+                await interaction.followup.send("❌ 無法獲取氣象站觀測資料，請稍後再試")
+                return
+            
+            records = station_data['records']
+            if 'Station' not in records:
+                await interaction.followup.send("❌ 氣象站資料格式異常，請稍後再試")
+                return
+                
+            stations = records['Station']
+            
+            # 如果指定了測站ID，尋找該測站
+            if station_id:
+                target_station = None
+                for station in stations:
+                    if station.get('StationId') == station_id:
+                        target_station = station
+                        break
+                
+                if not target_station:
                     await interaction.followup.send(f"❌ 找不到測站代碼 {station_id} 的觀測資料")
-                elif location:
+                    return
+                
+                # 單一測站資料，不需要翻頁
+                embed = self._create_single_station_embed(target_station)
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 如果指定了地區名稱，尋找該地區的測站
+            elif location:
+                target_stations = []
+                for station in stations:
+                    station_name = station.get('StationName', '')
+                    county_name = station.get('GeoInfo', {}).get('CountyName', '')
+                    if (location in station_name or station_name in location or 
+                        location in county_name or county_name in location):
+                        target_stations.append(station)
+                
+                if not target_stations:
                     await interaction.followup.send(f"❌ 找不到 {location} 地區的氣象站資料")
+                    return
+                
+                if len(target_stations) == 1:
+                    # 只有一個測站，直接顯示
+                    embed = self._create_single_station_embed(target_stations[0])
+                    await interaction.followup.send(embed=embed)
                 else:
-                    await interaction.followup.send("❌ 無法獲取氣象站觀測資料，請稍後再試")
-                    
+                    # 多個測站，使用翻頁功能
+                    view = WeatherStationView(
+                        cog=self,
+                        user_id=interaction.user.id,
+                        stations=target_stations,
+                        query_type="multiple",
+                        location=location
+                    )
+                    embed = view._create_current_page_embed()
+                    await interaction.followup.send(embed=embed, view=view)
+                return
+            
+            # 如果沒有指定條件，顯示主要縣市的概況
+            else:
+                embed = self._create_overview_embed(stations)
+                # 全台概況通常不需要翻頁，但提供重新整理功能
+                view = WeatherStationView(
+                    cog=self,
+                    user_id=interaction.user.id,
+                    stations=stations,
+                    query_type="overview",
+                    location=""
+                )
+                view.stations_per_page = 999  # 設定大值避免翻頁
+                view.total_pages = 1
+                view._update_buttons()  # 更新按鈕（只顯示重新整理）
+                await interaction.followup.send(embed=embed, view=view)
+                
         except Exception as e:
             logger.error(f"weather_station 指令執行錯誤: {str(e)}")
             await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試")
@@ -1480,6 +1547,200 @@ class InfoCommands(commands.Cog):
         obs_time = stations[0].get('ObsTime', {}).get('DateTime', '未知時間') if stations else '未知時間' 
         embed.set_footer(text=f"觀測時間: {obs_time} | 資料來源: 中央氣象署")
         return embed
+
+class WeatherStationView(View):
+    """氣象站資料翻頁視圖"""
+    def __init__(self, cog, user_id: int, stations: List[Dict[str, Any]], query_type: str = "multiple", location: str = ""):
+        super().__init__(timeout=300)  # 5分鐘超時
+        self.cog = cog
+        self.user_id = user_id
+        self.stations = stations
+        self.query_type = query_type  # "multiple", "overview", "single"
+        self.location = location
+        self.current_page = 0
+        self.stations_per_page = 5  # 每頁顯示5個測站
+        self.total_pages = max(1, (len(stations) + self.stations_per_page - 1) // self.stations_per_page)
+        
+        self._update_buttons()
+    
+    def _update_buttons(self):
+        """更新按鈕狀態"""
+        self.clear_items()
+        
+        # 只有在多頁時才顯示翻頁按鈕
+        if self.total_pages > 1:
+            # 上一頁按鈕
+            prev_button = discord.ui.Button(
+                label="◀️ 上一頁",
+                style=discord.ButtonStyle.primary,
+                disabled=self.current_page == 0
+            )
+            prev_button.callback = self.previous_page
+            self.add_item(prev_button)
+            
+            # 頁面資訊按鈕
+            page_button = discord.ui.Button(
+                label=f"{self.current_page + 1}/{self.total_pages}",
+                style=discord.ButtonStyle.secondary,
+                disabled=True
+            )
+            self.add_item(page_button)
+            
+            # 下一頁按鈕
+            next_button = discord.ui.Button(
+                label="下一頁 ▶️",
+                style=discord.ButtonStyle.primary,
+                disabled=self.current_page >= self.total_pages - 1
+            )
+            next_button.callback = self.next_page
+            self.add_item(next_button)
+        
+        # 重新整理按鈕
+        refresh_button = discord.ui.Button(
+            label="🔄 重新整理",
+            style=discord.ButtonStyle.success
+        )
+        refresh_button.callback = self.refresh_data
+        self.add_item(refresh_button)
+    
+    async def previous_page(self, interaction: discord.Interaction):
+        """上一頁"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("⚠️ 請使用自己的氣象站選單！", ephemeral=True)
+            return
+        
+        if self.current_page > 0:
+            self.current_page -= 1
+            await self._update_message(interaction)
+    
+    async def next_page(self, interaction: discord.Interaction):
+        """下一頁"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("⚠️ 請使用自己的氣象站選單！", ephemeral=True)
+            return
+        
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            await self._update_message(interaction)
+    
+    async def refresh_data(self, interaction: discord.Interaction):
+        """重新整理資料"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("⚠️ 請使用自己的氣象站選單！", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        try:
+            # 重新獲取氣象站資料
+            station_data = await self.cog.fetch_weather_station_data()
+            if station_data and 'records' in station_data:
+                records = station_data['records']
+                if 'Station' in records:
+                    self.stations = records['Station']
+                    
+                    # 根據查詢類型重新篩選資料
+                    if self.query_type == "multiple" and self.location:
+                        filtered_stations = []
+                        for station in self.stations:
+                            station_name = station.get('StationName', '')
+                            county_name = station.get('GeoInfo', {}).get('CountyName', '')
+                            if (self.location in station_name or station_name in self.location or 
+                                self.location in county_name or county_name in self.location):
+                                filtered_stations.append(station)
+                        self.stations = filtered_stations
+                    
+                    # 重新計算總頁數
+                    self.total_pages = max(1, (len(self.stations) + self.stations_per_page - 1) // self.stations_per_page)
+                    
+                    # 確保當前頁面不超出範圍
+                    if self.current_page >= self.total_pages:
+                        self.current_page = max(0, self.total_pages - 1)
+                    
+                    await self._update_message(interaction)
+                else:
+                    await interaction.followup.send("❌ 重新整理失敗：無法獲取氣象站資料", ephemeral=True)
+            else:
+                await interaction.followup.send("❌ 重新整理失敗：API 回應異常", ephemeral=True)
+                
+        except Exception as e:
+            logger.error(f"重新整理氣象站資料時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 重新整理時發生錯誤，請稍後再試", ephemeral=True)
+    
+    async def _update_message(self, interaction: discord.Interaction):
+        """更新訊息內容"""
+        try:
+            embed = self._create_current_page_embed()
+            self._update_buttons()
+            await interaction.response.edit_message(embed=embed, view=self)
+        except discord.InteractionResponse:
+            # 如果回應已經被處理，使用 edit_original_response
+            embed = self._create_current_page_embed()
+            self._update_buttons()
+            await interaction.edit_original_response(embed=embed, view=self)
+    
+    def _create_current_page_embed(self) -> discord.Embed:
+        """創建當前頁面的嵌入訊息"""
+        if self.query_type == "multiple":
+            return self._create_paginated_multiple_stations_embed()
+        elif self.query_type == "overview":
+            return self._create_paginated_overview_embed()
+        else:
+            # 單一測站不需要翻頁
+            return self.cog._create_single_station_embed(self.stations[0])
+    
+    def _create_paginated_multiple_stations_embed(self) -> discord.Embed:
+        """創建分頁的多測站嵌入"""
+        start_idx = self.current_page * self.stations_per_page
+        end_idx = min(start_idx + self.stations_per_page, len(self.stations))
+        current_stations = self.stations[start_idx:end_idx]
+        
+        embed = discord.Embed(
+            title=f"🌡️ {self.location} 地區氣象觀測",
+            description=f"第 {self.current_page + 1}/{self.total_pages} 頁 (共 {len(self.stations)} 個測站)",
+            color=discord.Color.blue()
+        )
+        
+        for station in current_stations:
+            station_name = station.get('StationName', '未知測站')
+            station_id = station.get('StationId', '未知')
+            
+            weather_element = station.get('WeatherElement', {})
+            temp = weather_element.get('AirTemperature', 'N/A')
+            humidity = weather_element.get('RelativeHumidity', 'N/A')
+            weather = weather_element.get('Weather', 'N/A')
+            
+            temp_str = f"{temp}°C" if temp != 'N/A' else "N/A"
+            humidity_str = f"{humidity}%" if humidity != 'N/A' else "N/A"
+            weather_str = f" {weather}" if weather != 'N/A' else ""
+            
+            # 獲取地理位置
+            geo_info = station.get('GeoInfo', {})
+            county = geo_info.get('CountyName', '')
+            town = geo_info.get('TownName', '')
+            location_str = f"{county}{town}" if county and town else ""
+            
+            embed.add_field(
+                name=f"📍 {station_name} ({station_id})",
+                value=f"🌡️ {temp_str} | 💧 {humidity_str}{weather_str}\n📍 {location_str}",
+                inline=False
+            )
+        
+        obs_time = current_stations[0].get('ObsTime', {}).get('DateTime', '未知時間') if current_stations else '未知時間'
+        embed.set_footer(text=f"觀測時間: {obs_time} | 資料來源: 中央氣象署")
+        return embed
+    
+    def _create_paginated_overview_embed(self) -> discord.Embed:
+        """創建分頁的全台概況嵌入"""
+        # 全台概況通常不需要翻頁，但為了一致性保留此方法
+        return self.cog._create_overview_embed(self.stations)
+    
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """檢查互動權限"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("⚠️ 這不是您的氣象站選單！", ephemeral=True)
+            return False
+        return True
 
 async def setup(bot):
     await bot.add_cog(InfoCommands(bot))
