@@ -62,32 +62,33 @@ async def check_weather_station_api():
                 # 檢查 location 資料
                 if 'location' in records:
                     locations = records['location']
-                    print(f"✅ 找到 {len(locations)} 個測站")                        if len(locations) > 0:
-                            first_station = locations[0]
-                            print(f"✅ 第一個測站結構: {list(first_station.keys())}")
-                            print(f"✅ 測站名稱: {first_station.get('StationName', 'N/A')}")
-                            print(f"✅ 測站ID: {first_station.get('StationId', 'N/A')}")
-                            
-                            # 顯示完整的第一個測站資料
-                            print("📋 完整測站資料:")
-                            for key, value in first_station.items():
-                                if isinstance(value, dict):
-                                    print(f"   {key}: {list(value.keys())}")
-                                else:
-                                    print(f"   {key}: {value}")
-                            
-                            # 檢查觀測時間結構
-                            if 'ObsTime' in first_station:
-                                print(f"✅ ObsTime: {first_station['ObsTime']}")
-                            
-                            # 檢查主要氣象要素
-                            weather_fields = ['AirTemperature', 'RelativeHumidity', 'AirPressure', 'WindDirection', 'WindSpeed']
-                            for field in weather_fields:
-                                if field in first_station:
-                                    print(f"✅ {field}: {first_station[field]}")
-                                else:
-                                    print(f"❌ 缺少 {field}")
-                        else:
+                    print(f"✅ 找到 {len(locations)} 個測站")
+                    if len(locations) > 0:
+                        first_station = locations[0]
+                        print(f"✅ 第一個測站結構: {list(first_station.keys())}")
+                        print(f"✅ 測站名稱: {first_station.get('StationName', 'N/A')}")
+                        print(f"✅ 測站ID: {first_station.get('StationId', 'N/A')}")
+                        
+                        # 顯示完整的第一個測站資料
+                        print("📋 完整測站資料:")
+                        for key, value in first_station.items():
+                            if isinstance(value, dict):
+                                print(f"   {key}: {list(value.keys())}")
+                            else:
+                                print(f"   {key}: {value}")
+                        
+                        # 檢查觀測時間結構
+                        if 'ObsTime' in first_station:
+                            print(f"✅ ObsTime: {first_station['ObsTime']}")
+                        
+                        # 檢查主要氣象要素
+                        weather_fields = ['AirTemperature', 'RelativeHumidity', 'AirPressure', 'WindDirection', 'WindSpeed']
+                        for field in weather_fields:
+                            if field in first_station:
+                                print(f"✅ {field}: {first_station[field]}")
+                            else:
+                                print(f"❌ 缺少 {field}")
+                    else:
                         print("❌ locations 是空的")
                 else:
                     print("❌ records 中沒有 location")
