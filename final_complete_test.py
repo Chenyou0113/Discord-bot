@@ -93,7 +93,8 @@ async def test_weather_station_functionality():
             
             # 檢查資料結構
             records = weather_data.get('records', {})
-            stations = records.get('Station', [])            print(f"     獲取到 {len(stations)} 個氣象站資料")
+            stations = records.get('Station', [])
+            print(f"     獲取到 {len(stations)} 個氣象站資料")
             
             if stations:
                 # 測試格式化功能
