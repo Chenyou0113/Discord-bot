@@ -1,0 +1,35 @@
+# Discord Bot 依賴清單
+
+# Discord.py - Discord API 包裝器
+discord.py>=2.3.0
+
+# HTTP 客戶端 - 用於 API 請求
+aiohttp>=3.8.0
+
+# XML 解析器 - 用於處理部分 API 回應
+xmltodict>=0.13.0
+
+# HTTP 連線池管理
+urllib3>=1.26.0
+
+# 環境變數管理
+python-dotenv>=0.19.0
+
+# 日期時間處理
+python-dateutil>=2.8.0
+
+# JSON 處理 (通常內建，但確保相容性)
+jsonschema>=4.0.0
+
+# 日誌處理增強
+colorlog>=6.6.0
+
+# 開發和測試用依賴
+pytest>=7.0.0
+pytest-asyncio>=0.20.0
+pytest-cov>=4.0.0
+
+# 程式碼品質工具
+flake8>=5.0.0
+black>=22.0.0
+isort>=5.10.0

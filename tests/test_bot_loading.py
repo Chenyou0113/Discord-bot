@@ -11,8 +11,8 @@ import os
 import discord
 from discord.ext import commands
 
-# 添加專案根目錄到 sys.path
-project_root = os.path.dirname(os.path.abspath(__file__))
+# 添加專案根目錄到 sys.path (從 tests 目錄往上一層)
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
 async def test_bot_loading():
