@@ -1279,9 +1279,33 @@ class InfoCommands(commands.Cog):
     @app_commands.command(name="weather_station", description="查詢自動氣象站觀測資料")
     @app_commands.describe(
         station_id="氣象站代碼（如：466920）",
-        location="地區名稱（如：台北、高雄）"
+        county="選擇縣市"
     )
-    async def weather_station(self, interaction: discord.Interaction, station_id: str = None, location: str = None):
+    @app_commands.choices(county=[
+        app_commands.Choice(name="臺北市", value="臺北市"),
+        app_commands.Choice(name="新北市", value="新北市"),
+        app_commands.Choice(name="桃園市", value="桃園市"),
+        app_commands.Choice(name="臺中市", value="臺中市"),
+        app_commands.Choice(name="臺南市", value="臺南市"),
+        app_commands.Choice(name="高雄市", value="高雄市"),
+        app_commands.Choice(name="基隆市", value="基隆市"),
+        app_commands.Choice(name="新竹市", value="新竹市"),
+        app_commands.Choice(name="嘉義市", value="嘉義市"),
+        app_commands.Choice(name="新竹縣", value="新竹縣"),
+        app_commands.Choice(name="苗栗縣", value="苗栗縣"),
+        app_commands.Choice(name="彰化縣", value="彰化縣"),
+        app_commands.Choice(name="南投縣", value="南投縣"),
+        app_commands.Choice(name="雲林縣", value="雲林縣"),
+        app_commands.Choice(name="嘉義縣", value="嘉義縣"),
+        app_commands.Choice(name="屏東縣", value="屏東縣"),
+        app_commands.Choice(name="宜蘭縣", value="宜蘭縣"),
+        app_commands.Choice(name="花蓮縣", value="花蓮縣"),
+        app_commands.Choice(name="臺東縣", value="臺東縣"),
+        app_commands.Choice(name="澎湖縣", value="澎湖縣"),
+        app_commands.Choice(name="金門縣", value="金門縣"),
+        app_commands.Choice(name="連江縣", value="連江縣")
+    ])
+    async def weather_station(self, interaction: discord.Interaction, station_id: str = None, county: str = None):
         """查詢自動氣象站觀測資料"""
         await interaction.response.defer()
         
@@ -1317,18 +1341,18 @@ class InfoCommands(commands.Cog):
                 await interaction.followup.send(embed=embed)
                 return
             
-            # 如果指定了地區名稱，尋找該地區的測站
-            elif location:
+            # 如果指定了縣市，尋找該縣市的測站
+            elif county:
                 target_stations = []
                 for station in stations:
                     station_name = station.get('StationName', '')
                     county_name = station.get('GeoInfo', {}).get('CountyName', '')
-                    if (location in station_name or station_name in location or 
-                        location in county_name or county_name in location):
+                    if (county in station_name or station_name in county or 
+                        county in county_name or county_name in county):
                         target_stations.append(station)
                 
                 if not target_stations:
-                    await interaction.followup.send(f"❌ 找不到 {location} 地區的氣象站資料")
+                    await interaction.followup.send(f"❌ 找不到 {county} 的氣象站資料")
                     return
                 
                 if len(target_stations) == 1:
@@ -1342,7 +1366,7 @@ class InfoCommands(commands.Cog):
                         user_id=interaction.user.id,
                         stations=target_stations,
                         query_type="multiple",
-                        location=location
+                        location=county
                     )
                     embed = view._create_current_page_embed()
                     await interaction.followup.send(embed=embed, view=view)
