@@ -159,6 +159,24 @@ class CustomBot(commands.Bot):
             logger.info('已關閉 aiohttp 連接器')
         await super().close()
     
+    async def on_ready(self):
+        """當機器人準備就緒時執行"""
+        try:
+            # 設定機器人狀態為「正在玩 C. Y.」
+            activity = discord.Game(name="C. Y.")
+            await self.change_presence(status=discord.Status.online, activity=activity)
+            
+            logger.info(f'機器人 {self.user} 已成功上線！')
+            logger.info(f'機器人正在 {len(self.guilds)} 個伺服器中運行')
+            logger.info('機器人狀態已設定為「正在玩 C. Y.」')
+            
+            # 顯示連接的伺服器列表
+            for guild in self.guilds:
+                logger.info(f'  - {guild.name} (ID: {guild.id}, 成員數: {guild.member_count})')
+                
+        except Exception as e:
+            logger.error(f'設定機器人狀態時發生錯誤: {str(e)}')
+    
     def _try_register_basic_commands(self):
         """嘗試手動註冊基本命令"""
         try:
