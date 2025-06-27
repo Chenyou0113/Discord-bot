@@ -795,6 +795,14 @@ class AdminCommands(commands.Cog):
             # 通知用戶操作成功
             await interaction.followup.send("✅ 重啟通知已發送，機器人即將重新啟動...", ephemeral=True)
             
+            # 創建重啟標記文件
+            import os
+            restart_flag_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'restart_flag.txt')
+            with open(restart_flag_path, 'w', encoding='utf-8') as f:
+                f.write(f"restart_requested_by_{interaction.user.id}_{int(asyncio.get_event_loop().time())}")
+            
+            logger.info("重啟標記文件已創建，即將關閉機器人")
+            
             # 稍微延遲後關閉機器人
             await asyncio.sleep(1)
             await self.bot.close()
