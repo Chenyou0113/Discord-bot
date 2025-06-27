@@ -539,29 +539,6 @@ class InfoCommands(commands.Cog):
             logger.error(f"獲取自動氣象站觀測資料時發生錯誤: {str(e)}")
             return None
 
-    async def fetch_manned_weather_station_data(self) -> Optional[Dict[str, Any]]:
-        """獲取有人氣象站觀測資料"""
-        try:
-            url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0003-001"
-            params = {
-                'Authorization': self.api_auth,
-                'format': 'JSON'
-            }
-            
-            logger.info("開始獲取有人氣象站觀測資料")
-            manned_station_data = await self.fetch_with_retry(url, params=params)
-            
-            if manned_station_data:
-                logger.info("✅ 成功獲取有人氣象站觀測資料")
-                return manned_station_data
-            else:
-                logger.warning("❌ 無法獲取有人氣象站觀測資料")
-                return None
-                
-        except Exception as e:
-            logger.error(f"獲取有人氣象站觀測資料時發生錯誤: {str(e)}")
-            return None
-
     # 這裡添加其他方法 (如 format_weather_data, format_earthquake_data 等)...
     
     async def format_earthquake_data(self, eq_data: Dict[str, Any]) -> Optional[discord.Embed]:
