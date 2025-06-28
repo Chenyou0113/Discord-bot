@@ -91,7 +91,13 @@ class RadarCommands(commands.Cog):
             async with aiohttp.ClientSession(connector=connector) as session:
                 async with session.get(self.cwa_radar_api, params=params) as response:
                     if response.status == 200:
-                        data = await response.json()
+                        # 處理 MIME 類型問題，強制讀取為文本並解析 JSON
+                        try:
+                            response_text = await response.text()
+                            data = json.loads(response_text)
+                        except json.JSONDecodeError:
+                            # 如果 JSON 解析失敗，嘗試直接使用 response.json()
+                            data = await response.json(content_type=None)
                         
                         # 更新快取
                         self.radar_cache = data
@@ -130,7 +136,13 @@ class RadarCommands(commands.Cog):
             async with aiohttp.ClientSession(connector=connector) as session:
                 async with session.get(self.cwa_large_radar_api, params=params) as response:
                     if response.status == 200:
-                        data = await response.json()
+                        # 處理 MIME 類型問題，強制讀取為文本並解析 JSON
+                        try:
+                            response_text = await response.text()
+                            data = json.loads(response_text)
+                        except json.JSONDecodeError:
+                            # 如果 JSON 解析失敗，嘗試直接使用 response.json()
+                            data = await response.json(content_type=None)
                         
                         # 更新快取
                         self.large_radar_cache = data
@@ -175,7 +187,13 @@ class RadarCommands(commands.Cog):
             async with aiohttp.ClientSession(connector=connector) as session:
                 async with session.get(station_info['api_url'], params=params) as response:
                     if response.status == 200:
-                        data = await response.json()
+                        # 處理 MIME 類型問題，強制讀取為文本並解析 JSON
+                        try:
+                            response_text = await response.text()
+                            data = json.loads(response_text)
+                        except json.JSONDecodeError:
+                            # 如果 JSON 解析失敗，嘗試直接使用 response.json()
+                            data = await response.json(content_type=None)
                         
                         # 更新快取
                         self.rainfall_radar_cache[station] = data
@@ -257,7 +275,6 @@ class RadarCommands(commands.Cog):
                 'datetime': dataset.get('DateTime', ''),
                 'description': '',
                 'image_url': '',
-                'radar_name': '',
                 'dimension': ''
             }
             
@@ -268,10 +285,6 @@ class RadarCommands(commands.Cog):
                 
                 parameter_set = dataset_info.get('parameterSet', {})
                 if parameter_set:
-                    parameter = parameter_set.get('parameter', {})
-                    if parameter:
-                        radar_info['radar_name'] = parameter.get('radarName', '')
-                    
                     radar_info['dimension'] = parameter_set.get('ImageDimension', '')
             
             # 解析資源資訊

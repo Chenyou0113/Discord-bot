@@ -24,7 +24,11 @@ class AirQualityCommands(commands.Cog):
     
     def __init__(self, bot):
         self.bot = bot
-        self.epa_api_base = "https://data.epa.gov.tw/api/v2/aqx_p_432"
+        # 主要和備用API端點
+        self.epa_api_endpoints = [
+            "https://data.epa.gov.tw/api/v2/aqx_p_432",
+            "https://data.moenv.gov.tw/api/v2/aqx_p_432"  # 備用端點（環境部）
+        ]
         self.api_key = "94650864-6a80-4c58-83ce-fd13e7ef0504"
         self.air_quality_cache = {}  # 快取空氣品質資料
         self.cache_timestamp = 0
@@ -54,7 +58,7 @@ class AirQualityCommands(commands.Cog):
                 current_time - self.cache_timestamp < self.cache_duration):
                 return self.air_quality_cache
             
-            # 構建 API URL
+            # 構建 API 參數
             params = {
                 "api_key": self.api_key,
                 "limit": 1000,
@@ -62,26 +66,123 @@ class AirQualityCommands(commands.Cog):
                 "format": "JSON"
             }
             
-            logger.info(f"正在從環保署 API 獲取空氣品質資料: {self.epa_api_base}")
+            # 嘗試每個API端點
+            for api_endpoint in self.epa_api_endpoints:
+                logger.info(f"正在嘗試連接空氣品質 API: {api_endpoint}")
+                
+                result = await self._try_fetch_from_endpoint(api_endpoint, params)
+                if result:
+                    # 更新快取
+                    self.air_quality_cache = result
+                    self.cache_timestamp = current_time
+                    
+                    logger.info(f"成功獲取空氣品質資料，共 {len(result.get('records', []))} 筆記錄")
+                    return result
+                
+                logger.warning(f"API 端點 {api_endpoint} 連線失敗，嘗試下一個端點...")
             
-            # 建立 SSL 連接器
-            connector = aiohttp.TCPConnector(ssl=self.ssl_context)
-            timeout = aiohttp.ClientTimeout(total=30)
+            # 如果所有端點都失敗
+            logger.error("所有空氣品質 API 端點都無法連線")
+            return {}
+                        
+        except Exception as e:
+            logger.error(f"獲取空氣品質資料時發生錯誤: {e}")
+            return {}
+    
+    async def _try_fetch_from_endpoint(self, api_endpoint: str, params: Dict) -> Dict:
+        """嘗試從指定的API端點獲取資料"""
+        try:
+            # 建立 SSL 連接器，增加連線設定
+            connector = aiohttp.TCPConnector(
+                ssl=self.ssl_context,
+                limit=10,
+                force_close=True,
+                enable_cleanup_closed=True,
+                family=0  # 允許 IPv4 和 IPv6
+            )
             
-            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-                async with session.get(self.epa_api_base, params=params) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        
-                        # 更新快取
-                        self.air_quality_cache = data
-                        self.cache_timestamp = current_time
-                        
-                        logger.info(f"成功獲取空氣品質資料，共 {len(data.get('records', []))} 筆記錄")
-                        return data
-                    else:
-                        logger.error(f"API 請求失敗: HTTP {response.status}")
-                        return {}
+            # 設定請求超時
+            timeout = aiohttp.ClientTimeout(total=30, connect=10)
+            
+            # 嘗試多次連線
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    async with aiohttp.ClientSession(
+                        connector=connector, 
+                        timeout=timeout
+                    ) as session:
+                        async with session.get(api_endpoint, params=params) as response:
+                            if response.status == 200:
+                                # 處理可能的 JSON 格式問題
+                                try:
+                                    data = await response.json()
+                                except Exception:
+                                    # 如果標準 JSON 解析失敗，嘗試手動解析
+                                    response_text = await response.text()
+                                    data = json.loads(response_text)
+                                
+                                return data
+                            else:
+                                logger.error(f"API 請求失敗: HTTP {response.status}")
+                                if attempt < max_retries - 1:
+                                    logger.info(f"準備重試，第 {attempt + 2} 次嘗試...")
+                                    await asyncio.sleep(2)  # 延遲 2 秒後重試
+                                    continue
+                                return {}
+                                
+                except asyncio.TimeoutError:
+                    logger.error(f"連線超時 (嘗試 {attempt + 1}/{max_retries})")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(3)  # 延遲 3 秒後重試
+                        continue
+                    return {}
+                except Exception as e:
+                    logger.error(f"連線錯誤 (嘗試 {attempt + 1}/{max_retries}): {e}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2)  # 延遲 2 秒後重試
+                        continue
+                    return {}
+            
+            # 如果所有重試都失敗
+            return {}
+            
+        except Exception as e:
+            logger.error(f"端點 {api_endpoint} 發生錯誤: {e}")
+            return {}
+                                    response_text = await response.text()
+                                    data = json.loads(response_text)
+                                
+                                # 更新快取
+                                self.air_quality_cache = data
+                                self.cache_timestamp = current_time
+                                
+                                logger.info(f"成功獲取空氣品質資料，共 {len(data.get('records', []))} 筆記錄")
+                                return data
+                            else:
+                                logger.error(f"API 請求失敗: HTTP {response.status}")
+                                if attempt < max_retries - 1:
+                                    logger.info(f"準備重試，第 {attempt + 2} 次嘗試...")
+                                    await asyncio.sleep(2)  # 延遲 2 秒後重試
+                                    continue
+                                return {}
+                                
+                except asyncio.TimeoutError:
+                    logger.error(f"連線超時 (嘗試 {attempt + 1}/{max_retries})")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(3)  # 延遲 3 秒後重試
+                        continue
+                    return {}
+                except Exception as e:
+                    logger.error(f"連線錯誤 (嘗試 {attempt + 1}/{max_retries}): {e}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2)  # 延遲 2 秒後重試
+                        continue
+                    return {}
+            
+            # 如果所有重試都失敗
+            logger.error("所有連線嘗試都失敗")
+            return {}
                         
         except Exception as e:
             logger.error(f"獲取空氣品質資料時發生錯誤: {e}")
