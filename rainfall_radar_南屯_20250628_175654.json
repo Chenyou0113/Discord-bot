@@ -1,0 +1,33 @@
+{
+  "cwaopendata": {
+    "@xmlns": "urn:cwa:gov:tw:cwacommon:0.1",
+    "identifier": "53e3209a-40e4-44af-94e2-19ff88a5e681",
+    "sender": "od@cwa.gov.tw",
+    "sent": "2025-06-28T17:54:18+08:00",
+    "status": "Actual",
+    "msgType": "Issue",
+    "scope": "Public",
+    "dataid": "O-A0084-002",
+    "source": "CWA",
+    "dataset": {
+      "datasetInfo": {
+        "datasetDescription": "南屯雷達合成回波圖",
+        "parameterSet": {
+          "StationLongitude": "120.58",
+          "StationLatitude": "24.14",
+          "parameter": {
+            "parameterName": "顯示範圍",
+            "parameterValue": "距雷達150公里"
+          },
+          "ImageDimension": "3600x3600"
+        }
+      },
+      "resource": {
+        "resourceDesc": "單雷達合成回波圖-南屯_無地形",
+        "mimeType": "image/png",
+        "ProductURL": "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Observation/O-A0084-002.png"
+      },
+      "DateTime": "2025-06-28T17:51:00+08:00"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "cwaopendata": {
+    "@xmlns": "urn:cwa:gov:tw:cwacommon:0.1",
+    "identifier": "79810bee-1a04-47b1-8195-0c80a8cc7c8d",
+    "sender": "od@cwa.gov.tw",
+    "sent": "2025-06-28T17:56:04+08:00",
+    "status": "Actual",
+    "msgType": "Issue",
+    "scope": "Public",
+    "dataid": "O-A0084-003",
+    "source": "CWA",
+    "dataset": {
+      "datasetInfo": {
+        "datasetDescription": "林園雷達合成回波圖",
+        "parameterSet": {
+          "StationLongitude": "120.38",
+          "StationLatitude": "22.53",
+          "parameter": {
+            "parameterName": "顯示範圍",
+            "parameterValue": "距雷達150公里"
+          },
+          "ImageDimension": "3600x3600"
+        }
+      },
+      "resource": {
+        "resourceDesc": "單雷達合成回波圖-林園_無地形",
+        "mimeType": "image/png",
+        "ProductURL": "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Observation/O-A0084-003.png"
+      },
+      "DateTime": "2025-06-28T17:52:00+08:00"
+    }
+  }
+}

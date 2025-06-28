@@ -1,0 +1,33 @@
+{
+  "cwaopendata": {
+    "@xmlns": "urn:cwa:gov:tw:cwacommon:0.1",
+    "identifier": "04955a6d-2ff6-4fbb-9842-4fe09a2b60c2",
+    "sender": "od@cwa.gov.tw",
+    "sent": "2025-06-28T18:07:37+08:00",
+    "status": "Actual",
+    "msgType": "Issue",
+    "scope": "Public",
+    "dataid": "O-A0084-001",
+    "source": "CWA",
+    "dataset": {
+      "datasetInfo": {
+        "datasetDescription": "樹林雷達合成回波圖",
+        "parameterSet": {
+          "StationLongitude": "121.40",
+          "StationLatitude": "25.00",
+          "parameter": {
+            "parameterName": "顯示範圍",
+            "parameterValue": "距雷達150公里"
+          },
+          "ImageDimension": "3600x3600"
+        }
+      },
+      "resource": {
+        "resourceDesc": "單雷達合成回波圖-樹林_無地形",
+        "mimeType": "image/png",
+        "ProductURL": "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Observation/O-A0084-001.png"
+      },
+      "DateTime": "2025-06-28T18:04:00+08:00"
+    }
+  }
+}

@@ -119,7 +119,9 @@ class CustomBot(commands.Bot):
             'cogs.voice_system',
             'cogs.chat_commands',
             'cogs.search_commands',
-            'cogs.weather_commands'
+            'cogs.weather_commands',
+            'cogs.air_quality_commands',
+            'cogs.radar_commands'
         ]
         self.startup_channels = {}
         self._sync_in_progress = False

@@ -1,10 +1,10 @@
 @echo off
-REM 氣象測站功能檢查和機器人啟動腳本
+REM 氣象功能檢查和機器人啟動腳本
 REM 作者: Discord Bot Project
-REM 日期: 2025-01-05
+REM 日期: 2025-06-28
 
 echo ================================================================================
-echo 氣象測站功能檢查和機器人啟動腳本
+echo 氣象功能檢查和機器人啟動腳本
 echo ================================================================================
 
 echo.
@@ -23,9 +23,23 @@ echo 🤖 準備啟動機器人...
 echo.
 echo 💡 提示：
 echo    • 機器人啟動後，請在 Discord 伺服器中測試以下指令：
+echo.
+echo    氣象測站查詢：
 echo      /weather_station 台北
 echo      /weather_station_by_county 新北市
 echo      /weather_station_info C0A940
+echo.
+echo    空氣品質查詢：
+echo      /air_quality 台北
+echo      /air_quality_by_county 新北市
+echo      /air_quality_station 中山
+echo.
+echo    雷達圖查詢：
+echo      /radar - 一般範圍雷達圖
+echo      /radar_large - 大範圍雷達圖
+echo      /rainfall_radar - 降雨雷達圖 (樹林/南屯/林園)
+echo      /radar_info - 雷達圖功能說明
+echo.
 echo    • 按 Ctrl+C 可停止機器人
 echo    • 查看 bot.log 了解詳細執行記錄
 echo.
