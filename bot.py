@@ -129,7 +129,7 @@ class CustomBot(commands.Bot):
         self.connector = None
         
     async def setup_hook(self):
-        """在機器人啟動時執行的設置"""
+        """在機器人啟動時執行的設置 - 終極修復版本"""
         try:
             # 初始化 aiohttp 連接器
             self.connector = aiohttp.TCPConnector(
@@ -140,148 +140,195 @@ class CustomBot(commands.Bot):
             )
             logger.info('成功初始化 aiohttp 連接器')
             
-            # 激進的完全重置機制 (防止指令重複註冊)
-            logger.info('執行激進的完全重置...')
+            # 🔥 終極指令重複註冊修復方案
+            logger.info('🔥 執行終極指令重複註冊修復...')
             
-            # 1. 完全重建命令樹
-            logger.info('重建命令樹...')
+            # 階段1：核子級別清理
+            logger.info('階段1: 核子級別清理...')
+            
+            # 1.1 完全重建命令樹
+            logger.info('  1.1 重建命令樹...')
             old_tree = self.tree
             self.tree = app_commands.CommandTree(self)
-            del old_tree  # 刪除舊的命令樹
+            del old_tree
             
-            # 2. 強制清除所有可能的指令註冊
+            # 1.2 清除連接中的所有應用程式指令快取
             if hasattr(self, '_connection') and self._connection:
-                # 清除連接中的應用程式指令快取
-                if hasattr(self._connection, '_application_commands'):
-                    self._connection._application_commands.clear()
+                attrs_to_clear = [
+                    '_application_commands',
+                    '_global_application_commands', 
+                    '_guild_application_commands'
+                ]
+                for attr in attrs_to_clear:
+                    if hasattr(self._connection, attr):
+                        getattr(self._connection, attr).clear()
+                        logger.info(f'  已清除 _connection.{attr}')
             
-            # 3. 徹底卸載所有擴展 (多次嘗試)
-            logger.info('徹底卸載所有擴展...')
-            for attempt in range(3):  # 增加到3次嘗試
+            # 1.3 多輪徹底卸載 (5輪確保徹底清除)
+            logger.info('  1.3 多輪徹底卸載...')
+            for round_num in range(5):
                 remaining_cogs = list(self.cogs.keys())
                 remaining_extensions = [ext for ext in list(self.extensions.keys()) if ext.startswith('cogs.')]
                 
                 if not remaining_cogs and not remaining_extensions:
-                    logger.info(f'第 {attempt + 1} 次嘗試：所有擴展已清除')
+                    logger.info(f'    第{round_num+1}輪: 所有擴展已清除')
                     break
                 
-                logger.info(f'第 {attempt + 1} 次嘗試：剩餘 Cogs={len(remaining_cogs)}, Extensions={len(remaining_extensions)}')
+                logger.info(f'    第{round_num+1}輪: Cogs={len(remaining_cogs)}, Extensions={len(remaining_extensions)}')
                 
-                # 卸載 Cogs
+                # 移除所有 Cogs
                 for cog_name in remaining_cogs:
                     try:
-                        cog_extension = f'cogs.{cog_name}'
-                        if cog_extension in self.extensions:
-                            await self.unload_extension(cog_extension)
-                            logger.info(f'已卸載 Cog 擴展: {cog_extension}')
-                        else:
-                            # 直接從 cogs 字典移除
-                            self.remove_cog(cog_name)
-                            logger.info(f'已移除 Cog: {cog_name}')
+                        self.remove_cog(cog_name)
+                        logger.info(f'      移除 Cog: {cog_name}')
                     except Exception as e:
-                        logger.warning(f'卸載 {cog_name} 時發生錯誤: {str(e)}')
+                        logger.warning(f'      移除 Cog {cog_name} 失敗: {str(e)}')
                 
-                # 卸載擴展
+                # 卸載所有擴展
                 for extension_name in remaining_extensions:
                     try:
                         await self.unload_extension(extension_name)
-                        logger.info(f'已卸載擴展: {extension_name}')
+                        logger.info(f'      卸載擴展: {extension_name}')
                     except Exception as e:
-                        logger.warning(f'卸載擴展 {extension_name} 時發生錯誤: {str(e)}')
+                        logger.warning(f'      卸載擴展 {extension_name} 失敗: {str(e)}')
                 
-                await asyncio.sleep(1)  # 等待卸載完成
+                await asyncio.sleep(0.5)
             
-            # 4. 清除載入記錄
-            self._loaded_cogs.clear()
+            # 1.4 清除 Python 模組快取
+            logger.info('  1.4 清除 Python 模組快取...')
+            import importlib
+            modules_to_remove = [name for name in sys.modules.keys() if name.startswith('cogs.')]
+            for module_name in modules_to_remove:
+                try:
+                    if module_name in sys.modules:
+                        del sys.modules[module_name]
+                        logger.info(f'    清除模組快取: {module_name}')
+                except Exception as e:
+                    logger.warning(f'    清除模組快取 {module_name} 失敗: {str(e)}')
             
-            # 5. 強制垃圾回收
+            # 1.5 強制垃圾回收
+            logger.info('  1.5 強制垃圾回收...')
             import gc
-            gc.collect()
+            for i in range(3):
+                collected = gc.collect()
+                logger.info(f'    第{i+1}次垃圾回收: 清理 {collected} 個對象')
             
-            # 等待確保清理完成
+            # 1.6 清除載入記錄並等待
+            self._loaded_cogs.clear()
             await asyncio.sleep(2)
             
-            # 最終狀態檢查
+            # 階段2：驗證清理結果
+            logger.info('階段2: 驗證清理結果...')
             final_cogs = len(self.cogs)
             final_extensions = len([e for e in self.extensions.keys() if e.startswith('cogs.')])
-            logger.info(f'重置後狀態: Cogs={final_cogs}, Extensions={final_extensions}')
+            final_modules = len([name for name in sys.modules.keys() if name.startswith('cogs.')])
+            
+            logger.info(f'  清理後狀態: Cogs={final_cogs}, Extensions={final_extensions}, Modules={final_modules}')
             
             if final_cogs > 0 or final_extensions > 0:
-                logger.warning(f'警告：仍有殘留的 Cogs 或擴展')
-                # 強制清除殘留
-                for cog_name in list(self.cogs.keys()):
-                    self.remove_cog(cog_name)
-                    logger.info(f'強制移除殘留 Cog: {cog_name}')
+                logger.error('❌ 清理不完全，仍有殘留！')
+                return
             
-            # 開始重新載入所有 Cogs
-            logger.info('開始重新載入所有 Cogs...')
+            # 階段3：智慧型載入
+            logger.info('階段3: 智慧型載入...')
             successful_loads = 0
             failed_loads = []
             
             for i, extension in enumerate(self.initial_extensions, 1):
                 try:
-                    logger.info(f'嘗試載入 {extension} ({i}/{len(self.initial_extensions)})...')
+                    logger.info(f'  載入 {extension} ({i}/{len(self.initial_extensions)})...')
                     
-                    # 確保模組從 Python 快取中重新載入
+                    # 3.1 確保擴展不在字典中
                     if extension in self.extensions:
-                        logger.warning(f'{extension} 仍在擴展字典中，強制清除')
+                        logger.warning(f'    ⚠️ {extension} 仍在擴展字典，強制移除')
                         try:
                             await self.unload_extension(extension)
+                            await asyncio.sleep(0.2)
                         except:
                             pass
                     
-                    # 重新載入模組
+                    # 3.2 預載入模組檢查
                     if extension in sys.modules:
-                        logger.info(f'重新載入模組: {extension}')
-                        import importlib
+                        logger.info(f'    🔄 模組 {extension} 已在快取中，重新載入')
                         importlib.reload(sys.modules[extension])
                     
-                    # 載入擴展
+                    # 3.3 載入擴展
                     await self.load_extension(extension)
                     self._loaded_cogs.add(extension)
                     successful_loads += 1
-                    logger.info(f'✅ 成功載入 {extension} ({successful_loads}/{len(self.initial_extensions)})')
+                    logger.info(f'    ✅ 成功載入 {extension}')
                     
-                    # 載入間隔
-                    await asyncio.sleep(0.3)
+                    # 3.4 載入間隔
+                    await asyncio.sleep(0.4)
                     
                 except commands.ExtensionAlreadyLoaded:
-                    logger.warning(f'⚠️ {extension} 已載入，嘗試強制重新載入')
+                    logger.warning(f'    ⚠️ {extension} 已載入，嘗試重新載入')
                     try:
                         await self.reload_extension(extension)
                         self._loaded_cogs.add(extension)
                         successful_loads += 1
-                        logger.info(f'✅ 強制重新載入 {extension} 成功')
+                        logger.info(f'    ✅ 重新載入 {extension} 成功')
                     except Exception as reload_error:
-                        logger.error(f'❌ 強制重新載入 {extension} 失敗: {str(reload_error)}')
+                        logger.error(f'    ❌ 重新載入 {extension} 失敗: {str(reload_error)}')
                         failed_loads.append(extension)
-                    
+                
                 except Exception as e:
-                    logger.error(f'❌ 載入 {extension} 失敗: {str(e)}')
+                    logger.error(f'    ❌ 載入 {extension} 失敗: {str(e)}')
                     failed_loads.append(extension)
             
-            # 載入結果報告
-            logger.info(f'Cog 載入完成: 成功 {successful_loads}/{len(self.initial_extensions)}')
-            if failed_loads:
-                logger.warning(f'載入失敗的擴展: {", ".join(failed_loads)}')
+            # 階段4：載入結果驗證
+            logger.info('階段4: 載入結果驗證...')
+            logger.info(f'  📊 載入統計: 成功 {successful_loads}/{len(self.initial_extensions)}')
             
-            # 同步斜線指令
-            logger.info('開始同步斜線指令...')
+            if failed_loads:
+                logger.error(f'  ❌ 載入失敗: {", ".join(failed_loads)}')
+            else:
+                logger.info('  ✅ 所有擴展載入成功！')
+            
+            # 顯示載入的 Cogs
+            loaded_cogs = list(self.cogs.keys())
+            logger.info(f'  📋 已載入的 Cogs ({len(loaded_cogs)}): {", ".join(loaded_cogs)}')
+            
+            # 階段5：終極指令同步
+            logger.info('階段5: 終極指令同步...')
             try:
+                # 5.1 同步前檢查
+                all_commands = self.tree._global_commands
+                logger.info(f'  同步前指令數量: {len(all_commands)}')
+                
+                if all_commands:
+                    pre_sync_names = [cmd.name for cmd in all_commands.values()]
+                    logger.info(f'  待同步指令: {", ".join(pre_sync_names)}')
+                
+                # 5.2 執行同步
                 synced_commands = await self.tree.sync()
-                logger.info(f'✅ 斜線指令同步完成，共同步 {len(synced_commands)} 個指令')
+                logger.info(f'  ✅ 指令同步完成，共同步 {len(synced_commands)} 個指令')
                 
                 if synced_commands:
-                    command_names = [cmd.name for cmd in synced_commands]
-                    logger.info(f'同步的指令: {", ".join(command_names)}')
+                    synced_names = [cmd.name for cmd in synced_commands]
+                    logger.info(f'  📋 已同步指令: {", ".join(synced_names)}')
                 else:
-                    logger.warning('⚠️ 沒有指令被同步，可能需要檢查 Cog 載入')
-                    
+                    logger.warning('  ⚠️ 沒有指令被同步')
+                
             except Exception as sync_error:
-                logger.error(f'❌ 同步斜線指令時發生錯誤: {str(sync_error)}')
+                logger.error(f'  ❌ 指令同步失敗: {str(sync_error)}')
+                import traceback
+                logger.error(f'  同步錯誤詳情: {traceback.format_exc()}')
+            
+            # 階段6：最終狀態報告
+            logger.info('階段6: 最終狀態報告...')
+            logger.info(f'  🎯 最終統計:')
+            logger.info(f'    載入的擴展: {len(self._loaded_cogs)}')
+            logger.info(f'    活躍的 Cogs: {len(self.cogs)}')
+            logger.info(f'    同步的指令: {len(synced_commands) if "synced_commands" in locals() else 0}')
+            
+            if successful_loads == len(self.initial_extensions) and not failed_loads:
+                logger.info('🎉 終極修復完全成功！機器人已準備就緒！')
+            else:
+                logger.warning('⚠️ 修復過程中有部分問題，但機器人基本可用')
             
         except Exception as e:
-            logger.error(f'❌ 設置過程中發生嚴重錯誤: {str(e)}')
+            logger.error(f'❌ 終極修復過程發生嚴重錯誤: {str(e)}')
             import traceback
             logger.error(f'錯誤詳情: {traceback.format_exc()}')
             
