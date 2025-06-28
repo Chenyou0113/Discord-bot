@@ -7,23 +7,32 @@
 - JSON 解析修復已完成並通過測試 ✅
 - 雙重解析機制已實作在所有雷達圖方法中 ✅
 - 驗證腳本 `verify_json_fix.py` 測試成功 ✅
+- 防止指令重複註冊機制已加入 ✅
+
+## ⚠️ 已知問題與修復
+### 指令重複註冊錯誤
+**錯誤**: `CommandAlreadyRegistered: Command 'weather_station' already registered`
+**原因**: 機器人重新載入時沒有正確清理舊指令
+**修復**: 已在 `bot.py` 中加入 Cog 卸載機制
 
 ## 🚀 重啟步驟
 
-### 1. 確認舊進程已停止
+### 方法 1: 使用安全啟動腳本 (推薦)
 ```powershell
-tasklist | findstr python
-# 應該沒有或很少 python.exe 進程
+safe_start_bot.bat
 ```
 
-### 2. 重新啟動機器人
+### 方法 2: 手動重啟
+1. **停止所有 Python 進程**:
+```powershell
+taskkill /F /IM python.exe
+```
+
+2. **等待 3 秒讓進程完全清理**
+
+3. **重新啟動機器人**:
 ```powershell
 python bot.py
-```
-
-或使用批次檔：
-```powershell
-start_weather_bot.bat
 ```
 
 ### 3. 驗證修復生效

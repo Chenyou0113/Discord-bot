@@ -24,16 +24,35 @@ class AirQualityCommands(commands.Cog):
     
     def __init__(self, bot):
         self.bot = bot
+        # 主要 API 端點
         self.epa_api_base = "https://data.epa.gov.tw/api/v2/aqx_p_432"
+        # 備援 API 端點
+        self.backup_apis = [
+            "https://data.moenv.gov.tw/api/v2/aqx_p_432",  # 環境部新域名
+            "https://opendata.epa.gov.tw/api/v2/aqx_p_432",  # 開放資料平台
+        ]
         self.api_key = "94650864-6a80-4c58-83ce-fd13e7ef0504"
         self.air_quality_cache = {}  # 快取空氣品質資料
         self.cache_timestamp = 0
         self.cache_duration = 1800  # 快取 30 分鐘
         
-        # 設定 SSL 上下文
+        # 設定 SSL 上下文 - 更寬鬆的設定
         self.ssl_context = ssl.create_default_context()
         self.ssl_context.check_hostname = False
         self.ssl_context.verify_mode = ssl.CERT_NONE
+        # 加入更多 SSL 選項
+        self.ssl_context.set_ciphers('DEFAULT@SECLEVEL=1')
+        
+        # DNS 設定
+        self.dns_servers = ['8.8.8.8', '1.1.1.1', '168.95.1.1']
+        
+        # 台灣縣市列表
+        self.taiwan_counties = [
+            "臺北市", "新北市", "桃園市", "臺中市", "臺南市", "高雄市",
+            "基隆市", "新竹市", "嘉義市",
+            "新竹縣", "苗栗縣", "彰化縣", "南投縣", "雲林縣", "嘉義縣",
+            "屏東縣", "宜蘭縣", "花蓮縣", "臺東縣", "澎湖縣", "金門縣", "連江縣"
+        ]
         
         # AQI 等級定義
         self.aqi_levels = [
@@ -46,7 +65,7 @@ class AirQualityCommands(commands.Cog):
         ]
         
     async def fetch_air_quality_data(self) -> Dict:
-        """從環保署 API 獲取空氣品質資料"""
+        """從環保署 API 獲取空氣品質資料，支援多端點備援"""
         try:
             # 檢查快取
             current_time = asyncio.get_event_loop().time()
@@ -54,7 +73,7 @@ class AirQualityCommands(commands.Cog):
                 current_time - self.cache_timestamp < self.cache_duration):
                 return self.air_quality_cache
             
-            # 構建 API URL
+            # 構建 API 參數
             params = {
                 "api_key": self.api_key,
                 "limit": 1000,
@@ -62,29 +81,65 @@ class AirQualityCommands(commands.Cog):
                 "format": "JSON"
             }
             
-            logger.info(f"正在從環保署 API 獲取空氣品質資料: {self.epa_api_base}")
+            # 嘗試的 API 端點列表
+            api_endpoints = [self.epa_api_base] + self.backup_apis
             
-            # 建立 SSL 連接器
-            connector = aiohttp.TCPConnector(ssl=self.ssl_context)
-            timeout = aiohttp.ClientTimeout(total=30)
+            for i, api_url in enumerate(api_endpoints):
+                try:
+                    logger.info(f"正在嘗試第 {i+1} 個 API 端點: {api_url}")
+                    
+                    # 設定連接器 - 每次嘗試都使用新的設定
+                    connector = aiohttp.TCPConnector(
+                        ssl=self.ssl_context,
+                        limit=10,
+                        force_close=True,
+                        enable_cleanup_closed=True,
+                        use_dns_cache=False,  # 禁用 DNS 快取
+                        family=0,  # 允許 IPv4 和 IPv6
+                        local_addr=None
+                    )
+                    
+                    timeout = aiohttp.ClientTimeout(
+                        total=30,
+                        connect=10,
+                        sock_read=10
+                    )
+                    
+                    async with aiohttp.ClientSession(
+                        connector=connector, 
+                        timeout=timeout,
+                        headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                    ) as session:
+                        async with session.get(api_url, params=params) as response:
+                            if response.status == 200:
+                                data = await response.json()
+                                
+                                # 更新快取
+                                self.air_quality_cache = data
+                                self.cache_timestamp = current_time
+                                
+                                logger.info(f"✓ 成功從第 {i+1} 個端點獲取空氣品質資料，共 {len(data.get('records', []))} 筆記錄")
+                                return data
+                            else:
+                                logger.warning(f"✗ 第 {i+1} 個端點回應異常: HTTP {response.status}")
+                                
+                except asyncio.TimeoutError:
+                    logger.warning(f"✗ 第 {i+1} 個端點請求超時")
+                except aiohttp.ClientConnectorError as e:
+                    logger.warning(f"✗ 第 {i+1} 個端點連線錯誤: {e}")
+                except Exception as e:
+                    logger.warning(f"✗ 第 {i+1} 個端點發生錯誤: {e}")
+                
+                # 等待一下再嘗試下一個端點
+                if i < len(api_endpoints) - 1:
+                    await asyncio.sleep(1)
             
-            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-                async with session.get(self.epa_api_base, params=params) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        
-                        # 更新快取
-                        self.air_quality_cache = data
-                        self.cache_timestamp = current_time
-                        
-                        logger.info(f"成功獲取空氣品質資料，共 {len(data.get('records', []))} 筆記錄")
-                        return data
-                    else:
-                        logger.error(f"API 請求失敗: HTTP {response.status}")
-                        return {}
+            # 所有端點都失敗
+            logger.error("✗ 所有空氣品質 API 端點都無法連線")
+            return {}
                         
         except Exception as e:
-            logger.error(f"獲取空氣品質資料時發生錯誤: {e}")
+            logger.error(f"獲取空氣品質資料時發生嚴重錯誤: {e}")
             return {}
     
     def get_aqi_info(self, aqi_value: int) -> Dict:
@@ -316,9 +371,33 @@ class AirQualityCommands(commands.Cog):
     
     @app_commands.command(name="air_quality_county", description="按縣市查詢空氣品質")
     @app_commands.describe(
-        county="縣市名稱",
+        county="選擇縣市",
         page="頁數（預設為第1頁）"
     )
+    @app_commands.choices(county=[
+        app_commands.Choice(name="臺北市", value="臺北市"),
+        app_commands.Choice(name="新北市", value="新北市"),
+        app_commands.Choice(name="桃園市", value="桃園市"),
+        app_commands.Choice(name="臺中市", value="臺中市"),
+        app_commands.Choice(name="臺南市", value="臺南市"),
+        app_commands.Choice(name="高雄市", value="高雄市"),
+        app_commands.Choice(name="基隆市", value="基隆市"),
+        app_commands.Choice(name="新竹市", value="新竹市"),
+        app_commands.Choice(name="嘉義市", value="嘉義市"),
+        app_commands.Choice(name="新竹縣", value="新竹縣"),
+        app_commands.Choice(name="苗栗縣", value="苗栗縣"),
+        app_commands.Choice(name="彰化縣", value="彰化縣"),
+        app_commands.Choice(name="南投縣", value="南投縣"),
+        app_commands.Choice(name="雲林縣", value="雲林縣"),
+        app_commands.Choice(name="嘉義縣", value="嘉義縣"),
+        app_commands.Choice(name="屏東縣", value="屏東縣"),
+        app_commands.Choice(name="宜蘭縣", value="宜蘭縣"),
+        app_commands.Choice(name="花蓮縣", value="花蓮縣"),
+        app_commands.Choice(name="臺東縣", value="臺東縣"),
+        app_commands.Choice(name="澎湖縣", value="澎湖縣"),
+        app_commands.Choice(name="金門縣", value="金門縣"),
+        app_commands.Choice(name="連江縣", value="連江縣")
+    ])
     async def air_quality_county(self, interaction: discord.Interaction, county: str, page: Optional[int] = 1):
         """按縣市查詢空氣品質"""
         await interaction.response.defer()

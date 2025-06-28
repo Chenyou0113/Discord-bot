@@ -31,14 +31,17 @@ echo      /weather_station_info C0A940
 echo.
 echo    空氣品質查詢：
 echo      /air_quality 台北
-echo      /air_quality_by_county 新北市
-echo      /air_quality_station 中山
+echo      /air_quality_county - ✨ 新功能：下拉選單選擇縣市
+echo      /air_quality_site 中山
 echo.
 echo    雷達圖查詢：
 echo      /radar - 一般範圍雷達圖
 echo      /radar_large - 大範圍雷達圖
 echo      /rainfall_radar - 降雨雷達圖 (樹林/南屯/林園)
 echo      /radar_info - 雷達圖功能說明
+echo.
+echo    溫度分布查詢：
+echo      /temperature - ✨ 新功能：查詢台灣溫度分布狀態
 echo.
 echo    • 按 Ctrl+C 可停止機器人
 echo    • 查看 bot.log 了解詳細執行記錄

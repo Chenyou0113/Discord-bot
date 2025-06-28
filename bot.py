@@ -121,7 +121,8 @@ class CustomBot(commands.Bot):
             'cogs.search_commands',
             'cogs.weather_commands',
             'cogs.air_quality_commands',
-            'cogs.radar_commands'
+            'cogs.radar_commands',
+            'cogs.temperature_commands'
         ]
         self.startup_channels = {}
         self._sync_in_progress = False
@@ -139,13 +140,67 @@ class CustomBot(commands.Bot):
             )
             logger.info('成功初始化 aiohttp 連接器')
             
+            # 清除已載入的 Cogs 和指令 (防止重複載入)
+            logger.info('清除舊的 Cogs 和指令...')
+            
+            # 1. 清除所有斜線指令
+            self.tree.clear_commands(guild=None)
+            
+            # 2. 卸載所有 Cogs
+            for cog_name in list(self.cogs.keys()):
+                try:
+                    await self.unload_extension(f'cogs.{cog_name}')
+                    logger.info(f'已卸載舊的 Cog: {cog_name}')
+                except Exception as e:
+                    logger.warning(f'卸載 {cog_name} 時發生錯誤: {str(e)}')
+            
+            # 3. 清除擴展字典
+            for extension_name in list(self.extensions.keys()):
+                try:
+                    if extension_name.startswith('cogs.'):
+                        await self.unload_extension(extension_name)
+                        logger.info(f'已卸載擴展: {extension_name}')
+                except Exception as e:
+                    logger.warning(f'卸載擴展 {extension_name} 時發生錯誤: {str(e)}')
+            
+            # 4. 重置載入記錄
+            self._loaded_cogs.clear()
+            
+            # 等待一下確保清理完成
+            await asyncio.sleep(1)
+            
             # 載入所有 Cogs
+            logger.info('開始載入 Cogs...')
             for extension in self.initial_extensions:
                 try:
+                    # 檢查是否已在擴展字典中
+                    if extension in self.extensions:
+                        logger.warning(f'{extension} 已存在於擴展字典中，跳過載入')
+                        continue
+                    
+                    # 檢查是否已在載入記錄中
+                    if extension in self._loaded_cogs:
+                        logger.warning(f'{extension} 已在載入記錄中，跳過載入')
+                        continue
+                    
                     await self.load_extension(extension)
-                    logger.info(f'已載入 {extension}')
+                    self._loaded_cogs.add(extension)
+                    logger.info(f'✅ 成功載入 {extension}')
+                    
+                except commands.ExtensionAlreadyLoaded:
+                    logger.warning(f'⚠️ {extension} 已載入，跳過')
+                    self._loaded_cogs.add(extension)
+                    
+                except commands.ExtensionError as e:
+                    logger.error(f'❌ 載入 {extension} 時發生擴展錯誤: {str(e)}')
+                    
                 except Exception as e:
-                    logger.error(f'載入 {extension} 時發生錯誤: {str(e)}')
+                    logger.error(f'❌ 載入 {extension} 時發生未知錯誤: {str(e)}')
+            
+            # 檢查載入結果
+            loaded_count = len(self._loaded_cogs)
+            total_count = len(self.initial_extensions)
+            logger.info(f'Cog 載入完成: {loaded_count}/{total_count}')
             
             # 全局同步斜線指令
             logger.info('開始同步斜線指令...')
