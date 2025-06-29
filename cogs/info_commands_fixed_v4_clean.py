@@ -31,117 +31,16 @@ WEATHER_COLOR_MAP = {
     'default': discord.Color.light_grey()
 }
 
-# 天氣預報用表情符號對應
-WEATHER_EMOJI = {
-    "晴天": "☀️",
-    "晴時多雲": "🌤️",
-    "多雲時晴": "⛅",
-    "多雲": "☁️",
-    "多雲時陰": "☁️",
-    "陰時多雲": "🌥️",
-    "陰天": "🌫️",
-    "多雲陣雨": "🌦️",
-    "多雲短暫雨": "🌦️",
-    "多雲時陰短暫雨": "🌧️",
-    "陰時多雲短暫雨": "🌧️",
-    "陰天陣雨": "🌧️",
-    "陰天短暫雨": "🌧️", 
-    "短暫雨": "🌧️",
-    "雨天": "🌧️",
-    "陣雨": "🌧️",
-    "午後雷陣雨": "⛈️",
-    "雷雨": "⛈️",
-    "多雲雷陣雨": "⛈️",
-    "晴午後陣雨": "🌦️",
-    "晴午後雷陣雨": "⛈️",
-    "陰陣雨": "🌧️",
-    "多雲時晴短暫陣雨": "🌦️",
-    "多雲時晴短暫雨": "🌦️",
-    "多雲短暫陣雨": "🌦️",
-    "多雲時陰陣雨": "🌧️",
-    "陰時多雲陣雨": "🌧️",
-    "陰短暫陣雨": "🌧️",
-    "雨或雪": "🌨️",
-    "雨夾雪": "🌨️",
-    "陰有雨或雪": "🌨️",
-    "多雲時陰有雨或雪": "🌨️",
-    "多雲時陰短暫雨或雪": "🌨️",
-    "多雲時陰短暫雪": "🌨️",
-    "短暫雨或雪": "🌨️",
-    "短暫雪": "❄️",
-    "下雪": "❄️",
-    "積雪": "❄️",
-    "暴雨": "🌊",
-    "大雨": "💦",
-    "豪雨": "🌊",
-    "大豪雨": "🌊",
-    "超大豪雨": "🌊",
-    "焚風": "🔥",
-    "乾燥": "🏜️",
-    "寒冷": "❄️",
-    "熱浪": "🔥",
-    "鋒面": "🌡️",
-    "雲系": "☁️",
-    "有霧": "🌫️",
-    "霧": "🌫️",
-    "煙霧": "🌫️",
-    "沙塵暴": "🏜️"
-}
-
-class WeatherView(View):
-    def __init__(self, cog, user_id: int, locations: List[str]):
-        super().__init__(timeout=120)
-        self.cog = cog
-        self.user_id = user_id
-        self.locations = locations
-        self.add_location_select()
-
-    def add_location_select(self):
-        select = Select(
-            placeholder="選擇縣市查看天氣預報...",
-            options=[discord.SelectOption(label=location, value=location) for location in self.locations]
-        )
-        select.callback = self.on_location_select
-        self.add_item(select)
-
-    async def on_location_select(self, interaction: discord.Interaction):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("⚠️ 請使用自己的天氣選單！", ephemeral=True)
-            return
-            
-        location = interaction.data['values'][0]
-        
-        try:
-            # 使用缓存获取天气数据
-            await interaction.response.defer(ephemeral=True, thinking=True)
-            embed = await self.cog.format_weather_data(location)
-            
-            if embed:
-                await interaction.followup.send(embed=embed, ephemeral=True)
-            else:
-                await interaction.followup.send("❌ 無法獲取天氣資料，請稍後再試。", ephemeral=True)
-        except Exception as e:
-            logger.error(f"處理天氣選單選擇時發生錯誤: {str(e)}")
-            await interaction.followup.send("❌ 處理請求時發生錯誤，請稍後再試。", ephemeral=True)
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("⚠️ 這不是您的天氣選單！", ephemeral=True)
-            return False
-        return True
-
 class InfoCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.earthquake_cache = {}
         self.tsunami_cache = {}  # 新增海嘯資料快取
-        self.weather_cache = {}
         self.weather_alert_cache = {}
         self.reservoir_cache = {}
         self.water_info_cache = {}  # 新增水情資料快取
         self.cache_time = 0
         self.tsunami_cache_time = 0  # 新增海嘯資料快取時間
-        self.weather_cache_time = 0
         self.weather_alert_cache_time = 0
         self.reservoir_cache_time = 0
         self.water_info_cache_time = 0  # 新增水情資料快取時間
@@ -409,52 +308,6 @@ class InfoCommands(commands.Cog):
             logger.warning("沒有可用的快取資料，使用備用地震資料")
             return await self.get_backup_earthquake_data(small_area)
 
-    async def fetch_weather_data(self) -> Optional[Dict[str, Any]]:
-        """從氣象局取得36小時天氣預報資料 (使用非同步請求)"""
-        current_time = datetime.datetime.now().timestamp()
-          # 如果快取資料未過期（30分鐘內），直接返回快取
-        if (self.weather_cache and 
-            current_time - self.weather_cache_time < 1800):
-            logger.info("使用快取的天氣預報資料")
-            return self.weather_cache
-
-        try:
-            url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001"
-            params = {
-                'Authorization': self.api_auth,
-                'format': 'JSON'
-            }
-            
-            # 構建完整的URL
-            param_string = "&".join([f"{k}={v}" for k, v in params.items()])
-            full_url = f"{url}?{param_string}"
-            
-            # 使用非同步請求獲取資料
-            data = await self.fetch_with_retry(full_url, timeout=15, max_retries=3)
-            
-            if data:
-                # 更新快取
-                self.weather_cache = data
-                self.weather_cache_time = current_time
-                logger.info("成功獲取並更新天氣預報資料快取")
-                return data
-            else:
-                # 如果請求失敗，檢查是否有快取資料可用
-                if self.weather_cache:
-                    logger.warning("天氣資料請求失敗，使用過期的快取資料")
-                    return self.weather_cache
-                return None
-                
-        except Exception as e:
-            logger.error(f"獲取天氣預報資料時發生錯誤: {str(e)}")
-            
-            # 如果發生錯誤，檢查是否有快取資料可用
-            if self.weather_cache:
-                logger.info("發生錯誤，使用天氣預報快取資料")
-                return self.weather_cache
-                
-            return None
-
     async def fetch_tsunami_data(self) -> Optional[Dict[str, Any]]:
         """從氣象局取得最新海嘯資料 (使用非同步請求)"""
         current_time = datetime.datetime.now().timestamp()
@@ -662,135 +515,6 @@ class InfoCommands(commands.Cog):
         except Exception as e:
             logger.error(f"格式化地震資料時發生錯誤: {str(e)}")
             return None
-
-    async def format_weather_data(self, location: str) -> Optional[discord.Embed]:
-        """將天氣預報資料格式化為Discord嵌入訊息，同一天的資訊顯示在一起"""
-        try:
-            # 獲取天氣預報資料
-            weather_data = await self.fetch_weather_data()
-            
-            if not weather_data or 'records' not in weather_data or 'location' not in weather_data['records']:
-                return None
-                
-            # 尋找指定地區的天氣資料
-            target_location = None
-            for loc in weather_data['records']['location']:
-                if loc['locationName'] == location:
-                    target_location = loc
-                    break
-                    
-            if not target_location:
-                return None
-                
-            # 建立嵌入訊息
-            embed = discord.Embed(
-                title=f"🌤️ {location}天氣預報",
-                color=discord.Color.blue(),
-                timestamp=datetime.datetime.now()
-            )
-            
-            # 整理資料，按日期分組
-            date_groups = {}
-            time_periods = []
-            
-            # 先獲取所有時間段
-            if target_location['weatherElement'] and len(target_location['weatherElement']) > 0:
-                for period in target_location['weatherElement'][0]['time']:
-                    start_time = period['startTime']
-                    end_time = period['endTime']
-                    
-                    # 提取日期 (忽略時間)
-                    date = start_time.split(' ')[0]
-                    
-                    # 創建日期組
-                    if date not in date_groups:
-                        date_groups[date] = []
-                    
-                    # 將時間段添加到對應的日期組
-                    date_groups[date].append({
-                        'start': start_time,
-                        'end': end_time,
-                        'data': {}
-                    })
-                    
-                    # 保存時間段順序
-                    time_periods.append({
-                        'date': date,
-                        'start': start_time,
-                        'end': end_time
-                    })
-                    
-            # 填充每個時間段的天氣資料
-            for element in target_location['weatherElement']:
-                element_name = element['elementName']
-                
-                for i, period in enumerate(element['time']):
-                    if i < len(time_periods):
-                        date = time_periods[i]['date']
-                        start_time = time_periods[i]['start']
-                        end_time = time_periods[i]['end']
-                        
-                        # 在對應的時間段中找到正確的條目
-                        for entry in date_groups[date]:
-                            if entry['start'] == start_time and entry['end'] == end_time:
-                                entry['data'][element_name] = period['parameter']
-                                break
-            
-            # 按日期顯示天氣資料
-            for date, periods in date_groups.items():
-                # 轉換日期格式為更友好的顯示
-                display_date = date.replace('-', '/')
-                
-                # 添加日期標題
-                embed.add_field(
-                    name=f"📅 {display_date}",
-                    value="天氣預報資訊",
-                    inline=False
-                )
-                
-                # 添加每個時間段的詳細資訊
-                for period in periods:
-                    # 提取時間部分
-                    start_hour = period['start'].split(' ')[1].split(':')[0]
-                    end_hour = period['end'].split(' ')[1].split(':')[0]
-                    time_range = f"{start_hour}:00 - {end_hour}:00"
-                    
-                    # 獲取天氣資料
-                    wx_data = period['data'].get('Wx', {})
-                    pop_data = period['data'].get('PoP', {})
-                    min_t_data = period['data'].get('MinT', {})
-                    max_t_data = period['data'].get('MaxT', {})
-                    ci_data = period['data'].get('CI', {})
-                    
-                    # 取得天氣描述和表情符號
-                    wx_desc = wx_data.get('parameterName', '未知')
-                    weather_emoji = WEATHER_EMOJI.get(wx_desc, "🌈")
-                      # 建立資訊字串
-                    info = []
-                    info.append(f"**天氣狀況:** {wx_desc}")
-                    
-                    if pop_data:
-                        info.append(f"**降雨機率:** {pop_data.get('parameterName', '未知')}%")
-                    if min_t_data and max_t_data:
-                        info.append(f"**溫度範圍:** {min_t_data.get('parameterName', '未知')}°C - {max_t_data.get('parameterName', '未知')}°C")
-                    
-                    if ci_data:
-                        info.append(f"**舒適度:** {ci_data.get('parameterName', '未知')}")
-                    
-                    # 添加到嵌入訊息
-                    embed.add_field(
-                        name=f"{weather_emoji} {time_range}",
-                        value="\n".join(info),
-                        inline=True            )
-            
-            # 添加資料來源和更新時間
-            embed.set_footer(text=f"資料來源: 中央氣象署 | 查詢時間: {datetime.datetime.now().strftime('%Y/%m/%d %H:%M')}")
-            
-            return embed
-            
-        except Exception as e:
-            logger.error(f"格式化天氣資料時發生錯誤: {str(e)}")
-            return None
             
     @app_commands.command(name="earthquake", description="查詢最新地震資訊")
     @app_commands.describe(earthquake_type="選擇地震資料類型")
@@ -976,32 +700,6 @@ class InfoCommands(commands.Cog):
         except Exception as e:
             logger.error(f"增強地震資料時發生錯誤: {str(e)}")
             return eq_data  # 返回原始資料
-
-    @app_commands.command(name="weather", description="查詢天氣預報")
-    @app_commands.describe(location="要查詢的地區 (縣市)")
-    @app_commands.choices(location=[
-        app_commands.Choice(name=loc, value=loc) for loc in TW_LOCATIONS
-    ])
-    async def weather(self, interaction: discord.Interaction, location: str = None):
-        """查詢天氣預報"""
-        if location:
-            await interaction.response.defer()
-            
-            try:
-                # 獲取並格式化天氣資料
-                embed = await self.format_weather_data(location)
-                
-                if embed:
-                    await interaction.followup.send(embed=embed)
-                else:
-                    await interaction.followup.send("❌ 無法獲取天氣資料，請稍後再試。")
-            except Exception as e:
-                logger.error(f"weather指令執行時發生錯誤: {str(e)}")
-                await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
-        else:
-            # 提供互動式選單
-            view = WeatherView(self, interaction.user.id, TW_LOCATIONS)
-            await interaction.response.send_message("請選擇要查詢的縣市：", view=view, ephemeral=True)
 
     @app_commands.command(name="set_earthquake_channel", description="設定地震通知頻道 (需管理員權限)")
     @app_commands.describe(channel="要設定為地震通知頻道的文字頻道")

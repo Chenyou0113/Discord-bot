@@ -14,6 +14,7 @@ import asyncio
 import logging
 from typing import Optional, List, Dict, Tuple
 import urllib.parse
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -281,6 +282,158 @@ class WeatherCommands(commands.Cog):
         embed.set_footer(text=f"第 {page}/{total_pages} 頁 | 資料來源：中央氣象署開放資料平臺")
         return embed, total_pages
     
+    async def fetch_weather_observation_data(self) -> Dict:
+        """從 CWA API 獲取實際天氣觀測資料"""
+        try:
+            # 構建 API URL
+            endpoint = "O-A0001-001"  # 自動氣象測站資料
+            url = f"{self.cwa_api_base}/{endpoint}"
+            
+            params = {
+                "Authorization": self.authorization,
+                "format": "JSON"
+            }
+            
+            logger.info(f"正在從 CWA API 獲取天氣觀測資料: {url}")
+            
+            # 設定 SSL 上下文
+            import ssl
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            
+            async with aiohttp.ClientSession(connector=connector) as session:
+                async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        
+                        if data.get('success') == 'true':
+                            return data
+                        else:
+                            logger.error(f"API 回應失敗: {data}")
+                            return {}
+                    else:
+                        logger.error(f"API 請求失敗，狀態碼: {response.status}")
+                        return {}
+                        
+        except Exception as e:
+            logger.error(f"獲取天氣觀測資料時發生錯誤: {str(e)}")
+            return {}
+
+    def search_weather_stations(self, stations: List[Dict], query: str) -> List[Dict]:
+        """搜尋天氣測站"""
+        if not query:
+            return stations[:10]  # 如果沒有查詢條件，返回前10個
+        
+        query_lower = query.lower()
+        matches = []
+        
+        for station in stations:
+            # 搜尋測站名稱
+            station_name = station.get('StationName', '').lower()
+            if query_lower in station_name:
+                matches.append(station)
+        
+        return matches
+
+    def format_weather_data_embed(self, stations: List[Dict], query: str = "") -> discord.Embed:
+        """格式化天氣資料為 Discord Embed"""
+        if not stations:
+            embed = discord.Embed(
+                title="❌ 未找到天氣資料",
+                description=f"無法找到符合 '{query}' 的天氣測站資料。",
+                color=discord.Color.red()
+            )
+            embed.add_field(
+                name="💡 建議",
+                value="請嘗試使用不同的關鍵字，如：板橋、淡水、桃園、新竹等。",
+                inline=False
+            )
+            return embed
+        
+        # 限制顯示數量
+        display_stations = stations[:5]
+        
+        if query:
+            title = f"🌤️ '{query}' 的天氣資訊"
+        else:
+            title = "🌤️ 天氣觀測資料"
+        
+        embed = discord.Embed(
+            title=title,
+            color=discord.Color.blue(),
+            timestamp=datetime.now()
+        )
+        
+        for i, station in enumerate(display_stations, 1):
+            station_name = station.get('StationName', 'N/A')
+            station_id = station.get('StationId', 'N/A')
+            obs_time = station.get('ObsTime', {}).get('DateTime', 'N/A')
+            
+            # 解析天氣要素
+            weather_elements = station.get('WeatherElement', {})
+            
+            # 獲取主要天氣資訊
+            temp = weather_elements.get('AirTemperature', 'N/A')
+            humidity = weather_elements.get('RelativeHumidity', 'N/A')
+            pressure = weather_elements.get('AirPressure', 'N/A')
+            wind_speed = weather_elements.get('WindSpeed', 'N/A')
+            wind_dir = weather_elements.get('WindDirection', 'N/A')
+            
+            # 降雨量資訊
+            rainfall_now = 'N/A'
+            rainfall_info = weather_elements.get('Now', {})
+            if rainfall_info and 'Precipitation' in rainfall_info:
+                rainfall_now = rainfall_info.get('Precipitation', 'N/A')
+            
+            # 建立天氣資訊文字
+            weather_info = []
+            
+            if temp != 'N/A':
+                weather_info.append(f"🌡️ **氣溫:** {temp}°C")
+            if humidity != 'N/A':
+                weather_info.append(f"💧 **濕度:** {humidity}%")
+            if pressure != 'N/A':
+                weather_info.append(f"📊 **氣壓:** {pressure} hPa")
+            if wind_speed != 'N/A':
+                weather_info.append(f"💨 **風速:** {wind_speed} m/s")
+            if wind_dir != 'N/A':
+                weather_info.append(f"🧭 **風向:** {wind_dir}°")
+            if rainfall_now != 'N/A':
+                weather_info.append(f"🌧️ **降雨量:** {rainfall_now} mm")
+            
+            # 觀測時間
+            if obs_time != 'N/A':
+                try:
+                    # 格式化時間顯示
+                    dt = datetime.fromisoformat(obs_time.replace('+08:00', ''))
+                    formatted_time = dt.strftime('%m/%d %H:%M')
+                    weather_info.append(f"⏰ **觀測時間:** {formatted_time}")
+                except:
+                    weather_info.append(f"⏰ **觀測時間:** {obs_time}")
+            
+            field_value = '\n'.join(weather_info) if weather_info else "無天氣資料"
+            
+            embed.add_field(
+                name=f"{i}. {station_name} ({station_id})",
+                value=field_value,
+                inline=True
+            )
+        
+        # 如果有更多結果，顯示提示
+        if len(stations) > 5:
+            embed.add_field(
+                name="📝 注意",
+                value=f"找到 {len(stations)} 個測站，僅顯示前 5 個結果。",
+                inline=False
+            )
+        
+        embed.set_footer(text="資料來源：中央氣象署")
+        
+        return embed
+
     @app_commands.command(name="weather_station", description="查詢中央氣象署無人氣象測站基本資料")
     @app_commands.describe(
         query="搜尋關鍵字（測站名稱、編號、縣市或位置）",
@@ -510,6 +663,67 @@ class WeatherCommands(commands.Cog):
             embed = discord.Embed(
                 title="❌ 系統錯誤",
                 description=f"查詢過程中發生錯誤：{str(e)}",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=embed)
+
+    @app_commands.command(name="weather", description="查詢台灣天氣觀測資訊")
+    @app_commands.describe(location="要查詢的地點名稱（如：板橋、淡水、桃園）")
+    async def weather(self, interaction: discord.Interaction, location: str = ""):
+        """查詢天氣觀測資訊"""
+        await interaction.response.defer()
+        
+        try:
+            logger.info(f"用戶 {interaction.user} 查詢天氣: {location}")
+            
+            # 獲取天氣觀測資料
+            data = await self.fetch_weather_observation_data()
+            
+            if not data:
+                embed = discord.Embed(
+                    title="❌ 無法獲取天氣資料",
+                    description="目前無法連接到氣象署 API，請稍後再試。",
+                    color=discord.Color.red()
+                )
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 解析測站資料
+            stations = data.get('records', {}).get('Station', [])
+            
+            if not stations:
+                embed = discord.Embed(
+                    title="❌ 無天氣資料",
+                    description="目前沒有可用的天氣觀測資料。",
+                    color=discord.Color.red()
+                )
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 搜尋符合條件的測站
+            if location:
+                matching_stations = self.search_weather_stations(stations, location)
+            else:
+                # 如果沒有指定地點，顯示一些熱門測站
+                popular_locations = ["板橋", "淡水", "桃園", "新竹", "台中"]
+                matching_stations = []
+                for loc in popular_locations:
+                    matches = self.search_weather_stations(stations, loc)
+                    if matches:
+                        matching_stations.extend(matches[:1])  # 每個地點取1個
+                
+                if not matching_stations:
+                    matching_stations = stations[:5]  # 如果都沒有，取前5個
+            
+            # 格式化並發送結果
+            embed = self.format_weather_data_embed(matching_stations, location)
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"天氣查詢指令執行錯誤: {str(e)}")
+            embed = discord.Embed(
+                title="❌ 指令執行錯誤",
+                description="執行天氣查詢時發生錯誤，請稍後再試。",
                 color=discord.Color.red()
             )
             await interaction.followup.send(embed=embed)

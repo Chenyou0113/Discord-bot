@@ -1,0 +1,198 @@
+{
+  "total_stations": 503,
+  "sample_stations": [
+    {
+      "StationName": "硬漢嶺",
+      "StationId": "C0AK30",
+      "ObsTime": {
+        "DateTime": "2025-06-29T13:00:00+08:00"
+      },
+      "GeoInfo": {
+        "Coordinates": [
+          {
+            "CoordinateName": "TWD67",
+            "CoordinateFormat": "decimal degrees",
+            "StationLatitude": "25.137872",
+            "StationLongitude": "121.418140"
+          },
+          {
+            "CoordinateName": "WGS84",
+            "CoordinateFormat": "decimal degrees",
+            "StationLatitude": "25.136097",
+            "StationLongitude": "121.426372"
+          }
+        ],
+        "StationAltitude": "607.0",
+        "CountyName": "新北市",
+        "TownName": "八里區",
+        "CountyCode": "65000",
+        "TownCode": "65000230"
+      },
+      "WeatherElement": {
+        "Weather": "陰",
+        "Now": {
+          "Precipitation": "0.0"
+        },
+        "WindDirection": "86.0",
+        "WindSpeed": "0.5",
+        "AirTemperature": "31.1",
+        "RelativeHumidity": "59",
+        "AirPressure": "939.3",
+        "GustInfo": {
+          "PeakGustSpeed": "-99",
+          "Occurred_at": {
+            "WindDirection": "-99",
+            "DateTime": "-99"
+          }
+        },
+        "DailyExtreme": {
+          "DailyHigh": {
+            "TemperatureInfo": {
+              "AirTemperature": "31.6",
+              "Occurred_at": {
+                "DateTime": "2025-06-29T10:20:00+08:00"
+              }
+            }
+          },
+          "DailyLow": {
+            "TemperatureInfo": {
+              "AirTemperature": "22.9",
+              "Occurred_at": {
+                "DateTime": "2025-06-29T03:10:00+08:00"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "StationName": "秀林",
+      "StationId": "C0TA40",
+      "ObsTime": {
+        "DateTime": "2025-06-29T13:00:00+08:00"
+      },
+      "GeoInfo": {
+        "Coordinates": [
+          {
+            "CoordinateName": "TWD67",
+            "CoordinateFormat": "decimal degrees",
+            "StationLatitude": "24.304668",
+            "StationLongitude": "121.722972"
+          },
+          {
+            "CoordinateName": "WGS84",
+            "CoordinateFormat": "decimal degrees",
+            "StationLatitude": "24.302864",
+            "StationLongitude": "121.731144"
+          }
+        ],
+        "StationAltitude": "930.0",
+        "CountyName": "花蓮縣",
+        "TownName": "秀林鄉",
+        "CountyCode": "10015",
+        "TownCode": "10015110"
+      },
+      "WeatherElement": {
+        "Weather": "陰",
+        "Now": {
+          "Precipitation": "0.0"
+        },
+        "WindDirection": "132.0",
+        "WindSpeed": "2.6",
+        "AirTemperature": "23.9",
+        "RelativeHumidity": "82",
+        "AirPressure": "906.2",
+        "GustInfo": {
+          "PeakGustSpeed": "-99",
+          "Occurred_at": {
+            "WindDirection": "-99",
+            "DateTime": "-99"
+          }
+        },
+        "DailyExtreme": {
+          "DailyHigh": {
+            "TemperatureInfo": {
+              "AirTemperature": "25.8",
+              "Occurred_at": {
+                "DateTime": "2025-06-29T12:30:00+08:00"
+              }
+            }
+          },
+          "DailyLow": {
+            "TemperatureInfo": {
+              "AirTemperature": "20.9",
+              "Occurred_at": {
+                "DateTime": "2025-06-29T04:00:00+08:00"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "StationName": "和仁",
+      "StationId": "C0TA50",
+      "ObsTime": {
+        "DateTime": "2025-06-29T13:00:00+08:00"
+      },
+      "GeoInfo": {
+        "Coordinates": [
+          {
+            "CoordinateName": "TWD67",
+            "CoordinateFormat": "decimal degrees",
+            "StationLatitude": "24.243199",
+            "StationLongitude": "121.704304"
+          },
+          {
+            "CoordinateName": "WGS84",
+            "CoordinateFormat": "decimal degrees",
+            "StationLatitude": "24.241394",
+            "StationLongitude": "121.712472"
+          }
+        ],
+        "StationAltitude": "3.0",
+        "CountyName": "花蓮縣",
+        "TownName": "秀林鄉",
+        "CountyCode": "10015",
+        "TownCode": "10015110"
+      },
+      "WeatherElement": {
+        "Weather": "陰",
+        "Now": {
+          "Precipitation": "0.0"
+        },
+        "WindDirection": "169.0",
+        "WindSpeed": "1.5",
+        "AirTemperature": "30.9",
+        "RelativeHumidity": "68",
+        "AirPressure": "1003.5",
+        "GustInfo": {
+          "PeakGustSpeed": "-99",
+          "Occurred_at": {
+            "WindDirection": "-99",
+            "DateTime": "-99"
+          }
+        },
+        "DailyExtreme": {
+          "DailyHigh": {
+            "TemperatureInfo": {
+              "AirTemperature": "31.4",
+              "Occurred_at": {
+                "DateTime": "2025-06-29T11:30:00+08:00"
+              }
+            }
+          },
+          "DailyLow": {
+            "TemperatureInfo": {
+              "AirTemperature": "26.2",
+              "Occurred_at": {
+                "DateTime": "2025-06-29T04:30:00+08:00"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "timestamp": "2025-06-29T13:48:59.109088"
+}

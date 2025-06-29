@@ -94,15 +94,25 @@ async def quick_verification():
                 print(f"  {i:2d}. {cmd_name}")
             
             # 特別檢查水庫指令
-            reservoir_commands = [cmd for cmd in command_names if 'reservoir' in cmd.lower()]
+            reservoir_commands = [cmd for cmd in command_names if 'reservoir' in cmd.lower() or 'water' in cmd.lower()]
             if reservoir_commands:
-                print(f"\n🏞️ 水庫相關指令: {', '.join(reservoir_commands)}")
+                print(f"\n🏞️ 水庫/水利相關指令: {', '.join(reservoir_commands)}")
                 
-                # 檢查是否包含新的營運狀況指令
-                if 'reservoir_operation' in reservoir_commands:
-                    print("✅ 水庫營運狀況指令已成功註冊")
+                # 檢查所有預期的水庫指令
+                expected_reservoir_commands = ['reservoir', 'reservoir_list', 'reservoir_operation', 'reservoir_info', 'water_cameras']
+                found_commands = [cmd for cmd in expected_reservoir_commands if cmd in reservoir_commands]
+                
+                if len(found_commands) == len(expected_reservoir_commands):
+                    print("✅ 所有水庫指令已成功註冊")
                 else:
-                    print("⚠️ 水庫營運狀況指令未找到")
+                    missing = [cmd for cmd in expected_reservoir_commands if cmd not in reservoir_commands]
+                    print(f"⚠️ 缺少指令: {missing}")
+                    
+                # 特別檢查新增的指令
+                new_commands = ['reservoir_info', 'water_cameras']
+                found_new = [cmd for cmd in new_commands if cmd in reservoir_commands]
+                if found_new:
+                    print(f"🆕 新增指令: {', '.join(found_new)}")
         
         # 清理資源
         await bot.close()
