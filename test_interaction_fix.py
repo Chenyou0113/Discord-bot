@@ -24,7 +24,7 @@ def test_interaction_fixes():
         reservoir_cog = ReservoirCommands(None)
         
         fixed_commands = [
-            'water_disaster_cameras',
+            'water_cameras',
             'highway_cameras'
         ]
         
