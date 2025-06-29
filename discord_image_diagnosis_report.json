@@ -1,0 +1,116 @@
+{
+  "timestamp": "2025-06-29 16:29:58.584363",
+  "total_tested": 10,
+  "discord_valid_count": 10,
+  "accessible_count": 10,
+  "fully_valid_count": 10,
+  "test_results": [
+    {
+      "station_name": "監視器_1",
+      "original_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x020000008E56B875DE0F514A20F9A0FEC0A36B9B2F796E7F9A375C48E448F68A9467719F623F50DC94F09300BFE6BAF9DF3418C0",
+      "processed_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x020000008E56B875DE0F514A20F9A0FEC0A36B9B2F796E7F9A375C48E448F68A9467719F623F50DC94F09300BFE6BAF9DF3418C0",
+      "discord_valid": true,
+      "validation_message": "可能的動態圖片 URL",
+      "accessible": true,
+      "access_message": "可訪問 - 狀態: 200, 類型: image/jpeg",
+      "content_type": "image/jpeg"
+    },
+    {
+      "station_name": "監視器_2",
+      "original_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x0200000032F58F4D8A122A2A446366AA445BEEED95613E3CFCCB23FE3FA7B5A73C3CF37B77AF935B19BBB644CF2C6FCC34F5FC6F",
+      "processed_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x0200000032F58F4D8A122A2A446366AA445BEEED95613E3CFCCB23FE3FA7B5A73C3CF37B77AF935B19BBB644CF2C6FCC34F5FC6F",
+      "discord_valid": true,
+      "validation_message": "可能的動態圖片 URL",
+      "accessible": true,
+      "access_message": "可訪問 - 狀態: 200, 類型: image/jpeg",
+      "content_type": "image/jpeg"
+    },
+    {
+      "station_name": "監視器_3",
+      "original_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x02000000A045D6C0F3F9112FE1FBA78EF3C2E8FE767E303E6CE96FBEDE4BEC73D0CC98606DD43BFFEA0384B30A717A5FA179F073",
+      "processed_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x02000000A045D6C0F3F9112FE1FBA78EF3C2E8FE767E303E6CE96FBEDE4BEC73D0CC98606DD43BFFEA0384B30A717A5FA179F073",
+      "discord_valid": true,
+      "validation_message": "可能的動態圖片 URL",
+      "accessible": true,
+      "access_message": "可訪問 - 狀態: 200, 類型: image/jpeg",
+      "content_type": "image/jpeg"
+    },
+    {
+      "station_name": "監視器_4",
+      "original_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x020000003E03F201648C2D388A7731736A93691408EE56914D7B775C93238B7FFC4710BA13380315FF70EB1848178FD9645D414C",
+      "processed_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x020000003E03F201648C2D388A7731736A93691408EE56914D7B775C93238B7FFC4710BA13380315FF70EB1848178FD9645D414C",
+      "discord_valid": true,
+      "validation_message": "可能的動態圖片 URL",
+      "accessible": true,
+      "access_message": "可訪問 - 狀態: 200, 類型: image/jpeg",
+      "content_type": "image/jpeg"
+    },
+    {
+      "station_name": "監視器_5",
+      "original_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x02000000EF8769055628095F1B10E4087EC4B50A9C81326C276BD39CB577096E2C70F5DA",
+      "processed_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x02000000EF8769055628095F1B10E4087EC4B50A9C81326C276BD39CB577096E2C70F5DA",
+      "discord_valid": true,
+      "validation_message": "可能的動態圖片 URL",
+      "accessible": true,
+      "access_message": "可訪問 - 狀態: 200, 類型: image/jpeg",
+      "content_type": "image/jpeg"
+    },
+    {
+      "station_name": "監視器_6",
+      "original_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x0200000053A03519C4CCD94D0C60A71D6E6965D5F6B7AAB9AB252FCA942311697C2045D5",
+      "processed_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x0200000053A03519C4CCD94D0C60A71D6E6965D5F6B7AAB9AB252FCA942311697C2045D5",
+      "discord_valid": true,
+      "validation_message": "可能的動態圖片 URL",
+      "accessible": true,
+      "access_message": "可訪問 - 狀態: 200, 類型: image/jpeg",
+      "content_type": "image/jpeg"
+    },
+    {
+      "station_name": "監視器_7",
+      "original_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x02000000BE2C6803B50A328C4A34B3A468B9C2BD36D5038EFA73A85DF4352E97B1782836",
+      "processed_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x02000000BE2C6803B50A328C4A34B3A468B9C2BD36D5038EFA73A85DF4352E97B1782836",
+      "discord_valid": true,
+      "validation_message": "可能的動態圖片 URL",
+      "accessible": true,
+      "access_message": "可訪問 - 狀態: 200, 類型: image/jpeg",
+      "content_type": "image/jpeg"
+    },
+    {
+      "station_name": "監視器_8",
+      "original_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x020000003F71298C8E158B15C454F33C0B95B0081D5F9EFA39893C74050A9C4C8397055C",
+      "processed_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x020000003F71298C8E158B15C454F33C0B95B0081D5F9EFA39893C74050A9C4C8397055C",
+      "discord_valid": true,
+      "validation_message": "可能的動態圖片 URL",
+      "accessible": true,
+      "access_message": "可訪問 - 狀態: 200, 類型: image/jpeg",
+      "content_type": "image/jpeg"
+    },
+    {
+      "station_name": "監視器_9",
+      "original_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x020000006314DEC0B275A7931AF1306B1205CBF9D5045E1DB9F056EDCE27CB5C930BD7B51F1EFBB106939F423556D4C5CB247F66",
+      "processed_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x020000006314DEC0B275A7931AF1306B1205CBF9D5045E1DB9F056EDCE27CB5C930BD7B51F1EFBB106939F423556D4C5CB247F66",
+      "discord_valid": true,
+      "validation_message": "可能的動態圖片 URL",
+      "accessible": true,
+      "access_message": "可訪問 - 狀態: 200, 類型: image/jpeg",
+      "content_type": "image/jpeg"
+    },
+    {
+      "station_name": "監視器_10",
+      "original_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x02000000EBC5280503DF88460DA082AFE84E0D485E43780D2390827C4C16F17D589403C0E1EDBBE974723AE5BB75BD2E3EE1CE85",
+      "processed_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x02000000EBC5280503DF88460DA082AFE84E0D485E43780D2390827C4C16F17D589403C0E1EDBBE974723AE5BB75BD2E3EE1CE85",
+      "discord_valid": true,
+      "validation_message": "可能的動態圖片 URL",
+      "accessible": true,
+      "access_message": "可訪問 - 狀態: 200, 類型: image/jpeg",
+      "content_type": "image/jpeg"
+    }
+  ],
+  "valid_sample_urls": [
+    "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x020000008E56B875DE0F514A20F9A0FEC0A36B9B2F796E7F9A375C48E448F68A9467719F623F50DC94F09300BFE6BAF9DF3418C0",
+    "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x0200000032F58F4D8A122A2A446366AA445BEEED95613E3CFCCB23FE3FA7B5A73C3CF37B77AF935B19BBB644CF2C6FCC34F5FC6F",
+    "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x02000000A045D6C0F3F9112FE1FBA78EF3C2E8FE767E303E6CE96FBEDE4BEC73D0CC98606DD43BFFEA0384B30A717A5FA179F073",
+    "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x020000003E03F201648C2D388A7731736A93691408EE56914D7B775C93238B7FFC4710BA13380315FF70EB1848178FD9645D414C",
+    "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x02000000EF8769055628095F1B10E4087EC4B50A9C81326C276BD39CB577096E2C70F5DA"
+  ]
+}

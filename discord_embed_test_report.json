@@ -1,0 +1,64 @@
+{
+  "timestamp": "2025-06-29 16:50:11.518726",
+  "test_type": "Discord Embed 功能測試",
+  "total_tested": 5,
+  "embed_success_count": 5,
+  "image_embed_success_count": 5,
+  "test_results": [
+    {
+      "station_name": "監視器_1",
+      "embed_created": true,
+      "image_embedded": true,
+      "has_title": true,
+      "has_description": true,
+      "has_image": true,
+      "has_thumbnail": true,
+      "has_fields": true,
+      "image_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x0200000045E98712F86FBA386CFFD57D870B01CF8FB23A1BB241FCEEF819E0E7576B0D081059A5482DA90E2F51FB0FD1FB2CCDBE"
+    },
+    {
+      "station_name": "監視器_2",
+      "embed_created": true,
+      "image_embedded": true,
+      "has_title": true,
+      "has_description": true,
+      "has_image": true,
+      "has_thumbnail": true,
+      "has_fields": true,
+      "image_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x020000009AE7BE4D916B15F509B3B057185D7C02F03117AAE6C7AAE34FB2161A7F9134D2F4F13175D86E1F50E13F6E633273D6AB"
+    },
+    {
+      "station_name": "監視器_3",
+      "embed_created": true,
+      "image_embedded": true,
+      "has_title": true,
+      "has_description": true,
+      "has_image": true,
+      "has_thumbnail": true,
+      "has_fields": true,
+      "image_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x0200000096775E66007E192494EB45A245C09B183370D87E67A6A7C5DB3117A5F310A728952A19FAB8D574B699BA38D237A1202E"
+    },
+    {
+      "station_name": "監視器_4",
+      "embed_created": true,
+      "image_embedded": true,
+      "has_title": true,
+      "has_description": true,
+      "has_image": true,
+      "has_thumbnail": true,
+      "has_fields": true,
+      "image_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x02000000528714E402A84F6EC682C0F21910C7F12933266B97379A4E6C8E04B79BF046BD6332D3DA3B0F21DB85E5A2FA224D411F"
+    },
+    {
+      "station_name": "監視器_5",
+      "embed_created": true,
+      "image_embedded": true,
+      "has_title": true,
+      "has_description": true,
+      "has_image": true,
+      "has_thumbnail": true,
+      "has_fields": true,
+      "image_url": "https://fmg.wra.gov.tw/109wraweb/getImage.aspx?mode=getNewImageS&CCTV_SN=0x02000000027235179E9C0FEFE3B294AAB177F915344D8CF04E8D964F03F9286B6B8BD528"
+    }
+  ]
+}

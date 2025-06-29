@@ -267,7 +267,7 @@ class ReservoirCommands(commands.Cog):
             return None
 
     def format_water_image_info(self, image_data):
-        """格式化水利防災影像資訊"""
+        """格式化水利防災影像資訊 - 增強圖片 URL 處理"""
         try:
             station_name = image_data.get('VideoSurveillanceStationName', 'N/A')
             camera_name = image_data.get('CameraName', 'N/A') 
@@ -288,18 +288,171 @@ class ReservoirCommands(commands.Cog):
             if tributary and tributary != basin_name:
                 river_info += f" ({tributary})"
             
+            # 增強的影像 URL 處理
+            processed_image_url = self._process_and_validate_image_url(image_url)
+            
             return {
                 'station_name': station_name,
-                'camera_name': camera_name,
+                'camera_name': camera_name if camera_name != 'N/A' else '主攝影機',
                 'location': full_location,
                 'river': river_info,
-                'image_url': image_url if image_url else "N/A",
+                'image_url': processed_image_url,
                 'status': "正常" if status == "1" else "異常" if status == "0" else "未知",
                 'coordinates': f"{latitude}, {longitude}" if latitude and longitude else "N/A"
             }
             
         except Exception as e:
             logger.error(f"格式化水利防災影像資訊時發生錯誤: {str(e)}")
+            return None
+    
+    def _process_and_validate_image_url(self, image_url):
+        """處理和驗證圖片 URL - 增強版本"""
+        if not image_url or not image_url.strip():
+            return "N/A"
+        
+        processed_url = image_url.strip()
+        
+        # 移除可能的空白字符和特殊字符
+        processed_url = processed_url.replace(' ', '').replace('\n', '').replace('\r', '')
+        
+        # 多重 URL 格式處理
+        if not processed_url.startswith(('http://', 'https://')):
+            if processed_url.startswith('//'):
+                processed_url = 'https:' + processed_url
+            elif processed_url.startswith('/'):
+                # 嘗試不同的基礎域名
+                base_urls = [
+                    'https://opendata.wra.gov.tw',
+                    'https://fhy.wra.gov.tw', 
+                    'https://www.wra.gov.tw',
+                    'https://alerts.ncdr.nat.gov.tw'
+                ]
+                for base_url in base_urls:
+                    test_url = base_url + processed_url
+                    if self._validate_image_url_format(test_url):
+                        processed_url = test_url
+                        break
+                else:
+                    # 如果都不匹配，使用第一個作為預設
+                    processed_url = base_urls[0] + processed_url
+            else:
+                # 相對路徑，嘗試添加基礎 URL
+                if not processed_url.startswith(('www.', 'fhy.', 'opendata.')):
+                    processed_url = 'https://opendata.wra.gov.tw/' + processed_url
+                else:
+                    processed_url = 'https://' + processed_url
+        
+        # 確保 URL 有效性
+        if self._validate_image_url_format(processed_url):
+            return processed_url
+        
+        logger.warning(f"無效的圖片 URL 格式: {image_url} -> {processed_url}")
+        return "N/A"
+    
+    def _validate_image_url_format(self, url):
+        """驗證圖片 URL 格式"""
+        if not url or url == "N/A":
+            return False
+        
+        import re
+        
+        # 基本 URL 格式檢查
+        url_pattern = re.compile(
+            r'^https?://'  # http:// or https://
+            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+            r'localhost|'  # localhost...
+            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+            r'(?::\d+)?'  # optional port
+            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+        
+        if not url_pattern.match(url):
+            return False
+        
+        # 檢查是否可能是圖片 URL
+        image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']
+        has_image_extension = any(url.lower().endswith(ext) for ext in image_extensions)
+        
+        # 檢查是否包含可能的圖片路徑關鍵字
+        image_keywords = ['image', 'img', 'photo', 'pic', 'camera', 'cam', 'surveillance']
+        has_image_keyword = any(keyword in url.lower() for keyword in image_keywords)
+        
+        # 如果有圖片擴展名或關鍵字，認為是有效的
+        return has_image_extension or has_image_keyword or len(url) > 20
+
+    async def get_river_water_level_data(self):
+        """取得河川水位資料"""
+        try:
+            # 設定 SSL 上下文
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            
+            async with aiohttp.ClientSession(connector=connector) as session:
+                url = "https://opendata.wra.gov.tw/Service/OpenData.aspx?format=json&id=2D09DB8B-6A1B-485E-88B5-923A462F475C"
+                
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                    if response.status == 200:
+                        # 處理 UTF-8 BOM 問題
+                        text = await response.text()
+                        if text.startswith('\ufeff'):
+                            text = text[1:]
+                        
+                        data = json.loads(text)
+                        return data if isinstance(data, list) else []
+                    else:
+                        logger.error(f"河川水位 API 請求失敗: {response.status}")
+                        return None
+                        
+        except Exception as e:
+            logger.error(f"取得河川水位資料時發生錯誤: {str(e)}")
+            return None
+
+    def format_river_water_level_info(self, level_data):
+        """格式化河川水位資訊"""
+        try:
+            station_name = level_data.get('StationName', 'N/A')
+            county_name = level_data.get('CountyName', 'N/A')
+            river_name = level_data.get('RiverName', 'N/A')
+            water_level = level_data.get('WaterLevel', 'N/A')
+            observation_time = level_data.get('ObservationTime', 'N/A')
+            station_id = level_data.get('StationIdentifier', 'N/A')
+            location = level_data.get('LocationDescription', 'N/A')
+            altitude = level_data.get('StationAltitude', 'N/A')
+            
+            # 處理觀測時間格式
+            formatted_time = observation_time
+            if observation_time and observation_time != 'N/A':
+                try:
+                    # 嘗試格式化時間
+                    dt = datetime.fromisoformat(observation_time.replace('Z', '+00:00'))
+                    formatted_time = dt.strftime('%Y-%m-%d %H:%M')
+                except:
+                    formatted_time = observation_time
+            
+            # 處理水位數值
+            formatted_water_level = water_level
+            if water_level and water_level != 'N/A':
+                try:
+                    level_float = float(water_level)
+                    formatted_water_level = f"{level_float:.2f} 公尺"
+                except:
+                    formatted_water_level = f"{water_level} 公尺"
+            
+            return {
+                'station_name': station_name,
+                'county': county_name,
+                'river': river_name,
+                'water_level': formatted_water_level,
+                'observation_time': formatted_time,
+                'station_id': station_id,
+                'location': location,
+                'altitude': altitude if altitude != 'N/A' else None
+            }
+            
+        except Exception as e:
+            logger.error(f"格式化河川水位資訊時發生錯誤: {str(e)}")
             return None
 
     @app_commands.command(name="reservoir", description="查詢台灣水庫水情資訊")
@@ -973,10 +1126,39 @@ class ReservoirCommands(commands.Cog):
                             valid_cameras.append(data)
                     
                     if valid_cameras:
-                        # 使用新的 View 系統顯示監控器
-                        view = WaterCameraView(self, valid_cameras, location)
-                        embed = view.create_embed(0)  # 顯示第一個監控器
-                        await interaction.followup.send(embed=embed, view=view)
+                        # 顯示第一個監控器（簡化版本）
+                        camera_data = valid_cameras[0]
+                        info = self.format_water_image_info(camera_data)
+                        
+                        embed = discord.Embed(
+                            title=f"📸 {location} 地區監控點",
+                            description=f"**{info['station_name']}**",
+                            color=discord.Color.blue()
+                        )
+                        
+                        embed.add_field(
+                            name="📍 位置資訊",
+                            value=f"🏙️ 縣市：{info['county']}\n"
+                                  f"🏘️ 區域：{info['district']}\n"
+                                  f"📍 詳細：{info['address']}",
+                            inline=True
+                        )
+                        
+                        embed.add_field(
+                            name="📊 技術資訊",
+                            value=f"🆔 ID：{info['station_id']}\n"
+                                  f"📡 來源：{info['source']}\n"
+                                  f"📸 狀態：{'✅ 有影像' if info['image_url'] != 'N/A' else '❌ 無影像'}",
+                            inline=True
+                        )
+                        
+                        if info['image_url'] and info['image_url'] != 'N/A':
+                            processed_url = await self._process_and_validate_image_url(info['image_url'])
+                            if processed_url:
+                                embed.set_image(url=processed_url)
+                        
+                        embed.set_footer(text=f"找到 {len(valid_cameras)} 個有效監控點 | 顯示第1個")
+                        await interaction.followup.send(embed=embed)
                     else:
                         embed = discord.Embed(
                             title=f"📸 {location} 地區監控點",
@@ -1036,197 +1218,692 @@ class ReservoirCommands(commands.Cog):
             )
             await interaction.followup.send(embed=embed)
 
-class WaterCameraView(discord.ui.View):
-    """水利監視器切換視圖"""
+    @app_commands.command(name="highway_cameras", description="查詢公路總局監視器影像")
+    @app_commands.describe(
+        location="道路位置關鍵字（如：國道一號、台62線、基隆等）",
+        direction="行駛方向（N北、S南、E東、W西）"
+    )
+    async def highway_cameras(self, interaction: discord.Interaction, location: str = None, direction: str = None):
+        """查詢公路總局監視器"""
+        await interaction.response.defer()
+        
+        try:
+            # 獲取公路監視器資料
+            cameras = await self._get_highway_cameras()
+            
+            if not cameras:
+                embed = discord.Embed(
+                    title="❌ 查詢失敗",
+                    description="無法獲取公路監視器資料，請稍後再試",
+                    color=discord.Color.red()
+                )
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 篩選監視器
+            filtered_cameras = cameras
+            
+            if location:
+                location_lower = location.lower()
+                filtered_cameras = [
+                    cam for cam in filtered_cameras
+                    if any([
+                        location_lower in cam.get('RoadName', '').lower(),
+                        location_lower in cam.get('SurveillanceDescription', '').lower(),
+                        location_lower in cam.get('CCTVID', '').lower()
+                    ])
+                ]
+            
+            if direction:
+                direction_upper = direction.upper()
+                filtered_cameras = [
+                    cam for cam in filtered_cameras
+                    if cam.get('RoadDirection', '').upper() == direction_upper
+                ]
+            
+            if not filtered_cameras:
+                embed = discord.Embed(
+                    title="🔍 查詢結果",
+                    description=f"找不到符合條件的監視器\n條件：{location or '無'} | 方向：{direction or '無'}",
+                    color=discord.Color.orange()
+                )
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 顯示第一個監視器
+            camera = filtered_cameras[0]
+            
+            embed = discord.Embed(
+                title="🛣️ 公路監視器",
+                description=f"**{camera.get('SurveillanceDescription', '未知位置')}**",
+                color=discord.Color.blue()
+            )
+            
+            # 基本資訊
+            embed.add_field(
+                name="📍 基本資訊",
+                value=f"🛣️ 道路：{camera.get('RoadName', '未知')}\n"
+                      f"📍 里程：{camera.get('LocationMile', '未知')}\n"
+                      f"🧭 方向：{camera.get('RoadDirection', '未知')}\n"
+                      f"🏷️ ID：{camera.get('CCTVID', '未知')}",
+                inline=True
+            )
+            
+            # 位置資訊
+            embed.add_field(
+                name="🌍 座標位置",
+                value=f"🌐 經度：{camera.get('PositionLon', '未知')}\n"
+                      f"🌐 緯度：{camera.get('PositionLat', '未知')}",
+                inline=True
+            )
+            
+            # 圖片處理
+            image_url = camera.get('VideoImageURL')
+            if image_url:
+                processed_url = await self._process_highway_image_url(image_url)
+                if processed_url:
+                    embed.set_image(url=processed_url)
+                    embed.add_field(
+                        name="📸 影像狀態",
+                        value="✅ 即時影像",
+                        inline=False
+                    )
+                else:
+                    embed.add_field(
+                        name="📸 影像狀態",
+                        value="❌ 影像暫無法載入",
+                        inline=False
+                    )
+            
+            embed.set_footer(text=f"找到 {len(filtered_cameras)} 個監視器 | 資料來源：公路總局")
+            
+            # 如果有多個監視器，新增切換按鈕
+            if len(filtered_cameras) > 1:
+                view = HighwayCameraView(filtered_cameras, 0)
+                await interaction.followup.send(embed=embed, view=view)
+            else:
+                await interaction.followup.send(embed=embed)
+                
+        except Exception as e:
+            logger.error(f"公路監視器查詢失敗: {str(e)}")
+            embed = discord.Embed(
+                title="❌ 查詢失敗",
+                description=f"查詢過程中發生錯誤：{str(e)}",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=embed)
+
+    async def _get_highway_cameras(self):
+        """獲取公路監視器資料"""
+        url = "https://cctv-maintain.thb.gov.tw/opendataCCTVs.xml"
+        
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, ssl=ssl_context, timeout=30) as response:
+                    if response.status == 200:
+                        xml_data = await response.text()
+                        return await self._parse_highway_cameras_xml(xml_data)
+                    else:
+                        logger.error(f"公路監視器 API 請求失敗: {response.status}")
+                        return None
+        except Exception as e:
+            logger.error(f"獲取公路監視器資料失敗: {str(e)}")
+            return None
+
+    async def _parse_highway_cameras_xml(self, xml_data):
+        """解析公路監視器 XML 資料"""
+        import xml.etree.ElementTree as ET
+        
+        try:
+            root = ET.fromstring(xml_data)
+            namespace = {'ns': 'http://traffic.transportdata.tw/standard/traffic/schema/'}
+            
+            cameras = []
+            cctvs = root.findall('.//ns:CCTV', namespace)
+            
+            for cctv in cctvs:
+                camera_data = {}
+                
+                # 解析所有子元素
+                for child in cctv:
+                    tag_name = child.tag.replace('{http://traffic.transportdata.tw/standard/traffic/schema/}', '')
+                    camera_data[tag_name] = child.text
+                
+                cameras.append(camera_data)
+            
+            return cameras
+            
+        except ET.ParseError as e:
+            logger.error(f"公路監視器 XML 解析失敗: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"解析公路監視器資料失敗: {str(e)}")
+            return None
+
+    async def _process_highway_image_url(self, image_url):
+        """處理公路監視器圖片 URL"""
+        if not image_url:
+            return None
+        
+        # 檢查基本格式
+        if not image_url.startswith(('http://', 'https://')):
+            return None
+        
+        # 公路監視器的圖片可能需要特殊處理，先返回原始 URL 讓 Discord 嘗試載入
+        # 如果不行，可以返回一個預設的佔位圖片或 None
+        
+        # 確保 URL 格式正確
+        try:
+            # 嘗試不同的後綴
+            possible_urls = [
+                image_url,
+                image_url.rstrip('/') + '/snapshot',
+                image_url.rstrip('/') + '/image',
+                image_url.rstrip('/') + '.jpg'
+            ]
+            
+            # 由於公路監視器 API 可能需要特殊認證，我們先返回原始 URL
+            # Discord 會嘗試載入，如果失敗會顯示預設的破圖圖示
+            return possible_urls[0]
+            
+        except Exception as e:
+            logger.error(f"處理公路監視器圖片 URL 失敗: {str(e)}")
+            return image_url  # 返回原始 URL
+
+class HighwayCameraView(discord.ui.View):
+    """公路監視器切換介面"""
     
-    def __init__(self, cog, cameras: list, location: str):
-        super().__init__(timeout=300)  # 5分鐘超時
-        self.cog = cog
+    def __init__(self, cameras, current_index=0):
+        super().__init__(timeout=300)
         self.cameras = cameras
-        self.location = location
-        self.current_index = 0
+        self.current_index = current_index
         self.total_cameras = len(cameras)
         
         # 更新按鈕狀態
-        self.update_buttons()
+        self._update_buttons()
     
-    def update_buttons(self):
+    def _update_buttons(self):
         """更新按鈕狀態"""
         # 清除現有按鈕
         self.clear_items()
         
         # 上一個按鈕
-        prev_button = discord.ui.Button(
-            label="◀️ 上一個",
-            style=discord.ButtonStyle.secondary,
-            disabled=(self.current_index == 0)
-        )
-        prev_button.callback = self.previous_camera
-        self.add_item(prev_button)
+        if self.current_index > 0:
+            self.add_item(self.PreviousButton())
         
         # 刷新按鈕
-        refresh_button = discord.ui.Button(
-            label="🔄 刷新",
-            style=discord.ButtonStyle.primary,
-            emoji="🔄"
-        )
-        refresh_button.callback = self.refresh_camera
-        self.add_item(refresh_button)
+        self.add_item(self.RefreshButton())
         
         # 下一個按鈕
-        next_button = discord.ui.Button(
-            label="▶️ 下一個",
-            style=discord.ButtonStyle.secondary,
-            disabled=(self.current_index == self.total_cameras - 1)
-        )
-        next_button.callback = self.next_camera
-        self.add_item(next_button)
+        if self.current_index < self.total_cameras - 1:
+            self.add_item(self.NextButton())
         
-        # 位置資訊按鈕
-        info_button = discord.ui.Button(
-            label="📍 詳細資訊",
-            style=discord.ButtonStyle.success,
-            emoji="📍"
-        )
-        info_button.callback = self.show_detailed_info
-        self.add_item(info_button)
+        # 資訊按鈕
+        self.add_item(self.InfoButton())
     
-    def create_embed(self, index: int):
-        """創建監視器 embed"""
-        if not (0 <= index < self.total_cameras):
-            return None
+    class PreviousButton(discord.ui.Button):
+        def __init__(self):
+            super().__init__(style=discord.ButtonStyle.secondary, label="⬅️ 上一個", row=0)
         
-        data = self.cameras[index]
-        info = self.cog.format_water_image_info(data)
+        async def callback(self, interaction: discord.Interaction):
+            view = self.view
+            view.current_index -= 1
+            view._update_buttons()
+            
+            camera = view.cameras[view.current_index]
+            embed = await view._create_highway_camera_embed(camera)
+            
+            await interaction.response.edit_message(embed=embed, view=view)
+    
+    class NextButton(discord.ui.Button):
+        def __init__(self):
+            super().__init__(style=discord.ButtonStyle.secondary, label="➡️ 下一個", row=0)
         
-        if not info:
-            return None
+        async def callback(self, interaction: discord.Interaction):
+            view = self.view
+            view.current_index += 1
+            view._update_buttons()
+            
+            camera = view.cameras[view.current_index]
+            embed = await view._create_highway_camera_embed(camera)
+            
+            await interaction.response.edit_message(embed=embed, view=view)
+    
+    class RefreshButton(discord.ui.Button):
+        def __init__(self):
+            super().__init__(style=discord.ButtonStyle.primary, label="🔄 刷新", row=0)
         
+        async def callback(self, interaction: discord.Interaction):
+            view = self.view
+            camera = view.cameras[view.current_index]
+            embed = await view._create_highway_camera_embed(camera)
+            
+            await interaction.response.edit_message(embed=embed, view=view)
+    
+    class InfoButton(discord.ui.Button):
+        def __init__(self):
+            super().__init__(style=discord.ButtonStyle.success, label="ℹ️ 詳細", row=0)
+        
+        async def callback(self, interaction: discord.Interaction):
+            view = self.view
+            camera = view.cameras[view.current_index]
+            
+            modal = HighwayCameraInfoModal(camera, view.current_index + 1, view.total_cameras)
+            await interaction.response.send_modal(modal)
+    
+    async def _create_highway_camera_embed(self, camera):
+        """創建公路監視器 Embed"""
         embed = discord.Embed(
-            title=f"📸 {info['station_name']}",
-            description=f"📍 **位置**: {info['location']}\n"
-                      f"🌊 **河川**: {info['river']}\n"
-                      f"📡 **狀態**: {info['status']}",
+            title="🛣️ 公路監視器",
+            description=f"**{camera.get('SurveillanceDescription', '未知位置')}**",
             color=discord.Color.blue()
         )
         
-        # 顯示影像
-        if info['image_url'] and info['image_url'] != 'N/A':
-            embed.set_image(url=info['image_url'])
-        else:
-            embed.add_field(
-                name="⚠️ 影像狀態",
-                value="此監控點目前無可用影像",
-                inline=False
-            )
+        # 基本資訊
+        embed.add_field(
+            name="📍 基本資訊",
+            value=f"🛣️ 道路：{camera.get('RoadName', '未知')}\n"
+                  f"📍 里程：{camera.get('LocationMile', '未知')}\n"
+                  f"🧭 方向：{camera.get('RoadDirection', '未知')}\n"
+                  f"🏷️ ID：{camera.get('CCTVID', '未知')}",
+            inline=True
+        )
         
-        # 顯示進度資訊
-        embed.set_footer(text=f"第 {index + 1} / {self.total_cameras} 個監控點 • {self.location}地區 • 資料來源：經濟部水利署")
+        # 位置資訊
+        embed.add_field(
+            name="🌍 座標位置",
+            value=f"🌐 經度：{camera.get('PositionLon', '未知')}\n"
+                  f"🌐 緯度：{camera.get('PositionLat', '未知')}",
+            inline=True
+        )
+        
+        # 圖片處理
+        image_url = camera.get('VideoImageURL')
+        if image_url:
+            # 這裡需要參考 ReservoirCommands 的方法
+            try:
+                # 獲取 ReservoirCommands 實例來使用其方法
+                cog = discord.utils.get(self.view.client.cogs.values(), qualified_name='ReservoirCommands')
+                if cog:
+                    processed_url = await cog._process_highway_image_url(image_url)
+                    if processed_url:
+                        embed.set_image(url=processed_url)
+                        embed.add_field(
+                            name="📸 影像狀態",
+                            value="✅ 即時影像",
+                            inline=False
+                        )
+                    else:
+                        embed.add_field(
+                            name="📸 影像狀態",
+                            value="❌ 影像暫無法載入",
+                            inline=False
+                        )
+            except:
+                embed.set_image(url=image_url)
+        
+        embed.set_footer(text=f"監視器 {self.current_index + 1}/{self.total_cameras} | 資料來源：公路總局")
         
         return embed
+
+class HighwayCameraInfoModal(discord.ui.Modal, title="🛣️ 公路監視器詳細資訊"):
+    """公路監視器詳細資訊彈窗"""
     
-    async def previous_camera(self, interaction: discord.Interaction):
-        """切換到上一個監視器"""
-        if self.current_index > 0:
-            self.current_index -= 1
-            self.update_buttons()
-            embed = self.create_embed(self.current_index)
-            if embed:
-                await interaction.response.edit_message(embed=embed, view=self)
-            else:
-                await interaction.response.send_message("❌ 獲取監視器資訊失敗", ephemeral=True)
-        else:
-            await interaction.response.send_message("📸 已經是第一個監視器了", ephemeral=True)
+    def __init__(self, camera, current_num, total_num):
+        super().__init__()
+        self.camera = camera
+        
+        # 創建詳細資訊文本
+        info_text = f"監視器編號: {camera.get('CCTVID', '未知')}\n"
+        info_text += f"道路名稱: {camera.get('RoadName', '未知')}\n"
+        info_text += f"道路等級: {camera.get('RoadClass', '未知')}\n"
+        info_text += f"行駛方向: {camera.get('RoadDirection', '未知')}\n"
+        info_text += f"位置里程: {camera.get('LocationMile', '未知')}\n"
+        info_text += f"經度: {camera.get('PositionLon', '未知')}\n"
+        info_text += f"緯度: {camera.get('PositionLat', '未知')}\n"
+        info_text += f"影像串流: {camera.get('VideoStreamURL', '未知')}\n"
+        info_text += f"影像快照: {camera.get('VideoImageURL', '未知')}\n"
+        info_text += f"監視器描述: {camera.get('SurveillanceDescription', '未知')}"
+        
+        self.info_field = discord.ui.TextInput(
+            label=f"詳細資訊 ({current_num}/{total_num})",
+            style=discord.TextStyle.paragraph,
+            default=info_text,
+            max_length=4000
+        )
+        self.add_item(self.info_field)
     
-    async def next_camera(self, interaction: discord.Interaction):
-        """切換到下一個監視器"""
-        if self.current_index < self.total_cameras - 1:
-            self.current_index += 1
-            self.update_buttons()
-            embed = self.create_embed(self.current_index)
-            if embed:
-                await interaction.response.edit_message(embed=embed, view=self)
-            else:
-                await interaction.response.send_message("❌ 獲取監視器資訊失敗", ephemeral=True)
-        else:
-            await interaction.response.send_message("📸 已經是最後一個監視器了", ephemeral=True)
-    
-    async def refresh_camera(self, interaction: discord.Interaction):
-        """刷新當前監視器"""
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.send_message("📋 資訊已顯示在上方文字框中", ephemeral=True)
+
+    @app_commands.command(name="cameras_by_city", description="依縣市查詢所有監視器")
+    @app_commands.describe(
+        city="縣市名稱（如：台北市、新北市、桃園市等）",
+        camera_type="監視器類型（water=水利監視器、highway=公路監視器、all=全部）"
+    )
+    @app_commands.choices(camera_type=[
+        app_commands.Choice(name="水利監視器", value="water"),
+        app_commands.Choice(name="公路監視器", value="highway"),
+        app_commands.Choice(name="全部監視器", value="all")
+    ])
+    async def cameras_by_city(self, interaction: discord.Interaction, city: str, camera_type: str = "all"):
+        """依縣市查詢監視器"""
         await interaction.response.defer()
         
         try:
-            # 重新獲取影像資料
-            image_data = await self.cog.get_water_disaster_images()
-            if image_data:
-                # 重新查找當前監視器的最新資料
-                current_camera_data = self.cameras[self.current_index]
-                current_station_name = current_camera_data.get('VideoSurveillanceStationName', '')
+            all_cameras = []
+            city_lower = city.lower()
+            
+            # 根據選擇的類型獲取監視器資料
+            if camera_type in ["water", "all"]:
+                # 獲取水利監視器
+                water_cameras = await self.get_water_disaster_images()
+                if water_cameras:
+                    for camera_data in water_cameras:
+                        county = camera_data.get('CountiesAndCitiesWhereTheMonitoringPointsAreLocated', '')
+                        district = camera_data.get('AdministrativeDistrictWhereTheMonitoringPointIsLocated', '')
+                        station_name = camera_data.get('VideoSurveillanceStationName', '')
+                        
+                        # 檢查是否符合城市條件
+                        if (city_lower in county.lower() or 
+                            city_lower in district.lower() or
+                            city_lower in station_name.lower()):
+                            
+                            info = self.format_water_image_info(camera_data)
+                            if info and info['image_url'] and info['image_url'] != 'N/A':
+                                all_cameras.append({
+                                    'type': 'water',
+                                    'name': info['station_name'],
+                                    'location': f"{info['county']} {info['district']}",
+                                    'detail': f"河川: {info['river']}",
+                                    'image_url': info['image_url'],
+                                    'data': camera_data
+                                })
+            
+            if camera_type in ["highway", "all"]:
+                # 獲取公路監視器
+                highway_cameras = await self._get_highway_cameras()
+                if highway_cameras:
+                    for camera_data in highway_cameras:
+                        description = camera_data.get('SurveillanceDescription', '')
+                        road_name = camera_data.get('RoadName', '')
+                        
+                        # 檢查是否符合城市條件（公路監視器通常用地名描述）
+                        if (city_lower in description.lower() or
+                            city_lower in road_name.lower()):
+                            
+                            all_cameras.append({
+                                'type': 'highway',
+                                'name': description,
+                                'location': f"{camera_data.get('RoadName', '未知道路')} {camera_data.get('LocationMile', '')}",
+                                'detail': f"方向: {camera_data.get('RoadDirection', '未知')}",
+                                'image_url': camera_data.get('VideoImageURL'),
+                                'data': camera_data
+                            })
+            
+            if not all_cameras:
+                embed = discord.Embed(
+                    title="🔍 查詢結果",
+                    description=f"在「{city}」找不到符合條件的監視器",
+                    color=discord.Color.orange()
+                )
                 
-                # 在新資料中找到對應的監視器
-                for data in image_data:
-                    if data.get('VideoSurveillanceStationName', '') == current_station_name:
-                        self.cameras[self.current_index] = data
-                        break
+                # 提供相似的建議
+                embed.add_field(
+                    name="💡 建議",
+                    value="請嘗試以下縣市名稱：\n"
+                          "🏙️ 台北市、新北市、桃園市、台中市、台南市、高雄市\n"
+                          "🌄 基隆市、新竹市、苗栗縣、彰化縣、雲林縣、嘉義市\n"
+                          "🏞️ 屏東縣、宜蘭縣、花蓮縣、台東縣、澎湖縣",
+                    inline=False
+                )
                 
-                embed = self.create_embed(self.current_index)
-                if embed:
-                    await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
-                else:
-                    await interaction.followup.send("❌ 刷新失敗", ephemeral=True)
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 限制顯示數量並排序
+            all_cameras = all_cameras[:20]  # 最多顯示20個
+            
+            # 如果只有一個監視器，顯示詳細資訊
+            if len(all_cameras) == 1:
+                camera = all_cameras[0]
+                
+                embed = discord.Embed(
+                    title=f"📸 {city} 監視器",
+                    description=f"**{camera['name']}**",
+                    color=discord.Color.blue()
+                )
+                
+                embed.add_field(
+                    name="📍 位置資訊",
+                    value=f"🌍 位置：{camera['location']}\n"
+                          f"📡 類型：{'💧 水利監視器' if camera['type'] == 'water' else '🛣️ 公路監視器'}\n"
+                          f"ℹ️ 詳細：{camera['detail']}",
+                    inline=True
+                )
+                
+                # 處理圖片
+                if camera['image_url']:
+                    if camera['type'] == 'water':
+                        processed_url = await self._process_and_validate_image_url(camera['image_url'])
+                    else:
+                        processed_url = await self._process_highway_image_url(camera['image_url'])
+                    
+                    if processed_url:
+                        embed.set_image(url=processed_url)
+                
+                embed.set_footer(text=f"資料來源：{'水利署' if camera['type'] == 'water' else '公路總局'}")
+                
+                await interaction.followup.send(embed=embed)
+                
             else:
-                await interaction.followup.send("❌ 無法獲取最新資料", ephemeral=True)
+                # 顯示監視器列表
+                embed = discord.Embed(
+                    title=f"📸 {city} 監視器清單",
+                    description=f"找到 **{len(all_cameras)}** 個監視器",
+                    color=discord.Color.blue()
+                )
+                
+                # 分類統計
+                water_count = len([c for c in all_cameras if c['type'] == 'water'])
+                highway_count = len([c for c in all_cameras if c['type'] == 'highway'])
+                
+                embed.add_field(
+                    name="📊 類型統計",
+                    value=f"💧 水利監視器：{water_count} 個\n"
+                          f"🛣️ 公路監視器：{highway_count} 個",
+                    inline=True
+                )
+                
+                # 顯示監視器列表
+                camera_list = []
+                for i, camera in enumerate(all_cameras[:12], 1):  # 最多顯示12個
+                    type_emoji = "💧" if camera['type'] == 'water' else "🛣️"
+                    camera_list.append(f"{i}. {type_emoji} **{camera['name']}**")
+                    camera_list.append(f"   📍 {camera['location']}")
+                    camera_list.append(f"   ℹ️ {camera['detail']}")
+                    camera_list.append("")  # 空行分隔
+                
+                embed.add_field(
+                    name="📋 監視器列表",
+                    value="\n".join(camera_list[:40]),  # 限制字數
+                    inline=False
+                )
+                
+                if len(all_cameras) > 12:
+                    embed.add_field(
+                        name="ℹ️ 提示",
+                        value=f"還有 {len(all_cameras) - 12} 個監視器未顯示",
+                        inline=False
+                    )
+                
+                embed.add_field(
+                    name="💡 使用建議",
+                    value="• 使用 `/water_cameras 地區名` 查看水利監視器影像\n"
+                          "• 使用 `/highway_cameras location:地區名` 查看公路監視器\n"
+                          "• 縣市名稱可使用簡稱，如「台北」代表「台北市」",
+                    inline=False
+                )
+                
+                embed.set_footer(text="資料來源：水利署 & 公路總局")
+                
+                # 如果有可用的監視器，新增切換功能
+                valid_cameras = [c for c in all_cameras if c['image_url']]
+                if valid_cameras:
+                    view = CityCameraView(valid_cameras, city)
+                    await interaction.followup.send(embed=embed, view=view)
+                else:
+                    await interaction.followup.send(embed=embed)
                 
         except Exception as e:
-            await interaction.followup.send("❌ 刷新時發生錯誤", ephemeral=True)
+            logger.error(f"縣市監視器查詢失敗: {str(e)}")
+            embed = discord.Embed(
+                title="❌ 查詢失敗",
+                description=f"查詢過程中發生錯誤：{str(e)}",
+                color=discord.Color.red()
+            )
+            await interaction.followup.send(embed=embed)
+
+class CityCameraView(discord.ui.View):
+    """縣市監視器切換介面"""
     
-    async def show_detailed_info(self, interaction: discord.Interaction):
-        """顯示詳細資訊"""
-        data = self.cameras[self.current_index]
-        info = self.cog.format_water_image_info(data)
+    def __init__(self, cameras, city_name):
+        super().__init__(timeout=300)
+        self.cameras = cameras
+        self.current_index = 0
+        self.city_name = city_name
+        self.total_cameras = len(cameras)
         
-        if not info:
-            await interaction.response.send_message("❌ 無法獲取詳細資訊", ephemeral=True)
-            return
+        # 更新按鈕狀態
+        self._update_buttons()
+    
+    def _update_buttons(self):
+        """更新按鈕狀態"""
+        # 清除現有按鈕
+        self.clear_items()
         
-        detail_embed = discord.Embed(
-            title=f"📋 {info['station_name']} 詳細資訊",
-            color=discord.Color.green()
+        # 上一個按鈕
+        if self.current_index > 0:
+            self.add_item(self.PreviousButton())
+        
+        # 刷新按鈕
+        self.add_item(self.RefreshButton())
+        
+        # 下一個按鈕
+        if self.current_index < self.total_cameras - 1:
+            self.add_item(self.NextButton())
+        
+        # 資訊按鈕
+        self.add_item(self.InfoButton())
+    
+    class PreviousButton(discord.ui.Button):
+        def __init__(self):
+            super().__init__(style=discord.ButtonStyle.secondary, label="⬅️ 上一個", row=0)
+        
+        async def callback(self, interaction: discord.Interaction):
+            view = self.view
+            view.current_index -= 1
+            view._update_buttons()
+            
+            camera = view.cameras[view.current_index]
+            embed = await view._create_city_camera_embed(camera)
+            
+            await interaction.response.edit_message(embed=embed, view=view)
+    
+    class NextButton(discord.ui.Button):
+        def __init__(self):
+            super().__init__(style=discord.ButtonStyle.secondary, label="➡️ 下一個", row=0)
+        
+        async def callback(self, interaction: discord.Interaction):
+            view = self.view
+            view.current_index += 1
+            view._update_buttons()
+            
+            camera = view.cameras[view.current_index]
+            embed = await view._create_city_camera_embed(camera)
+            
+            await interaction.response.edit_message(embed=embed, view=view)
+    
+    class RefreshButton(discord.ui.Button):
+        def __init__(self):
+            super().__init__(style=discord.ButtonStyle.primary, label="🔄 刷新", row=0)
+        
+        async def callback(self, interaction: discord.Interaction):
+            view = self.view
+            camera = view.cameras[view.current_index]
+            embed = await view._create_city_camera_embed(camera)
+            
+            await interaction.response.edit_message(embed=embed, view=view)
+    
+    class InfoButton(discord.ui.Button):
+        def __init__(self):
+            super().__init__(style=discord.ButtonStyle.success, label="ℹ️ 詳細", row=0)
+        
+        async def callback(self, interaction: discord.Interaction):
+            view = self.view
+            camera = view.cameras[view.current_index]
+            
+            modal = CityCameraInfoModal(camera, view.current_index + 1, view.total_cameras)
+            await interaction.response.send_modal(modal)
+    
+    async def _create_city_camera_embed(self, camera):
+        """創建縣市監視器 Embed"""
+        embed = discord.Embed(
+            title="📸 縣市監視器",
+            description=f"**{camera.get('name', '未知')}**",
+            color=discord.Color.blue()
         )
         
-        detail_embed.add_field(
-            name="📍 基本資訊",
-            value=f"**監控點名稱**: {info['station_name']}\n"
-                  f"**所在縣市**: {info['location']}\n"
-                  f"**河川名稱**: {info['river']}\n"
-                  f"**運作狀態**: {info['status']}",
-            inline=False
+        # 位置資訊
+        embed.add_field(
+            name="📍 位置資訊",
+            value=f"🌍 位置：{camera.get('location', '未知')}\n"
+                  f"📡 類型：{'💧 水利監視器' if camera['type'] == 'water' else '🛣️ 公路監視器'}\n"
+                  f"ℹ️ 詳細：{camera.get('detail', '未知')}",
+            inline=True
         )
         
-        if info['coordinates'] != 'N/A':
-            detail_embed.add_field(
-                name="🗺️ 位置座標",
-                value=info['coordinates'],
-                inline=False
-            )
+        # 圖片處理
+        image_url = camera.get('image_url')
+        if image_url:
+            processed_url = await self._process_and_validate_image_url(image_url)
+            if processed_url:
+                embed.set_image(url=processed_url)
         
-        if info['image_url'] and info['image_url'] != 'N/A':
-            detail_embed.add_field(
-                name="📸 影像連結",
-                value=f"[點擊查看原始影像]({info['image_url']})",
-                inline=False
-            )
-            detail_embed.set_thumbnail(url=info['image_url'])
+        embed.set_footer(text=f"資料來源：{'水利署' if camera['type'] == 'water' else '公路總局'}")
         
-        detail_embed.set_footer(text="資料來源：經濟部水利署 - 水利防災影像監控系統")
-        
-        await interaction.response.send_message(embed=detail_embed, ephemeral=True)
+        return embed
+
+class CityCameraInfoModal(discord.ui.Modal, title="📸 縣市監視器詳細資訊"):
+    """縣市監視器詳細資訊彈窗"""
     
-    async def on_timeout(self):
-        """超時處理"""
-        # 禁用所有按鈕
-        for item in self.children:
-            item.disabled = True
+    def __init__(self, camera, current_num, total_num):
+        super().__init__()
+        self.camera = camera
+        
+        # 創建詳細資訊文本
+        info_text = f"監視器名稱: {camera.get('name', '未知')}\n"
+        info_text += f"監視器編號: {camera.get('CCTVID', '未知')}\n"
+        info_text += f"位置: {camera.get('location', '未知')}\n"
+        info_text += f"類型: {'水利監視器' if camera['type'] == 'water' else '公路監視器'}\n"
+        info_text += f"詳細資訊: {camera.get('detail', '未知')}\n"
+        info_text += f"影像URL: {camera.get('image_url', '未知')}\n"
+        info_text += f"來源: {'水利署' if camera['type'] == 'water' else '公路總局'}"
+        
+        self.info_field = discord.ui.TextInput(
+            label=f"詳細資訊 ({current_num}/{total_num})",
+            style=discord.TextStyle.paragraph,
+            default=info_text,
+            max_length=4000
+        )
+        self.add_item(self.info_field)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.send_message("📋 資訊已顯示在上方文字框中", ephemeral=True)
 
 async def setup(bot):
     """設置 Cog"""
