@@ -42,11 +42,8 @@ def check_reservoir_cog():
     print("\n🔍 檢查水庫 Cog 導入...")
     
     try:
-        # 添加 cogs 目錄到路徑
-        sys.path.insert(0, os.path.join(os.getcwd(), 'cogs'))
-        
         # 嘗試導入水庫指令模組
-        import reservoir_commands
+        from cogs import reservoir_commands
         print("✅ reservoir_commands 模組導入成功")
         
         # 檢查是否有 ReservoirCommands 類別

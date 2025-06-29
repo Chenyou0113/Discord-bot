@@ -18,7 +18,15 @@ async def test_water_cameras_display():
     
     try:
         # 導入水庫指令模組
-        from reservoir_commands import ReservoirCommands
+        try:
+            from reservoir_commands import ReservoirCommands
+        except ImportError as import_error:
+            print(f"❌ 無法導入 reservoir_commands 模組: {import_error}")
+            print("💡 請確認:")
+            print("  1. cogs/reservoir_commands.py 檔案是否存在")
+            print("  2. 檔案路徑是否正確")
+            print("  3. ReservoirCommands 類別是否已定義")
+            return False
         
         # 建立模擬 bot
         class MockBot:

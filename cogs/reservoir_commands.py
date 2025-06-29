@@ -279,6 +279,7 @@ class ReservoirCommands(commands.Cog):
             status = image_data.get('Status', '')
             latitude = image_data.get('latitude_4326', '')
             longitude = image_data.get('Longitude_4326', '')
+            station_id = image_data.get('StationID', 'N/A')
             
             # 組合完整地址
             full_location = f"{location}{district}" if location and district else (location or district or "N/A")
@@ -295,6 +296,11 @@ class ReservoirCommands(commands.Cog):
                 'station_name': station_name,
                 'camera_name': camera_name if camera_name != 'N/A' else '主攝影機',
                 'location': full_location,
+                'county': location or 'N/A',  # 新增 county 欄位
+                'district': district or 'N/A',  # 新增 district 欄位
+                'address': full_location,  # 新增 address 欄位（與 location 相同）
+                'station_id': station_id,  # 新增 station_id 欄位
+                'source': '水利防災',  # 新增 source 欄位
                 'river': river_info,
                 'image_url': processed_image_url,
                 'status': "正常" if status == "1" else "異常" if status == "0" else "未知",
@@ -1249,264 +1255,195 @@ class ReservoirCommands(commands.Cog):
         direction="行駛方向（N北、S南、E東、W西）",
         city="縣市篩選"
     )
-    @app_commands.choices(highway_number=[
-        app_commands.Choice(name="國道一號", value="1"),
-        app_commands.Choice(name="國道三號", value="3"),
-        app_commands.Choice(name="國道五號", value="5"),
-        app_commands.Choice(name="國道六號", value="6"),
-        app_commands.Choice(name="國道八號", value="8"),
-        app_commands.Choice(name="國道十號", value="10")
-    ])
-    @app_commands.choices(city=[
-        app_commands.Choice(name="台北市", value="台北市"),
-        app_commands.Choice(name="新北市", value="新北市"),
-        app_commands.Choice(name="桃園市", value="桃園市"),
-        app_commands.Choice(name="台中市", value="台中市"),
-        app_commands.Choice(name="台南市", value="台南市"),
-        app_commands.Choice(name="高雄市", value="高雄市"),
-        app_commands.Choice(name="基隆市", value="基隆市"),
-        app_commands.Choice(name="新竹市", value="新竹市"),
-        app_commands.Choice(name="新竹縣", value="新竹縣"),
-        app_commands.Choice(name="苗栗縣", value="苗栗縣"),
-        app_commands.Choice(name="彰化縣", value="彰化縣"),
-        app_commands.Choice(name="雲林縣", value="雲林縣"),
-        app_commands.Choice(name="嘉義縣", value="嘉義縣"),
-        app_commands.Choice(name="屏東縣", value="屏東縣"),
-        app_commands.Choice(name="宜蘭縣", value="宜蘭縣"),
-        app_commands.Choice(name="花蓮縣", value="花蓮縣"),
-        app_commands.Choice(name="台東縣", value="台東縣")
-    ])
     async def national_highway_cameras(self, interaction: discord.Interaction, highway_number: str = None, location: str = None, direction: str = None, city: str = None):
-        """查詢公路監視器"""
-        try:
-            await interaction.response.defer()
-            
-            # 添加載入訊息
-            loading_embed = discord.Embed(
-                title="🔄 正在載入公路監視器資料...",
-                description="請稍候，正在獲取公路總局監視器資料",
-                color=discord.Color.blue()
-            )
-            loading_message = await interaction.followup.send(embed=loading_embed)
-            
-            # 獲取公路監視器資料
-            cameras = await self._get_highway_cameras()
-            
-            if not cameras:
-                embed = discord.Embed(
-                    title="❌ 查詢失敗",
-                    description="無法獲取公路監視器資料，請稍後再試",
-                    color=discord.Color.red()
-                )
-                await loading_message.edit(embed=embed)
-                return
-            
-            # 篩選監視器
-            filtered_cameras = cameras
-            
-            if location:
-                location_lower = location.lower()
-                filtered_cameras = []
-                
-                for cam in cameras:
-                    # 基本搜尋欄位
-                    road_name = cam.get('RoadName', '').lower()
-                    surveillance_desc = cam.get('SurveillanceDescription', '').lower()
-                    cctv_id = cam.get('CCTVID', '').lower()
-                    road_class = cam.get('RoadClass', '')
-                    road_id = cam.get('RoadID', '')
-                    
-                    # 基本關鍵字匹配
-                    basic_match = any([
-                        location_lower in road_name,
-                        location_lower in surveillance_desc,
-                        location_lower in cctv_id
-                    ])
-                    
-                    # 國道特殊匹配邏輯
-                    national_highway_match = False
-                    if any(keyword in location_lower for keyword in ['國道', '國1', '國3', '國5', 'freeway', 'highway']):
-                        # 檢查是否為國道相關監視器
-                        national_highway_match = any([
-                            road_class == '1',  # 道路分類1可能代表國道
-                            '國道' in surveillance_desc,
-                            'freeway' in surveillance_desc,
-                            'highway' in surveillance_desc,
-                            '高速公路' in surveillance_desc,
-                            any(term in road_name for term in ['n1', 'n3', 'n5']),
-                            any(term in road_id for term in ['10001', '10003', '10005']),  # 國道ID格式
-                            '國1' in surveillance_desc or '國3' in surveillance_desc or '國5' in surveillance_desc
-                        ])
-                        
-                        # 特定國道號碼匹配
-                        if '國1' in location_lower or '1號' in location_lower:
-                            national_highway_match = national_highway_match or any([
-                                '1' in road_id,
-                                '1號' in surveillance_desc,
-                                'N1' in surveillance_desc.upper()
-                            ])
-                        elif '國3' in location_lower or '3號' in location_lower:
-                            national_highway_match = national_highway_match or any([
-                                '3' in road_id,
-                                '3號' in surveillance_desc,
-                                'N3' in surveillance_desc.upper()
-                            ])
-                        elif '國5' in location_lower or '5號' in location_lower:
-                            national_highway_match = national_highway_match or any([
-                                '5' in road_id,
-                                '5號' in surveillance_desc,
-                                'N5' in surveillance_desc.upper()
-                            ])
-                    
-                    if basic_match or national_highway_match:
-                        filtered_cameras.append(cam)
-            
-            if direction:
-                direction_upper = direction.upper()
-                filtered_cameras = [
-                    cam for cam in filtered_cameras
-                    if cam.get('RoadDirection', '').upper() == direction_upper
-                ]
-            
-            # 根據縣市篩選
-            if city:
-                city_filtered_cameras = []
-                for cam in filtered_cameras:
-                    lat = cam.get('PositionLat')
-                    lon = cam.get('PositionLon')
-                    if lat and lon:
-                        cam_city = self._get_city_by_coordinates(lat, lon)
-                        if cam_city == city:
-                            city_filtered_cameras.append(cam)
-                filtered_cameras = city_filtered_cameras
-            
-            # 根據道路類型篩選
-            if road_type:
-                road_type_filtered_cameras = []
-                for cam in filtered_cameras:
-                    cam_road_type = self._classify_road_type(cam)
-                    if cam_road_type == road_type:
-                        road_type_filtered_cameras.append(cam)
-                filtered_cameras = road_type_filtered_cameras
-            
-            if not filtered_cameras:
-                conditions = []
-                if location:
-                    conditions.append(f"位置：{location}")
-                if direction:
-                    conditions.append(f"方向：{direction}")
-                if city:
-                    conditions.append(f"縣市：{city}")
-                if road_type:
-                    road_type_names = {
-                        "national": "國道",
-                        "provincial": "省道", 
-                        "freeway": "快速公路",
-                        "general": "一般道路"
-                    }
-                    conditions.append(f"道路類型：{road_type_names.get(road_type, road_type)}")
-                condition_text = " | ".join(conditions) if conditions else "無"
-                
-                embed = discord.Embed(
-                    title="🔍 查詢結果",
-                    description=f"找不到符合條件的監視器\n篩選條件：{condition_text}",
-                    color=discord.Color.orange()
-                )
-                await loading_message.edit(embed=embed)
-                return
-            
-            # 顯示第一個監視器
-            camera = filtered_cameras[0]
-            
+        """查詢國道監視器（僅國道）"""
+        await interaction.response.defer()
+        loading_embed = discord.Embed(
+            title="🔄 正在載入國道監視器資料...",
+            description="請稍候，正在獲取國道監視器資料",
+            color=discord.Color.blue()
+        )
+        loading_message = await interaction.followup.send(embed=loading_embed)
+        cameras = await self._get_highway_cameras()
+        if not cameras:
             embed = discord.Embed(
-                title="🛣️ 公路監視器",
-                description=f"**{camera.get('SurveillanceDescription', '未知位置')}**",
-                color=discord.Color.blue()
+                title="❌ 查詢失敗",
+                description="無法獲取國道監視器資料，請稍後再試",
+                color=discord.Color.red()
             )
-            
-            # 基本資訊
-            road_type_display = {
-                "national": "🛣️ 國道",
-                "provincial": "🛤️ 省道", 
-                "freeway": "🏎️ 快速公路",
-                "general": "🚗 一般道路"
-            }
-            camera_road_type = self._classify_road_type(camera)
-            road_type_text = road_type_display.get(camera_road_type, "🛣️ 未知")
-            
-            embed.add_field(
-                name="📍 基本資訊",
-                value=f"🛣️ 道路：{camera.get('RoadName', '未知')}\n"
-                      f"🏷️ 類型：{road_type_text}\n"
-                      f"📍 里程：{camera.get('LocationMile', '未知')}\n"
-                      f"🧭 方向：{camera.get('RoadDirection', '未知')}\n"
-                      f"� ID：{camera.get('CCTVID', '未知')}",
-                inline=True
+            await loading_message.edit(embed=embed)
+            return
+        # 只保留國道
+        filtered_cameras = [c for c in cameras if self._classify_road_type(c) == 'national']
+        if highway_number:
+            filtered_cameras = [c for c in filtered_cameras if highway_number in c.get('RoadName', '') or highway_number in c.get('SurveillanceDescription', '')]
+        if location:
+            filtered_cameras = [c for c in filtered_cameras if location in c.get('SurveillanceDescription', '') or location in c.get('RoadName', '')]
+        if direction:
+            filtered_cameras = [c for c in filtered_cameras if direction in c.get('RoadDirection', '')]
+        if city:
+            filtered_cameras = [c for c in filtered_cameras if city in c.get('City', '') or city in c.get('SurveillanceDescription', '')]
+        if not filtered_cameras:
+            embed = discord.Embed(
+                title="🔍 查詢結果",
+                description="找不到符合條件的國道監視器。",
+                color=discord.Color.orange()
             )
-            
-            # 位置資訊
-            lat = camera.get('PositionLat', '未知')
-            lon = camera.get('PositionLon', '未知')
-            estimated_city = "未知"
-            if lat != '未知' and lon != '未知':
-                estimated_city = self._get_city_by_coordinates(lat, lon) or "未知"
-            
-            embed.add_field(
-                name="🌍 座標位置",
-                value=f"�️ 縣市：{estimated_city}\n"
-                      f"🌐 經度：{lon}\n"
-                      f"🌐 緯度：{lat}",
-                inline=True
-            )
-            
-            # 圖片處理
-            image_url = camera.get('VideoImageURL')
-            if image_url:
-                processed_url = await self._process_highway_image_url(image_url)
-                if processed_url:
-                    embed.set_image(url=processed_url)
-                    embed.add_field(
-                        name="📸 影像狀態",
-                        value="✅ 即時影像",
-                        inline=False
-                    )
-                else:
-                    embed.add_field(
-                        name="📸 影像狀態",
-                        value="❌ 影像暫無法載入",
-                        inline=False
-                    )
-            
-            embed.set_footer(text=f"找到 {len(filtered_cameras)} 個監視器 | 資料來源：公路總局")
-            
-            # 如果有多個監視器，新增切換按鈕
-            if len(filtered_cameras) > 1:
-                view = HighwayCameraView(filtered_cameras, 0)
-                await loading_message.edit(embed=embed, view=view)
+            await loading_message.edit(embed=embed)
+            return
+        camera = filtered_cameras[0]
+        embed = discord.Embed(
+            title="🛣️ 國道監視器",
+            description=f"**{camera.get('SurveillanceDescription', '未知位置')}**",
+            color=discord.Color.blue()
+        )
+        embed.add_field(
+            name="📍 基本資訊",
+            value=f"🛣️ 道路：{camera.get('RoadName', '未知')}\n"
+                  f"🏷️ 類型：🛣️ 國道\n"
+                  f"📍 里程：{camera.get('LocationMile', '未知')}\n"
+                  f"🧭 方向：{camera.get('RoadDirection', '未知')}\n"
+                  f"� ID：{camera.get('CCTVID', '未知')}",
+            inline=True
+        )
+        lat = camera.get('PositionLat', '未知')
+        lon = camera.get('PositionLon', '未知')
+        estimated_city = "未知"
+        if lat != '未知' and lon != '未知':
+            estimated_city = self._get_city_by_coordinates(lat, lon) or "未知"
+        embed.add_field(
+            name="🌍 座標位置",
+            value=f"�️ 縣市：{estimated_city}\n"
+                  f"🌐 經度：{lon}\n"
+                  f"🌐 緯度：{lat}",
+            inline=True
+        )
+        image_url = camera.get('VideoImageURL')
+        if image_url:
+            processed_url = await self._process_highway_image_url(image_url)
+            if processed_url:
+                embed.set_image(url=processed_url)
+                embed.add_field(
+                    name="📸 影像狀態",
+                    value="✅ 即時影像",
+                    inline=False
+                )
             else:
-                await loading_message.edit(embed=embed)
-                
-        except Exception as e:
-            logger.error(f"公路監視器查詢失敗: {str(e)}")
-            
-            # 檢查是否已經有 loading_message 可以編輯
-            try:
-                if 'loading_message' in locals():
-                    embed = discord.Embed(
-                        title="❌ 查詢失敗",
-                        description=f"查詢過程中發生錯誤：{str(e)}",
-                        color=discord.Color.red()
-                    )
-                    await loading_message.edit(embed=embed)
-                else:
-                    embed = discord.Embed(
-                        title="❌ 查詢失敗",
-                        description=f"查詢過程中發生錯誤：{str(e)}",
-                        color=discord.Color.red()
-                    )
-                    await interaction.followup.send(embed=embed)
-            except:
-                logger.error("無法發送錯誤訊息到 Discord")
+                embed.add_field(
+                    name="📸 影像狀態",
+                    value="❌ 影像暫無法載入",
+                    inline=False
+                )
+        embed.set_footer(text=f"找到 {len(filtered_cameras)} 個國道監視器 | 資料來源：公路總局")
+        if len(filtered_cameras) > 1:
+            view = HighwayCameraView(filtered_cameras, 0)
+            await loading_message.edit(embed=embed, view=view)
+        else:
+            await loading_message.edit(embed=embed)
+
+    @app_commands.command(name="general_road_cameras", description="查詢省道/快速公路/一般道路監視器影像")
+    @app_commands.describe(
+        road_type="道路類型（省道、快速公路、一般道路）",
+        location="位置關鍵字（如：新竹、台中等）",
+        direction="行駛方向（N北、S南、E東、W西）",
+        city="縣市篩選"
+    )
+    @app_commands.choices(road_type=[
+        app_commands.Choice(name="省道", value="provincial"),
+        app_commands.Choice(name="快速公路", value="freeway"),
+        app_commands.Choice(name="一般道路", value="general")
+    ])
+    async def general_road_cameras(self, interaction: discord.Interaction, road_type: str = None, location: str = None, direction: str = None, city: str = None):
+        """查詢省道/快速公路/一般道路監視器（不含國道）"""
+        await interaction.response.defer()
+        loading_embed = discord.Embed(
+            title="🔄 正在載入監視器資料...",
+            description="請稍候，正在獲取監視器資料",
+            color=discord.Color.blue()
+        )
+        loading_message = await interaction.followup.send(embed=loading_embed)
+        cameras = await self._get_highway_cameras()
+        if not cameras:
+            embed = discord.Embed(
+                title="❌ 查詢失敗",
+                description="無法獲取監視器資料，請稍後再試",
+                color=discord.Color.red()
+            )
+            await loading_message.edit(embed=embed)
+            return
+        # 排除國道
+        filtered_cameras = [c for c in cameras if self._classify_road_type(c) != 'national']
+        if road_type:
+            filtered_cameras = [c for c in filtered_cameras if self._classify_road_type(c) == road_type]
+        if location:
+            filtered_cameras = [c for c in filtered_cameras if location in c.get('SurveillanceDescription', '') or location in c.get('RoadName', '')]
+        if direction:
+            filtered_cameras = [c for c in filtered_cameras if direction in c.get('RoadDirection', '')]
+        if city:
+            filtered_cameras = [c for c in filtered_cameras if city in c.get('City', '') or city in c.get('SurveillanceDescription', '')]
+        if not filtered_cameras:
+            embed = discord.Embed(
+                title="🔍 查詢結果",
+                description="找不到符合條件的省道/快速公路/一般道路監視器。",
+                color=discord.Color.orange()
+            )
+            await loading_message.edit(embed=embed)
+            return
+        camera = filtered_cameras[0]
+        road_type_display = {
+            "provincial": "🛤️ 省道",
+            "freeway": "🏎️ 快速公路",
+            "general": "🚗 一般道路"
+        }
+        road_type_text = road_type_display.get(self._classify_road_type(camera), "🚗 一般道路")
+        embed = discord.Embed(
+            title=f"{road_type_text} 監視器",
+            description=f"**{camera.get('SurveillanceDescription', '未知位置')}**",
+            color=discord.Color.blue()
+        )
+        embed.add_field(
+            name="📍 基本資訊",
+            value=f"🛣️ 道路：{camera.get('RoadName', '未知')}\n"
+                  f"🏷️ 類型：{road_type_text}\n"
+                  f"📍 里程：{camera.get('LocationMile', '未知')}\n"
+                  f"🧭 方向：{camera.get('RoadDirection', '未知')}\n"
+                  f"� ID：{camera.get('CCTVID', '未知')}",
+            inline=True
+        )
+        lat = camera.get('PositionLat', '未知')
+        lon = camera.get('PositionLon', '未知')
+        estimated_city = "未知"
+        if lat != '未知' and lon != '未知':
+            estimated_city = self._get_city_by_coordinates(lat, lon) or "未知"
+        embed.add_field(
+            name="🌍 座標位置",
+            value=f"�️ 縣市：{estimated_city}\n"
+                  f"🌐 經度：{lon}\n"
+                  f"🌐 緯度：{lat}",
+            inline=True
+        )
+        image_url = camera.get('VideoImageURL')
+        if image_url:
+            processed_url = await self._process_highway_image_url(image_url)
+            if processed_url:
+                embed.set_image(url=processed_url)
+                embed.add_field(
+                    name="📸 影像狀態",
+                    value="✅ 即時影像",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="📸 影像狀態",
+                    value="❌ 影像暫無法載入",
+                    inline=False
+                )
+        embed.set_footer(text=f"找到 {len(filtered_cameras)} 個監視器 | 資料來源：公路總局")
+        if len(filtered_cameras) > 1:
+            view = HighwayCameraView(filtered_cameras, 0)
+            await loading_message.edit(embed=embed, view=view)
+        else:
+            await loading_message.edit(embed=embed)
 
     async def _get_highway_cameras(self):
         """獲取公路監視器資料"""
@@ -1637,38 +1574,45 @@ class ReservoirCommands(commands.Cog):
         road_class = camera.get('RoadClass', '')
         road_id = camera.get('RoadID', '')
         
-        # 國道判斷
+        # 快速公路判斷 (優先判斷，避免被誤分為國道)
         if any([
-            road_class == '1',  # 道路分類1通常代表國道
+            '快速' in surveillance_desc,
+            '快速公路' in surveillance_desc,
+            road_name.startswith('台') and any(num in road_name for num in ['62', '64', '68', '72', '74', '76', '78', '82', '84', '86', '88']),
+            '快速道路' in surveillance_desc,
+            any(term in road_id for term in ['62', '64', '68', '72', '74', '76', '78', '82', '84', '86', '88']),
+            # 明確的台X線快速公路
+            (road_name.startswith('台') and any(c.isdigit() for c in road_name) and 
+             any(keyword in surveillance_desc for keyword in ['快速', '交流道', '系統交流道']))
+        ]):
+            return 'freeway'
+        
+        # 國道判斷 (在快速公路之後判斷)
+        elif any([
+            # 明確的國道關鍵字
             '國道' in surveillance_desc,
-            'freeway' in surveillance_desc,
-            'highway' in surveillance_desc,
             '高速公路' in surveillance_desc,
-            any(term in road_name for term in ['n1', 'n3', 'n5']),
-            any(term in road_id for term in ['10001', '10003', '10005']),  # 國道ID格式
-            '國1' in surveillance_desc or '國3' in surveillance_desc or '國5' in surveillance_desc
+            'freeway' in surveillance_desc and '快速' not in surveillance_desc,
+            'highway' in surveillance_desc and '快速' not in surveillance_desc,
+            # 國道編號格式
+            any(term in surveillance_desc for term in ['國1', '國3', '國5', '國6', '國8', '國10']),
+            any(term in road_name for term in ['n1', 'n3', 'n5', 'n6', 'n8', 'n10']),
+            # 國道ID格式 (但要排除快速公路)
+            (road_class == '1' and 
+             not any(keyword in surveillance_desc for keyword in ['快速', '台62', '台64', '台68', '台72', '台74', '台76', '台78', '台82', '台84', '台86', '台88']) and
+             not road_name.startswith('台'))
         ]):
             return 'national'
         
         # 省道判斷
         elif any([
-            road_name.startswith('台') and any(c.isdigit() for c in road_name),  # 台1線、台9線等
+            road_name.startswith('台') and any(c.isdigit() for c in road_name) and '快速' not in surveillance_desc,  # 台1線、台9線等 (排除快速公路)
             '省道' in surveillance_desc,
-            '台' in road_name and '線' in road_name,
+            '台' in road_name and '線' in road_name and '快速' not in surveillance_desc,
             road_class == '2',  # 道路分類2可能代表省道
             any(term in road_id for term in ['20', '21', '22', '23', '24', '25', '26', '27', '28', '29'])
         ]):
             return 'provincial'
-        
-        # 快速公路判斷
-        elif any([
-            '快速' in surveillance_desc,
-            '快速公路' in road_name,
-            road_name.startswith('台') and ('快' in road_name or '62' in road_name or '64' in road_name or '68' in road_name),
-            '快速道路' in surveillance_desc,
-            any(term in road_id for term in ['62', '64', '68', '72', '74', '76', '78', '82', '84', '86', '88'])
-        ]):
-            return 'freeway'
         
         # 一般道路
         else:
