@@ -122,7 +122,8 @@ class CustomBot(commands.Bot):
             'cogs.weather_commands',
             'cogs.air_quality_commands',
             'cogs.radar_commands',
-            'cogs.temperature_commands'
+            'cogs.temperature_commands',
+            'cogs.reservoir_commands'
         ]
         self.startup_channels = {}
         self._sync_in_progress = False
@@ -143,14 +144,21 @@ class CustomBot(commands.Bot):
             # 🔥 終極指令重複註冊修復方案
             logger.info('🔥 執行終極指令重複註冊修復...')
             
-            # 階段1：核子級別清理
+            # 階段1: 核子級別清理
             logger.info('階段1: 核子級別清理...')
             
-            # 1.1 完全重建命令樹
-            logger.info('  1.1 重建命令樹...')
-            old_tree = self.tree
-            self.tree = app_commands.CommandTree(self)
-            del old_tree
+            # 1.1 清除命令樹中的所有指令 (不重新創建命令樹)
+            logger.info('  1.1 清除命令樹指令...')
+            self.tree.clear_commands(guild=None)
+            # 清除所有公會的指令
+            for guild in self.guilds:
+                self.tree.clear_commands(guild=guild)
+            
+            # 清除內部指令字典
+            if hasattr(self.tree, '_global_commands'):
+                self.tree._global_commands.clear()
+            if hasattr(self.tree, '_guild_commands'):
+                self.tree._guild_commands.clear()
             
             # 1.2 清除連接中的所有應用程式指令快取
             if hasattr(self, '_connection') and self._connection:
@@ -217,7 +225,7 @@ class CustomBot(commands.Bot):
             self._loaded_cogs.clear()
             await asyncio.sleep(2)
             
-            # 階段2：驗證清理結果
+            # 階段2: 驗證清理結果
             logger.info('階段2: 驗證清理結果...')
             final_cogs = len(self.cogs)
             final_extensions = len([e for e in self.extensions.keys() if e.startswith('cogs.')])
@@ -229,7 +237,7 @@ class CustomBot(commands.Bot):
                 logger.error('❌ 清理不完全，仍有殘留！')
                 return
             
-            # 階段3：智慧型載入
+            # 階段3: 智慧型載入
             logger.info('階段3: 智慧型載入...')
             successful_loads = 0
             failed_loads = []
@@ -276,7 +284,7 @@ class CustomBot(commands.Bot):
                     logger.error(f'    ❌ 載入 {extension} 失敗: {str(e)}')
                     failed_loads.append(extension)
             
-            # 階段4：載入結果驗證
+            # 階段4: 載入結果驗證
             logger.info('階段4: 載入結果驗證...')
             logger.info(f'  📊 載入統計: 成功 {successful_loads}/{len(self.initial_extensions)}')
             
@@ -289,7 +297,7 @@ class CustomBot(commands.Bot):
             loaded_cogs = list(self.cogs.keys())
             logger.info(f'  📋 已載入的 Cogs ({len(loaded_cogs)}): {", ".join(loaded_cogs)}')
             
-            # 階段5：終極指令同步
+            # 階段5: 終極指令同步
             logger.info('階段5: 終極指令同步...')
             try:
                 # 5.1 同步前檢查
@@ -315,7 +323,7 @@ class CustomBot(commands.Bot):
                 import traceback
                 logger.error(f'  同步錯誤詳情: {traceback.format_exc()}')
             
-            # 階段6：最終狀態報告
+            # 階段6: 最終狀態報告
             logger.info('階段6: 最終狀態報告...')
             logger.info(f'  🎯 最終統計:')
             logger.info(f'    載入的擴展: {len(self._loaded_cogs)}')
@@ -401,256 +409,55 @@ class CustomBot(commands.Bot):
         except Exception as e:
             logger.error(f'強制同步命令時發生錯誤: {str(e)}')
             return []
+    
+    async def on_error(self, event, *args, **kwargs):
+        """處理錯誤事件"""
+        logger.error(f'在事件 {event} 中發生錯誤')
+        logger.error(f'參數: {args}')
+        logger.error(f'關鍵字參數: {kwargs}')
+        
+        import traceback
+        logger.error(f'錯誤詳情: {traceback.format_exc()}')
+    
+    async def on_command_error(self, ctx, error):
+        """處理命令錯誤"""
+        if isinstance(error, commands.CommandNotFound):
+            return  # 忽略未找到的命令
+        elif isinstance(error, commands.MissingPermissions):
+            await ctx.send("❌ 您沒有執行此命令的權限")
+        elif isinstance(error, commands.BotMissingPermissions):
+            await ctx.send("❌ 機器人沒有執行此命令所需的權限")
+        elif isinstance(error, commands.CommandOnCooldown):
+            await ctx.send(f"⏰ 命令冷卻中，請在 {error.retry_after:.2f} 秒後再試")
+        else:
+            logger.error(f'命令錯誤: {str(error)}')
+            await ctx.send("❌ 執行命令時發生錯誤")
 
-# 創建機器人實例
+# 實例化機器人
 bot = CustomBot()
 
-# 定義重啟指令
-@bot.command(name="reboot", aliases=["rb"])
-async def reboot_command(ctx):
-    """直接重啟機器人 (!reboot 或 !rb)"""
-    if not ctx.author.guild_permissions.administrator:
-        await ctx.send("❌ 此指令僅限管理員使用！")
-        return
-        
-    await ctx.send("🔄 正在準備重啟機器人，請稍候...")
-    logger.info(f'管理員 {ctx.author} 從伺服器 {ctx.guild.name} 觸發了機器人重啟')
-    
-    # 獲取admin_commands cog
-    admin_cog = bot.get_cog("AdminCommands")
-    if admin_cog:
-        # 發送重啟訊息到系統監控頻道
-        await admin_cog._send_restart_message(ctx.guild)
-        
-        # 為所有伺服器發送重啟訊息
-        for guild in bot.guilds:
-            if guild.id != ctx.guild.id:  # 避免重複發送訊息到觸發重啟的伺服器
-                await admin_cog._send_restart_message(guild)
-    else:
-        # 如果找不到admin_commands，直接使用一般訊息
-        for guild in bot.guilds:
-            channel = discord.utils.find(
-                lambda c: isinstance(c, discord.TextChannel) and 
-                        c.permissions_for(guild.me).send_messages and
-                        "系統" in c.name and "監控" in c.name,
-                guild.channels
-            )
-            if channel:
-                try:
-                    embed = discord.Embed(
-                        title="🔄 系統監控通知",
-                        description="機器人正在重啟，請稍候...",
-                        color=discord.Color.blue()
-                    )
-                    embed.set_footer(text=f"重啟時間: {discord.utils.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
-                    await channel.send(embed=embed)
-                except:
-                    continue
-      # 等待訊息發送完成
-    await asyncio.sleep(2)
-    
-    # 優雅關閉機器人
-    logger.info('機器人正在關閉，等待外部腳本重啟...')
-    await bot.close()
-
-# 定義同步指令
-@bot.command(name="resync", aliases=["rs"])
-async def resync_command(ctx):
-    """強制同步斜線指令 (!resync 或 !rs)"""
-    if not ctx.author.guild_permissions.administrator:
-        await ctx.send("❌ 此指令僅限管理員使用！")
-        return
-        
-    await ctx.send("🔄 正在強制同步斜線指令，請稍候...")
-    
+# 主要執行函數
+async def main():
+    """主要執行函數"""
     try:
-        # 清空並重新同步指令
-        logger.info('開始強制清空和重新同步斜線指令...')
-        
-        if bot._sync_in_progress:
-            await ctx.send("⚠️ 已有同步程序在執行中，請稍後再試。")
-            return
-            
-        bot._sync_in_progress = True
-        
-        try:
-            # 方法1: 使用force_sync_commands方法
-            result = await bot.force_sync_commands(ctx.guild)
-            
-            # 再次檢查命令
-            if ctx.guild:
-                commands = bot.tree.get_commands(guild=ctx.guild)
-            else:
-                commands = bot.tree.get_commands()
-                
-            command_names = [cmd.name for cmd in commands]
-            logger.info(f'同步後的斜線指令 ({len(commands)}): {", ".join(command_names) if command_names else "無"}')
-                
-            await ctx.send(f"✅ 斜線指令同步完成！共同步了 {len(commands)} 個指令: {', '.join(command_names) if command_names else '無'}")
-        except Exception as e:
-            error_msg = f'强制同步命令過程中出現錯誤: {str(e)}'
-            logger.error(error_msg)
-            await ctx.send(f"❌ 同步過程發生錯誤: {str(e)}")
-        finally:
-            bot._sync_in_progress = False
-            
+        # 啟動機器人
+        async with bot:
+            await bot.start(token)
+    except KeyboardInterrupt:
+        logger.info('收到鍵盤中斷，正在關閉機器人...')
     except Exception as e:
-        logger.error(f'整體同步過程發生錯誤: {str(e)}')
-        await ctx.send(f"❌ 同步過程發生嚴重錯誤: {str(e)}")
+        logger.error(f'機器人執行時發生錯誤: {str(e)}')
+        import traceback
+        logger.error(f'錯誤詳情: {traceback.format_exc()}')
+    finally:
+        logger.info('機器人已關閉')
 
-@bot.command(name="recreate_commands", aliases=["rc"])
-async def recreate_commands(ctx):
-    """完全重新創建所有命令 (!recreate_commands 或 !rc)"""
-    if not ctx.author.guild_permissions.administrator:
-        await ctx.send("❌ 此指令僅限管理員使用！")
-        return
-        
-    await ctx.send("🔄 正在重新創建所有命令，這可能需要一些時間...")
-    
+if __name__ == '__main__':
     try:
-        if bot._sync_in_progress:
-            await ctx.send("⚠️ 已有同步程序在執行中，請稍後再試。")
-            return
-            
-        bot._sync_in_progress = True
-        
-        try:
-            # 清空所有命令
-            bot.tree.clear_commands(guild=None)
-            for guild in bot.guilds:
-                bot.tree.clear_commands(guild=guild)
-                
-            await asyncio.sleep(2)
-                
-            # 嘗試手動註冊基本命令
-            bot._try_register_basic_commands()
-            
-            # 重新同步
-            await asyncio.sleep(2)
-            global_commands = await bot.tree.sync()
-            
-            # 同步到每個伺服器
-            for guild in bot.guilds:
-                try:
-                    guild_commands = await bot.tree.sync(guild=guild)
-                    logger.info(f'已同步 {len(guild_commands)} 個指令到伺服器 {guild.name}')
-                except Exception as e:
-                    logger.error(f'同步到伺服器 {guild.name} 時發生錯誤: {str(e)}')
-                await asyncio.sleep(1)
-                
-            # 顯示結果
-            commands = bot.tree.get_commands()
-            command_names = [cmd.name for cmd in commands]
-            
-            await ctx.send(f"✅ 所有命令重新創建完成！全局指令: {len(commands)} 個\n命令: {', '.join(command_names) if command_names else '無'}")
-            
-        except Exception as e:
-            error_msg = f'重新創建命令過程中出現錯誤: {str(e)}'
-            logger.error(error_msg)
-            await ctx.send(f"❌ 重新創建過程發生錯誤: {str(e)}")
-        finally:
-            bot._sync_in_progress = False
-            
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info('程序被中斷')
     except Exception as e:
-        logger.error(f'整體重新創建過程發生錯誤: {str(e)}')
-        await ctx.send(f"❌ 重新創建過程發生嚴重錯誤: {str(e)}")
-
-@bot.command(name="fix_commands", aliases=["fc"])
-async def fix_commands(ctx):
-    """修復「未知整合」問題 (!fix_commands 或 !fc)"""
-    if not ctx.author.guild_permissions.administrator:
-        await ctx.send("❌ 此指令僅限管理員使用！")
-        return
-        
-    await ctx.send("🛠️ 正在嘗試修復「未知整合」問題，這可能需要一些時間...")
-    
-    try:
-        if bot._sync_in_progress:
-            await ctx.send("⚠️ 已有同步程序在執行中，請稍後再試。")
-            return
-            
-        bot._sync_in_progress = True
-        
-        try:
-            # 1. 完全清空所有命令
-            logger.info('嘗試修復「未知整合」問題：完全清空所有命令')
-            bot.tree.clear_commands(guild=None)
-            
-            for guild in bot.guilds:
-                try:
-                    bot.tree.clear_commands(guild=guild)
-                    logger.info(f'已清空伺服器 {guild.name} 的指令')
-                except Exception as e:
-                    logger.error(f'清空伺服器 {guild.name} 指令時發生錯誤: {str(e)}')
-            
-            await asyncio.sleep(2)  # 等待命令清空生效
-            
-            # 2. 同步一次空指令樹以確保清空生效
-            await bot.tree.sync()
-            for guild in bot.guilds:
-                try:
-                    await bot.tree.sync(guild=guild)
-                except Exception as e:
-                    logger.error(f'同步空指令樹到伺服器 {guild.name} 時發生錯誤: {str(e)}')
-            
-            await ctx.send("🧹 所有命令已清空，正在重新註冊基本命令...")
-            await asyncio.sleep(1)
-            
-            # 3. 手動註冊基本命令
-            logger.info('嘗試手動註冊基本命令')
-            bot._try_register_basic_commands()
-            await asyncio.sleep(2)  # 等待註冊生效
-            
-            # 4. 強制重新同步
-            global_commands = await bot.tree.sync()
-            logger.info(f'全局指令同步完成: {len(global_commands)} 個指令')
-            
-            # 5. 同步到每個伺服器
-            success_guilds = 0
-            for guild in bot.guilds:
-                try:
-                    # 先複製全局命令到伺服器
-                    bot.tree.copy_global_to(guild=guild)
-                    await asyncio.sleep(0.5)
-                    
-                    # 同步到伺服器
-                    guild_commands = await bot.tree.sync(guild=guild)
-                    logger.info(f'已同步 {len(guild_commands)} 個指令到伺服器 {guild.name}')
-                    success_guilds += 1
-                except Exception as e:
-                    logger.error(f'同步到伺服器 {guild.name} 時發生錯誤: {str(e)}')
-                
-                await asyncio.sleep(1)  # 避免API限制
-            
-            # 6. 最終檢查
-            commands = bot.tree.get_commands()
-            command_names = [cmd.name for cmd in commands]
-            
-            # 發送結果
-            if len(commands) > 0:
-                await ctx.send(f"✅ 修復完成！已成功註冊 {len(commands)} 個全局指令，並同步到 {success_guilds} 個伺服器。\n"
-                            f"指令列表: {', '.join(f'`/{name}`' for name in command_names)}\n"
-                            f"👉 請完全退出並重新啟動 Discord 以使修復生效。")
-            else:
-                await ctx.send("❌ 修復似乎未能成功，仍然沒有註冊的指令。請嘗試以下步驟：\n"
-                            "1. 重啟機器人 (`!reboot`)\n"
-                            "2. 確保機器人擁有必要權限\n"
-                            "3. 重新邀請機器人到伺服器")
-            
-        except Exception as e:
-            error_msg = f'修復命令過程中出現錯誤: {str(e)}'
-            logger.error(error_msg)
-            await ctx.send(f"❌ 修復過程發生錯誤: {str(e)}")
-        finally:
-            bot._sync_in_progress = False
-            
-    except Exception as e:
-        logger.error(f'整體修復過程發生錯誤: {str(e)}')
-        await ctx.send(f"❌ 修復過程發生嚴重錯誤: {str(e)}")
-
-# 運行機器人
-try:
-    bot.run(token)
-except Exception as e:
-    logger.error(f'機器人啟動失敗: {str(e)}')
-    exit(1)
+        logger.error(f'程序執行時發生錯誤: {str(e)}')
+        import traceback
+        logger.error(f'錯誤詳情: {traceback.format_exc()}')

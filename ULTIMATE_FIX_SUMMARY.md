@@ -16,11 +16,27 @@ Discord 機器人在啟動時持續出現 `CommandAlreadyRegistered: Command 'we
 - ❌ **刪除**: 干擾的備份文件 `air_quality_commands_backup.py`
 - ✅ **保留**: `weather_commands.py` 中的完整 `weather_station` 實現
 
-### 第2步：實施終極清理機制
+### 第2步：修復 CommandTree 錯誤
+**問題**: `This client already has an associated command tree.`
+**原因**: Discord.py 不允許重新創建 CommandTree
+**解決**: 改用清除指令而非重建命令樹
+
+```python
+# ❌ 舊方法 (會出錯)
+old_tree = self.tree
+self.tree = app_commands.CommandTree(self)
+
+# ✅ 新方法 (正確)
+self.tree.clear_commands(guild=None)
+for guild in self.guilds:
+    self.tree.clear_commands(guild=guild)
+```
+
+### 第3步：實施終極清理機制
 更新 `bot.py` 中的 `setup_hook` 方法，實施6階段載入流程：
 
 #### 階段1: 核子級別清理
-- 完全重建命令樹
+- **清除命令樹指令**: 使用 `clear_commands()` 而非重建
 - 清除連接中的所有應用程式指令快取
 - 5輪徹底卸載所有 Cogs 和擴展
 - 清除 Python 模組快取
