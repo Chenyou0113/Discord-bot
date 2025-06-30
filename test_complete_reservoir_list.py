@@ -105,19 +105,32 @@ async def test_reservoir_list_with_capacity():
                             if isinstance(item, dict):
                                 # 使用正確的欄位名稱
                                 reservoir_id = item.get('ReservoirIdentifier', 'N/A')
+                                reservoir_name = item.get('ReservoirName', f"水庫{reservoir_id}")
                                 effective_capacity = item.get('EffectiveWaterStorageCapacity', 'N/A')
+                                current_storage = item.get('EffectiveStorageWaterLevel', 'N/A')
                                 water_level = item.get('WaterLevel', 'N/A')
                                 inflow = item.get('InflowDischarge', 'N/A')
                                 outflow = item.get('TotalOutflow', 'N/A')
                                 obs_time = item.get('ObservationTime', 'N/A')
                                 
-                                # 使用簡單的水庫名稱
-                                reservoir_name = f"水庫{reservoir_id}"
+                                # 計算蓄水率
+                                percentage = 'N/A'
+                                try:
+                                    if (effective_capacity != 'N/A' and current_storage != 'N/A' and 
+                                        effective_capacity and current_storage):
+                                        capacity_val = float(effective_capacity)
+                                        storage_val = float(current_storage)
+                                        if capacity_val > 0:
+                                            percentage = round((storage_val / capacity_val) * 100, 2)
+                                except (ValueError, TypeError, ZeroDivisionError):
+                                    percentage = 'N/A'
                                 
                                 reservoirs_info.append({
                                     'id': reservoir_id,
                                     'name': reservoir_name,
                                     'effective_capacity': effective_capacity,
+                                    'current_storage': current_storage,
+                                    'percentage': percentage,
                                     'water_level': water_level,
                                     'inflow': inflow,
                                     'outflow': outflow,
@@ -144,28 +157,79 @@ async def test_reservoir_list_with_capacity():
                         
                         # 顯示前 20 大水庫
                         print("🏆 台灣前 20 大水庫（按有效容量排序）:")
-                        print("-" * 80)
-                        print(f"{'排名':<4} {'水庫ID':<8} {'水庫名稱':<15} {'有效容量(萬m³)':<15} {'目前水位(m)':<12} {'入流量':<8}")
-                        print("-" * 80)
+                        print("-" * 90)
+                        print(f"{'排名':<4} {'水庫ID':<8} {'水庫名稱':<20} {'有效容量(萬m³)':<15} {'蓄水率(%)':<10} {'目前水位(m)':<12}")
+                        print("-" * 90)
                         
                         for i, reservoir in enumerate(reservoirs_info[:20], 1):
                             reservoir_id = reservoir['id'][:7]
-                            name = reservoir['name'][:12] + '...' if len(reservoir['name']) > 12 else reservoir['name']
+                            name = reservoir['name'][:18] + '...' if len(reservoir['name']) > 18 else reservoir['name']
                             capacity = reservoir['effective_capacity'][:12] if reservoir['effective_capacity'] != 'N/A' else 'N/A'
+                            percentage = f"{reservoir['percentage']:.1f}" if reservoir['percentage'] != 'N/A' else 'N/A'
                             water_level = reservoir['water_level'][:10] if reservoir['water_level'] != 'N/A' else 'N/A'
-                            inflow = reservoir['inflow'][:6] if reservoir['inflow'] != 'N/A' else 'N/A'
                             
-                            print(f"{i:<4} {reservoir_id:<8} {name:<15} {capacity:<15} {water_level:<12} {inflow:<8}")
+                            print(f"{i:<4} {reservoir_id:<8} {name:<20} {capacity:<15} {percentage:<10} {water_level:<12}")
                         
                         # 建立水庫 ID 到名稱的對應表（用於更新 Discord 指令）
-                        print(f"\n📋 可建立的水庫 ID 對應表（前 30 個）:")
-                        print("-" * 50)
+                        print(f"\n📋 可建立的水庫 ID 對應表（前 30 個，按容量排序）:")
+                        print("-" * 70)
+                        
+                        # 建立更完整的對應表
+                        reservoir_mapping = {}
                         for i, reservoir in enumerate(reservoirs_info[:30], 1):
                             reservoir_id = reservoir['id']
+                            reservoir_name = reservoir['name']
                             capacity = reservoir['effective_capacity']
-                            print(f'"{reservoir_id}": "水庫{reservoir_id}",  # 容量: {capacity}')
-                            if i % 10 == 0:
-                                print()  # 每10個換行
+                            percentage = reservoir['percentage']
+                            
+                            # 格式化顯示
+                            percentage_str = f"{percentage:.1f}%" if percentage != 'N/A' else 'N/A'
+                            capacity_str = f"{capacity}" if capacity != 'N/A' else 'N/A'
+                            
+                            print(f'"{reservoir_id}": "{reservoir_name}",  # 容量: {capacity_str} 萬m³, 蓄水率: {percentage_str}')
+                            reservoir_mapping[reservoir_id] = reservoir_name
+                            
+                            if i % 5 == 0:
+                                print()  # 每5個換行
+                        
+                        # 額外統計
+                        print(f"\n📊 詳細統計資訊:")
+                        print("-" * 40)
+                        
+                        # 容量統計
+                        valid_capacity_reservoirs = [r for r in reservoirs_info if r['effective_capacity'] != 'N/A']
+                        if valid_capacity_reservoirs:
+                            try:
+                                capacities = [float(r['effective_capacity']) for r in valid_capacity_reservoirs]
+                                total_capacity = sum(capacities)
+                                avg_capacity = total_capacity / len(capacities)
+                                max_capacity = max(capacities)
+                                min_capacity = min(capacities)
+                                
+                                print(f"總有效容量: {total_capacity:,.0f} 萬m³")
+                                print(f"平均容量: {avg_capacity:,.0f} 萬m³")
+                                print(f"最大容量: {max_capacity:,.0f} 萬m³")
+                                print(f"最小容量: {min_capacity:,.0f} 萬m³")
+                            except (ValueError, TypeError) as e:
+                                print(f"計算容量統計時發生錯誤: {e}")
+                        else:
+                            print("沒有有效的容量資料可供統計")
+                        
+                        # 蓄水率統計
+                        if valid_percentage_reservoirs:
+                            try:
+                                percentages = [float(r['percentage']) for r in valid_percentage_reservoirs]
+                                avg_percentage = sum(percentages) / len(percentages)
+                                max_percentage = max(percentages)
+                                min_percentage = min(percentages)
+                                
+                                print(f"\n平均蓄水率: {avg_percentage:.1f}%")
+                                print(f"最高蓄水率: {max_percentage:.1f}%")
+                                print(f"最低蓄水率: {min_percentage:.1f}%")
+                            except (ValueError, TypeError) as e:
+                                print(f"計算蓄水率統計時發生錯誤: {e}")
+                        else:
+                            print("\n沒有有效的蓄水率資料可供統計")
                         
                         # 統計資訊
                         print(f"\n📊 統計資訊:")
@@ -180,35 +244,85 @@ async def test_reservoir_list_with_capacity():
                         print(f"有蓄水率資料: {has_percentage_data}")
                         
                         # 按蓄水率分類
-                        high_percentage = len([r for r in reservoirs_info if r['percentage'] != 'N/A' and float(r['percentage']) >= 80])
-                        medium_percentage = len([r for r in reservoirs_info if r['percentage'] != 'N/A' and 50 <= float(r['percentage']) < 80])
-                        low_percentage = len([r for r in reservoirs_info if r['percentage'] != 'N/A' and float(r['percentage']) < 50])
+                        valid_percentage_reservoirs = [r for r in reservoirs_info if r['percentage'] != 'N/A']
+                        high_percentage = len([r for r in valid_percentage_reservoirs if float(r['percentage']) >= 80])
+                        medium_percentage = len([r for r in valid_percentage_reservoirs if 50 <= float(r['percentage']) < 80])
+                        low_percentage = len([r for r in valid_percentage_reservoirs if float(r['percentage']) < 50])
                         
                         print(f"\n💧 蓄水率分布:")
                         print(f"高水位 (≥80%): {high_percentage} 個")
                         print(f"中水位 (50-79%): {medium_percentage} 個")
                         print(f"低水位 (<50%): {low_percentage} 個")
                         
-                        # 地區分布（粗略分類）
+                        # 地區分布（使用水庫ID和名稱進行更準確的分類）
                         print(f"\n🗺️ 地區分布分析:")
-                        north_keywords = ['翡翠', '石門', '新山', '寶山']
-                        central_keywords = ['德基', '鯉魚潭', '明德', '永和山', '日月潭']
-                        south_keywords = ['曾文', '南化', '烏山頭', '白河', '牡丹', '阿公店']
                         
-                        north_count = len([r for r in reservoirs_info if any(kw in r['name'] for kw in north_keywords)])
-                        central_count = len([r for r in reservoirs_info if any(kw in r['name'] for kw in central_keywords)])
-                        south_count = len([r for r in reservoirs_info if any(kw in r['name'] for kw in south_keywords)])
-                        other_count = total_reservoirs - north_count - central_count - south_count
+                        # 建立更完整的水庫地區對應
+                        north_reservoirs = []
+                        central_reservoirs = []
+                        south_reservoirs = []
+                        east_reservoirs = []
+                        other_reservoirs = []
                         
-                        print(f"北部地區: {north_count} 個")
-                        print(f"中部地區: {central_count} 個")
-                        print(f"南部地區: {south_count} 個")
-                        print(f"其他地區: {other_count} 個")
+                        for reservoir in reservoirs_info:
+                            name = reservoir['name'].lower()
+                            reservoir_id = reservoir['id']
+                            
+                            # 北部地區（基隆、台北、新北、桃園、新竹）
+                            if any(keyword in name for keyword in ['翡翠', '石門', '新山', '寶山', '永和山']) or \
+                               reservoir_id in ['10501', '10502', '10601', '10602']:
+                                north_reservoirs.append(reservoir)
+                            # 中部地區（苗栗、台中、彰化、南投、雲林）
+                            elif any(keyword in name for keyword in ['德基', '鯉魚潭', '明德', '日月潭', '集集攔河堰']) or \
+                                 reservoir_id in ['10701', '10702', '10801', '10901']:
+                                central_reservoirs.append(reservoir)
+                            # 南部地區（嘉義、台南、高雄、屏東）
+                            elif any(keyword in name for keyword in ['曾文', '南化', '烏山頭', '白河', '牡丹', '阿公店']) or \
+                                 reservoir_id in ['11001', '11002', '11101', '11301']:
+                                south_reservoirs.append(reservoir)
+                            # 東部地區（宜蘭、花蓮、台東）
+                            elif any(keyword in name for keyword in ['龍溪壩', '利澤簡']) or \
+                                 reservoir_id in ['12001', '12002']:
+                                east_reservoirs.append(reservoir)
+                            else:
+                                other_reservoirs.append(reservoir)
+                        
+                        print(f"北部地區: {len(north_reservoirs)} 個")
+                        print(f"中部地區: {len(central_reservoirs)} 個")
+                        print(f"南部地區: {len(south_reservoirs)} 個")
+                        print(f"東部地區: {len(east_reservoirs)} 個")
+                        print(f"其他地區: {len(other_reservoirs)} 個")
                         
                         # 儲存完整資料
                         output_data = {
-                            "total_reservoirs": total_reservoirs,
-                            "timestamp": datetime.now().isoformat(),
+                            "metadata": {
+                                "total_reservoirs": total_reservoirs,
+                                "has_capacity_data": has_capacity_data,
+                                "has_percentage_data": len(valid_percentage_reservoirs),
+                                "timestamp": datetime.now().isoformat(),
+                                "api_url": api_url
+                            },
+                            "statistics": {
+                                "capacity_stats": {
+                                    "total_capacity": sum([float(r['effective_capacity']) for r in valid_capacity_reservoirs]) if valid_capacity_reservoirs else 0,
+                                    "average_capacity": sum([float(r['effective_capacity']) for r in valid_capacity_reservoirs]) / len(valid_capacity_reservoirs) if valid_capacity_reservoirs else 0,
+                                    "max_capacity": max([float(r['effective_capacity']) for r in valid_capacity_reservoirs]) if valid_capacity_reservoirs else 0,
+                                    "min_capacity": min([float(r['effective_capacity']) for r in valid_capacity_reservoirs]) if valid_capacity_reservoirs else 0
+                                } if valid_capacity_reservoirs else {},
+                                "percentage_distribution": {
+                                    "high_percentage": high_percentage,
+                                    "medium_percentage": medium_percentage,
+                                    "low_percentage": low_percentage
+                                },
+                                "regional_distribution": {
+                                    "north": len(north_reservoirs),
+                                    "central": len(central_reservoirs),
+                                    "south": len(south_reservoirs),
+                                    "east": len(east_reservoirs),
+                                    "other": len(other_reservoirs)
+                                }
+                            },
+                            "reservoir_mapping": reservoir_mapping,
                             "reservoirs": reservoirs_info
                         }
                         
@@ -216,6 +330,17 @@ async def test_reservoir_list_with_capacity():
                             json.dump(output_data, f, ensure_ascii=False, indent=2)
                         
                         print(f"\n💾 完整水庫列表已儲存至: complete_reservoir_list.json")
+                        print(f"📁 檔案包含 {total_reservoirs} 個水庫的完整資訊")
+                        
+                        # 顯示一些特別的水庫資訊
+                        print(f"\n🏆 特別關注的水庫:")
+                        special_reservoirs = ['10501', '10901', '11001', '11101']  # 石門、日月潭、曾文、南化
+                        for res_id in special_reservoirs:
+                            special_res = next((r for r in reservoirs_info if r['id'] == res_id), None)
+                            if special_res:
+                                percentage_str = f"{special_res['percentage']:.1f}%" if special_res['percentage'] != 'N/A' else 'N/A'
+                                capacity_str = f"{special_res['effective_capacity']}" if special_res['effective_capacity'] != 'N/A' else 'N/A'
+                                print(f"  {special_res['name']}: 容量 {capacity_str} 萬m³, 蓄水率 {percentage_str}")
                         
                     else:
                         print("❌ 沒有水庫資料")
