@@ -398,10 +398,12 @@ class RadarCommands(commands.Cog):
         # 圖片
         image_url = radar_info.get('image_url', '')
         if image_url:
-            embed.set_image(url=image_url)
+            # 為雷達圖片 URL 加上時間戳避免快取
+            timestamped_url = self._add_timestamp_to_url(image_url)
+            embed.set_image(url=timestamped_url)
             embed.add_field(
                 name="🔗 圖片連結",
-                value=f"[點擊查看原始圖片]({image_url})",
+                value=f"[點擊查看原始圖片]({timestamped_url})",
                 inline=False
             )
         else:
@@ -485,10 +487,12 @@ class RadarCommands(commands.Cog):
         # 圖片
         image_url = radar_info.get('image_url', '')
         if image_url:
-            embed.set_image(url=image_url)
+            # 為大範圍雷達圖片 URL 加上時間戳避免快取
+            timestamped_url = self._add_timestamp_to_url(image_url)
+            embed.set_image(url=timestamped_url)
             embed.add_field(
                 name="🔗 圖片連結",
-                value=f"[點擊查看原始圖片]({image_url})",
+                value=f"[點擊查看原始圖片]({timestamped_url})",
                 inline=False
             )
         else:
@@ -560,10 +564,12 @@ class RadarCommands(commands.Cog):
         # 圖片
         image_url = radar_info.get('image_url', '')
         if image_url:
-            embed.set_image(url=image_url)
+            # 為降雨雷達圖片 URL 加上時間戳避免快取
+            timestamped_url = self._add_timestamp_to_url(image_url)
+            embed.set_image(url=timestamped_url)
             embed.add_field(
                 name="🔗 圖片連結",
-                value=f"[點擊查看原始圖片]({image_url})",
+                value=f"[點擊查看原始圖片]({timestamped_url})",
                 inline=False
             )
         else:
