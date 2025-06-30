@@ -1049,9 +1049,34 @@ class ReservoirCommands(commands.Cog):
 
     @app_commands.command(name="water_cameras", description="查詢水利防災監控影像")
     @app_commands.describe(
-        location="地區名稱（可選，如：台南、彰化、基隆等）"
+        city="選擇縣市",
+        location="地區名稱或監控站名稱（可選）"
     )
-    async def water_disaster_cameras(self, interaction: discord.Interaction, location: str = None):
+    @app_commands.choices(city=[
+        app_commands.Choice(name="基隆市", value="基隆"),
+        app_commands.Choice(name="台北市", value="台北"),
+        app_commands.Choice(name="新北市", value="新北"),
+        app_commands.Choice(name="桃園市", value="桃園"),
+        app_commands.Choice(name="新竹市", value="新竹市"),
+        app_commands.Choice(name="新竹縣", value="新竹縣"),
+        app_commands.Choice(name="苗栗縣", value="苗栗"),
+        app_commands.Choice(name="台中市", value="台中"),
+        app_commands.Choice(name="彰化縣", value="彰化"),
+        app_commands.Choice(name="南投縣", value="南投"),
+        app_commands.Choice(name="雲林縣", value="雲林"),
+        app_commands.Choice(name="嘉義市", value="嘉義市"),
+        app_commands.Choice(name="嘉義縣", value="嘉義縣"),
+        app_commands.Choice(name="台南市", value="台南"),
+        app_commands.Choice(name="高雄市", value="高雄"),
+        app_commands.Choice(name="屏東縣", value="屏東"),
+        app_commands.Choice(name="宜蘭縣", value="宜蘭"),
+        app_commands.Choice(name="花蓮縣", value="花蓮"),
+        app_commands.Choice(name="台東縣", value="台東"),
+        app_commands.Choice(name="澎湖縣", value="澎湖"),
+        app_commands.Choice(name="金門縣", value="金門"),
+        app_commands.Choice(name="連江縣", value="連江")
+    ])
+    async def water_disaster_cameras(self, interaction: discord.Interaction, city: str = None, location: str = None):
         """水利防災影像查詢指令"""
         try:
             # 立即回應避免超時
@@ -1077,11 +1102,11 @@ class ReservoirCommands(commands.Cog):
                 await loading_message.edit(embed=embed)
                 return
             
-            # 如果沒有指定地區，顯示各地區監控點統計
-            if not location:
+            # 如果沒有指定縣市和地區，顯示各地區監控點統計
+            if not city and not location:
                 embed = discord.Embed(
                     title="📸 水利防災監控影像系統",
-                    description="以下是各地區水利防災監控點分布",
+                    description="以下是各地區水利防災監控點分布\n💡 使用下拉選單選擇縣市進行查詢",
                     color=discord.Color.blue()
                 )
                 
@@ -1113,13 +1138,14 @@ class ReservoirCommands(commands.Cog):
                         )
                         count += 1
                 
-                embed.set_footer(text="💡 使用 /water_cameras <地區名稱> 查詢特定地區監控影像")
+                embed.set_footer(text="💡 使用下拉選單選擇縣市，或輸入地區名稱查詢特定監控影像")
                 await loading_message.edit(embed=embed)
                 
             else:
                 # 搜尋指定地區的監控點
                 found_cameras = []
-                location_lower = location.lower()
+                search_term = city or location  # 優先使用 city，如果沒有則使用 location
+                search_term_lower = search_term.lower()
                 
                 for data in image_data:
                     loc = data.get('CountiesAndCitiesWhereTheMonitoringPointsAreLocated', '')
@@ -1127,9 +1153,10 @@ class ReservoirCommands(commands.Cog):
                     station_name = data.get('VideoSurveillanceStationName', '')
                     
                     # 檢查是否符合搜尋條件
-                    if (location_lower in loc.lower() or 
-                        location_lower in district.lower() or
-                        location_lower in station_name.lower()):
+                    if (search_term_lower in loc.lower() or 
+                        search_term_lower in district.lower() or
+                        search_term_lower in station_name.lower() or
+                        (location and location.lower() in station_name.lower())):  # 額外檢查 location 參數
                         found_cameras.append(data)
                 
                 if found_cameras:
@@ -1145,8 +1172,9 @@ class ReservoirCommands(commands.Cog):
                         camera_data = valid_cameras[0]
                         info = self.format_water_image_info(camera_data)
                         
+                        search_display_name = city if city else location
                         embed = discord.Embed(
-                            title=f"📸 {location} 地區監控點",
+                            title=f"📸 {search_display_name} 地區監控點",
                             description=f"**{info['station_name']}**",
                             color=discord.Color.blue()
                         )
@@ -1253,8 +1281,32 @@ class ReservoirCommands(commands.Cog):
         highway_number="國道號碼（如：1、3、5）",
         location="位置關鍵字（如：基隆、高雄、台中等）",
         direction="行駛方向（N北、S南、E東、W西）",
-        city="縣市篩選"
+        city="選擇縣市"
     )
+    @app_commands.choices(city=[
+        app_commands.Choice(name="基隆市", value="基隆"),
+        app_commands.Choice(name="台北市", value="台北"),
+        app_commands.Choice(name="新北市", value="新北"),
+        app_commands.Choice(name="桃園市", value="桃園"),
+        app_commands.Choice(name="新竹市", value="新竹市"),
+        app_commands.Choice(name="新竹縣", value="新竹縣"),
+        app_commands.Choice(name="苗栗縣", value="苗栗"),
+        app_commands.Choice(name="台中市", value="台中"),
+        app_commands.Choice(name="彰化縣", value="彰化"),
+        app_commands.Choice(name="南投縣", value="南投"),
+        app_commands.Choice(name="雲林縣", value="雲林"),
+        app_commands.Choice(name="嘉義市", value="嘉義市"),
+        app_commands.Choice(name="嘉義縣", value="嘉義縣"),
+        app_commands.Choice(name="台南市", value="台南"),
+        app_commands.Choice(name="高雄市", value="高雄"),
+        app_commands.Choice(name="屏東縣", value="屏東"),
+        app_commands.Choice(name="宜蘭縣", value="宜蘭"),
+        app_commands.Choice(name="花蓮縣", value="花蓮"),
+        app_commands.Choice(name="台東縣", value="台東"),
+        app_commands.Choice(name="澎湖縣", value="澎湖"),
+        app_commands.Choice(name="金門縣", value="金門"),
+        app_commands.Choice(name="連江縣", value="連江")
+    ])
     async def national_highway_cameras(self, interaction: discord.Interaction, highway_number: str = None, location: str = None, direction: str = None, city: str = None):
         """查詢國道監視器（僅國道）"""
         await interaction.response.defer()
@@ -1346,12 +1398,36 @@ class ReservoirCommands(commands.Cog):
         road_type="道路類型（省道、快速公路、一般道路）",
         location="位置關鍵字（如：新竹、台中等）",
         direction="行駛方向（N北、S南、E東、W西）",
-        city="縣市篩選"
+        city="選擇縣市"
     )
     @app_commands.choices(road_type=[
         app_commands.Choice(name="省道", value="provincial"),
         app_commands.Choice(name="快速公路", value="freeway"),
         app_commands.Choice(name="一般道路", value="general")
+    ])
+    @app_commands.choices(city=[
+        app_commands.Choice(name="基隆市", value="基隆"),
+        app_commands.Choice(name="台北市", value="台北"),
+        app_commands.Choice(name="新北市", value="新北"),
+        app_commands.Choice(name="桃園市", value="桃園"),
+        app_commands.Choice(name="新竹市", value="新竹市"),
+        app_commands.Choice(name="新竹縣", value="新竹縣"),
+        app_commands.Choice(name="苗栗縣", value="苗栗"),
+        app_commands.Choice(name="台中市", value="台中"),
+        app_commands.Choice(name="彰化縣", value="彰化"),
+        app_commands.Choice(name="南投縣", value="南投"),
+        app_commands.Choice(name="雲林縣", value="雲林"),
+        app_commands.Choice(name="嘉義市", value="嘉義市"),
+        app_commands.Choice(name="嘉義縣", value="嘉義縣"),
+        app_commands.Choice(name="台南市", value="台南"),
+        app_commands.Choice(name="高雄市", value="高雄"),
+        app_commands.Choice(name="屏東縣", value="屏東"),
+        app_commands.Choice(name="宜蘭縣", value="宜蘭"),
+        app_commands.Choice(name="花蓮縣", value="花蓮"),
+        app_commands.Choice(name="台東縣", value="台東"),
+        app_commands.Choice(name="澎湖縣", value="澎湖"),
+        app_commands.Choice(name="金門縣", value="金門"),
+        app_commands.Choice(name="連江縣", value="連江")
     ])
     async def general_road_cameras(self, interaction: discord.Interaction, road_type: str = None, location: str = None, direction: str = None, city: str = None):
         """查詢省道/快速公路/一般道路監視器（不含國道）"""
