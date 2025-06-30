@@ -140,9 +140,28 @@ class TemperatureCommands(commands.Cog):
             
             # 如果還是沒找到，嘗試構建標準的溫度分布圖URL
             if not temp_info['image_url']:
-                # 使用中央氣象署標準的溫度分布圖URL
-                temp_info['image_url'] = "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Observation/O-A0038-001.jpg"
-                logger.info("使用標準溫度分布圖片URL")
+                # 使用中央氣象署標準的溫度分布圖URL，加上時間戳避免快取
+                import time
+                timestamp = int(time.time())
+                
+                # 優先使用的圖片URL列表（按優先級排序）
+                backup_urls = [
+                    "https://cwaopendata.s3.ap-northeast-1.amazonaws.com/Observation/O-A0038-001.jpg",
+                    "https://www.cwa.gov.tw/V8/assets/img/weather_img/obs/TEMP.png",
+                    "https://www.cwa.gov.tw/Data/temperature/temp_Taiwan.png"
+                ]
+                
+                # 使用第一個URL並加上時間戳
+                temp_info['image_url'] = f"{backup_urls[0]}?t={timestamp}"
+                logger.info(f"使用標準溫度分布圖片URL（帶時間戳）: {backup_urls[0]}")
+            
+            # 為現有的圖片URL也加上時間戳避免快取問題
+            elif temp_info['image_url'] and '?' not in temp_info['image_url']:
+                import time
+                timestamp = int(time.time())
+                original_url = temp_info['image_url']
+                temp_info['image_url'] = f"{temp_info['image_url']}?t={timestamp}"
+                logger.info(f"為圖片URL加上時間戳避免快取: {original_url} -> {temp_info['image_url']}")
             
             # 解析位置資料
             locations = dataset.get('location', [])

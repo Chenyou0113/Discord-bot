@@ -273,16 +273,26 @@ class ReservoirCommands(commands.Cog):
             camera_name = image_data.get('CameraName', 'N/A') 
             location = image_data.get('CountiesAndCitiesWhereTheMonitoringPointsAreLocated', '')
             district = image_data.get('AdministrativeDistrictWhereTheMonitoringPointIsLocated', '')
+            address = image_data.get('VideoSurveillanceStationAddress', '')
             basin_name = image_data.get('BasinName', '')
             tributary = image_data.get('TRIBUTARY', '')
             image_url = image_data.get('ImageURL', '')
             status = image_data.get('Status', '')
             latitude = image_data.get('latitude_4326', '')
             longitude = image_data.get('Longitude_4326', '')
-            station_id = image_data.get('StationID', 'N/A')
+            station_id = image_data.get('VideoSurveillanceStationId', image_data.get('StationID', 'N/A'))
             
-            # 組合完整地址
-            full_location = f"{location}{district}" if location and district else (location or district or "N/A")
+            # 縣市名稱標準化
+            normalized_county = self._normalize_county_name(location)
+            
+            # 地址處理 - 如果沒有地址，嘗試組合縣市和區域
+            if not address:
+                if location and district:
+                    full_location = f"{location}{district}"
+                else:
+                    full_location = location or district or "N/A"
+            else:
+                full_location = address
             
             # 組合河川資訊
             river_info = f"{basin_name}" if basin_name else "N/A"
@@ -296,11 +306,11 @@ class ReservoirCommands(commands.Cog):
                 'station_name': station_name,
                 'camera_name': camera_name if camera_name != 'N/A' else '主攝影機',
                 'location': full_location,
-                'county': location or 'N/A',  # 新增 county 欄位
-                'district': district or 'N/A',  # 新增 district 欄位
-                'address': full_location,  # 新增 address 欄位（與 location 相同）
-                'station_id': station_id,  # 新增 station_id 欄位
-                'source': '水利防災',  # 新增 source 欄位
+                'county': normalized_county,  # 使用標準化的縣市名稱
+                'district': district or 'N/A',
+                'address': full_location,
+                'station_id': station_id,
+                'source': '水利防災',
                 'river': river_info,
                 'image_url': processed_image_url,
                 'status': "正常" if status == "1" else "異常" if status == "0" else "未知",
@@ -312,48 +322,59 @@ class ReservoirCommands(commands.Cog):
             return None
     
     def _process_and_validate_image_url(self, image_url):
-        """處理和驗證圖片 URL - 增強版本"""
-        if not image_url or not image_url.strip():
+        """處理和驗證圖片 URL - 增強版本（帶快取破壞）"""
+        if not image_url or not image_url.strip() or str(image_url).lower() == 'none':
             return "N/A"
         
-        processed_url = image_url.strip()
+        processed_url = str(image_url).strip()
         
         # 移除可能的空白字符和特殊字符
         processed_url = processed_url.replace(' ', '').replace('\n', '').replace('\r', '')
         
-        # 多重 URL 格式處理
-        if not processed_url.startswith(('http://', 'https://')):
-            if processed_url.startswith('//'):
-                processed_url = 'https:' + processed_url
-            elif processed_url.startswith('/'):
-                # 嘗試不同的基礎域名
-                base_urls = [
-                    'https://opendata.wra.gov.tw',
-                    'https://fhy.wra.gov.tw', 
-                    'https://www.wra.gov.tw',
-                    'https://alerts.ncdr.nat.gov.tw'
-                ]
-                for base_url in base_urls:
-                    test_url = base_url + processed_url
-                    if self._validate_image_url_format(test_url):
-                        processed_url = test_url
-                        break
-                else:
-                    # 如果都不匹配，使用第一個作為預設
-                    processed_url = base_urls[0] + processed_url
+        # 如果已經是完整的 HTTP/HTTPS URL，加上時間戳避免快取
+        if processed_url.startswith(('http://', 'https://')):
+            final_url = self._add_timestamp_to_url(processed_url)
+            return final_url
+        
+        # 如果以 // 開頭，添加 https: 並加上時間戳
+        elif processed_url.startswith('//'):
+            full_url = 'https:' + processed_url
+            return self._add_timestamp_to_url(full_url)
+        
+        # 如果以 / 開頭，添加基礎域名並加上時間戳
+        elif processed_url.startswith('/'):
+            # 優先使用 alerts.ncdr.nat.gov.tw，因為很多水利防災影像在那裡
+            base_urls = [
+                'https://alerts.ncdr.nat.gov.tw',
+                'https://fhy.wra.gov.tw',
+                'https://opendata.wra.gov.tw'
+            ]
+            full_url = base_urls[0] + processed_url
+            return self._add_timestamp_to_url(full_url)
+        
+        # 如果不是以上格式，可能是相對路徑
+        else:
+            # 檢查是否看起來像檔案名稱或相對路徑
+            if '.' in processed_url and any(ext in processed_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif']):
+                full_url = 'https://alerts.ncdr.nat.gov.tw/' + processed_url
+                return self._add_timestamp_to_url(full_url)
             else:
-                # 相對路徑，嘗試添加基礎 URL
-                if not processed_url.startswith(('www.', 'fhy.', 'opendata.')):
-                    processed_url = 'https://opendata.wra.gov.tw/' + processed_url
-                else:
-                    processed_url = 'https://' + processed_url
+                # 如果不是圖片檔案，返回 N/A
+                return "N/A"
+    
+    def _add_timestamp_to_url(self, url):
+        """為URL加上時間戳避免快取"""
+        if not url or url == "N/A":
+            return url
         
-        # 確保 URL 有效性
-        if self._validate_image_url_format(processed_url):
-            return processed_url
+        import time
+        timestamp = int(time.time())
         
-        logger.warning(f"無效的圖片 URL 格式: {image_url} -> {processed_url}")
-        return "N/A"
+        # 檢查URL是否已經有參數
+        if '?' in url:
+            return f"{url}&_t={timestamp}"
+        else:
+            return f"{url}?_t={timestamp}"
     
     def _validate_image_url_format(self, url):
         """驗證圖片 URL 格式"""
@@ -1168,40 +1189,12 @@ class ReservoirCommands(commands.Cog):
                             valid_cameras.append(data)
                     
                     if valid_cameras:
-                        # 顯示第一個監控器（簡化版本）
-                        camera_data = valid_cameras[0]
-                        info = self.format_water_image_info(camera_data)
-                        
+                        # 使用 WaterCameraView 顯示監控器（帶按鈕）
                         search_display_name = city if city else location
-                        embed = discord.Embed(
-                            title=f"📸 {search_display_name} 地區監控點",
-                            description=f"**{info['station_name']}**",
-                            color=discord.Color.blue()
-                        )
+                        view = WaterCameraView(valid_cameras, 0, search_display_name, self._normalize_county_name)
+                        embed = await view._create_water_camera_embed(valid_cameras[0])
                         
-                        embed.add_field(
-                            name="📍 位置資訊",
-                            value=f"🏙️ 縣市：{info['county']}\n"
-                                  f"🏘️ 區域：{info['district']}\n"
-                                  f"📍 詳細：{info['address']}",
-                            inline=True
-                        )
-                        
-                        embed.add_field(
-                            name="📊 技術資訊",
-                            value=f"🆔 ID：{info['station_id']}\n"
-                                  f"📡 來源：{info['source']}\n"
-                                  f"📸 狀態：{'✅ 有影像' if info['image_url'] != 'N/A' else '❌ 無影像'}",
-                            inline=True
-                        )
-                        
-                        if info['image_url'] and info['image_url'] != 'N/A':
-                            processed_url = await self._process_and_validate_image_url(info['image_url'])
-                            if processed_url:
-                                embed.set_image(url=processed_url)
-                        
-                        embed.set_footer(text=f"找到 {len(valid_cameras)} 個有效監控點 | 顯示第1個")
-                        await loading_message.edit(embed=embed)
+                        await loading_message.edit(embed=embed, view=view)
                     else:
                         embed = discord.Embed(
                             title=f"📸 {location} 地區監控點",
@@ -1355,17 +1348,18 @@ class ReservoirCommands(commands.Cog):
                   f"🏷️ 類型：🛣️ 國道\n"
                   f"📍 里程：{camera.get('LocationMile', '未知')}\n"
                   f"🧭 方向：{camera.get('RoadDirection', '未知')}\n"
-                  f"� ID：{camera.get('CCTVID', '未知')}",
+                  f"🆔 ID：{camera.get('CCTVID', '未知')}",
             inline=True
         )
         lat = camera.get('PositionLat', '未知')
         lon = camera.get('PositionLon', '未知')
         estimated_city = "未知"
         if lat != '未知' and lon != '未知':
-            estimated_city = self._get_city_by_coordinates(lat, lon) or "未知"
+            raw_city = self._get_city_by_coordinates(lat, lon) or "未知"
+            estimated_city = self._normalize_county_name(raw_city)
         embed.add_field(
             name="🌍 座標位置",
-            value=f"�️ 縣市：{estimated_city}\n"
+            value=f"🏙️ 縣市：{estimated_city}\n"
                   f"🌐 經度：{lon}\n"
                   f"🌐 緯度：{lat}",
             inline=True
@@ -1483,17 +1477,18 @@ class ReservoirCommands(commands.Cog):
                   f"🏷️ 類型：{road_type_text}\n"
                   f"📍 里程：{camera.get('LocationMile', '未知')}\n"
                   f"🧭 方向：{camera.get('RoadDirection', '未知')}\n"
-                  f"� ID：{camera.get('CCTVID', '未知')}",
+                  f"🆔 ID：{camera.get('CCTVID', '未知')}",
             inline=True
         )
         lat = camera.get('PositionLat', '未知')
         lon = camera.get('PositionLon', '未知')
         estimated_city = "未知"
         if lat != '未知' and lon != '未知':
-            estimated_city = self._get_city_by_coordinates(lat, lon) or "未知"
+            raw_city = self._get_city_by_coordinates(lat, lon) or "未知"
+            estimated_city = self._normalize_county_name(raw_city)
         embed.add_field(
             name="🌍 座標位置",
-            value=f"�️ 縣市：{estimated_city}\n"
+            value=f"🏙️ 縣市：{estimated_city}\n"
                   f"🌐 經度：{lon}\n"
                   f"🌐 緯度：{lat}",
             inline=True
@@ -1573,7 +1568,7 @@ class ReservoirCommands(commands.Cog):
             return None
 
     async def _process_highway_image_url(self, image_url):
-        """處理公路監視器圖片 URL"""
+        """處理公路監視器圖片 URL（包含快取破壞）"""
         if not image_url:
             return None
         
@@ -1581,26 +1576,26 @@ class ReservoirCommands(commands.Cog):
         if not image_url.startswith(('http://', 'https://')):
             return None
         
-        # 公路監視器的圖片可能需要特殊處理，先返回原始 URL 讓 Discord 嘗試載入
-        # 如果不行，可以返回一個預設的佔位圖片或 None
+        # 為 URL 加上時間戳避免快取
+        processed_url = self._add_timestamp_to_url(image_url)
         
         # 確保 URL 格式正確
         try:
             # 嘗試不同的後綴
             possible_urls = [
-                image_url,
-                image_url.rstrip('/') + '/snapshot',
-                image_url.rstrip('/') + '/image',
-                image_url.rstrip('/') + '.jpg'
+                processed_url,
+                self._add_timestamp_to_url(image_url.rstrip('/') + '/snapshot'),
+                self._add_timestamp_to_url(image_url.rstrip('/') + '/image'),
+                self._add_timestamp_to_url(image_url.rstrip('/') + '.jpg')
             ]
             
-            # 由於公路監視器 API 可能需要特殊認證，我們先返回原始 URL
+            # 由於公路監視器 API 可能需要特殊認證，我們先返回帶時間戳的原始 URL
             # Discord 會嘗試載入，如果失敗會顯示預設的破圖圖示
             return possible_urls[0]
             
         except Exception as e:
             logger.error(f"處理公路監視器圖片 URL 失敗: {str(e)}")
-            return image_url  # 返回原始 URL
+            return self._add_timestamp_to_url(image_url)  # 返回帶時間戳的原始 URL
 
     def _get_city_by_coordinates(self, lat, lon):
         """根據經緯度獲取縣市"""
@@ -1823,11 +1818,12 @@ class HighwayCameraView(discord.ui.View):
         lon = camera.get('PositionLon', '未知')
         estimated_city = "未知"
         if lat != '未知' and lon != '未知' and cog:
-            estimated_city = cog._get_city_by_coordinates(lat, lon) or "未知"
+            raw_city = cog._get_city_by_coordinates(lat, lon) or "未知"
+            estimated_city = cog._normalize_county_name(raw_city)
         
         embed.add_field(
             name="🌍 座標位置",
-            value=f"�️ 縣市：{estimated_city}\n"
+            value=f"🏙️ 縣市：{estimated_city}\n"
                   f"🌐 經度：{lon}\n"
                   f"🌐 緯度：{lat}",
             inline=True
@@ -1898,6 +1894,399 @@ class HighwayCameraInfoModal(discord.ui.Modal, title="🛣️ 公路監視器詳
     
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.send_message("📋 資訊已顯示在上方文字框中", ephemeral=True)
+
+
+class WaterCameraView(discord.ui.View):
+    """水利防災監視器切換介面"""
+    
+    def __init__(self, cameras, current_index=0, search_term="", normalize_func=None):
+        super().__init__(timeout=300)
+        self.cameras = cameras
+        self.current_index = current_index
+        self.total_cameras = len(cameras)
+        self.search_term = search_term
+        self.normalize_func = normalize_func  # 儲存標準化函數參考
+        
+        # 更新按鈕狀態
+        self._update_buttons()
+    
+    def _update_buttons(self):
+        """更新按鈕狀態"""
+        # 清除現有按鈕
+        self.clear_items()
+        
+        # 上一個按鈕
+        if self.current_index > 0:
+            self.add_item(self.PreviousButton(self))
+        
+        # 刷新按鈕
+        self.add_item(self.RefreshButton(self))
+        
+        # 下一個按鈕
+        if self.current_index < self.total_cameras - 1:
+            self.add_item(self.NextButton(self))
+        
+        # 資訊按鈕
+        self.add_item(self.InfoButton(self))
+    
+    class PreviousButton(discord.ui.Button):
+        def __init__(self, parent_view):
+            super().__init__(style=discord.ButtonStyle.secondary, label="⬅️ 上一個", row=0)
+            self.parent_view = parent_view
+        
+        async def callback(self, interaction: discord.Interaction):
+            view = self.parent_view
+            view.current_index -= 1
+            view._update_buttons()
+            
+            camera = view.cameras[view.current_index]
+            embed = await view._create_water_camera_embed(camera)
+            
+            await interaction.response.edit_message(embed=embed, view=view)
+    
+    class NextButton(discord.ui.Button):
+        def __init__(self, parent_view):
+            super().__init__(style=discord.ButtonStyle.secondary, label="➡️ 下一個", row=0)
+            self.parent_view = parent_view
+        
+        async def callback(self, interaction: discord.Interaction):
+            view = self.parent_view
+            view.current_index += 1
+            view._update_buttons()
+            
+            camera = view.cameras[view.current_index]
+            embed = await view._create_water_camera_embed(camera)
+            
+            await interaction.response.edit_message(embed=embed, view=view)
+    
+    class RefreshButton(discord.ui.Button):
+        def __init__(self, parent_view):
+            super().__init__(style=discord.ButtonStyle.primary, label="🔄 刷新", row=0)
+            self.parent_view = parent_view
+        
+        async def callback(self, interaction: discord.Interaction):
+            view = self.parent_view
+            camera = view.cameras[view.current_index]
+            embed = await view._create_water_camera_embed(camera)
+            
+            await interaction.response.edit_message(embed=embed, view=view)
+    
+    class InfoButton(discord.ui.Button):
+        def __init__(self, parent_view):
+            super().__init__(style=discord.ButtonStyle.success, label="ℹ️ 詳細", row=0)
+            self.parent_view = parent_view
+        
+        async def callback(self, interaction: discord.Interaction):
+            view = self.parent_view
+            camera = view.cameras[view.current_index]
+            
+            modal = WaterCameraInfoModal(camera, view.current_index + 1, view.total_cameras, view.normalize_func)
+            await interaction.response.send_modal(modal)
+    
+    async def _create_water_camera_embed(self, camera_data):
+        """創建水利防災監視器 Embed"""
+        # 直接使用格式化方法，不需要導入
+        info = self._format_water_image_info(camera_data)
+        
+        embed = discord.Embed(
+            title=f"📸 {self.search_term} 地區監控點" if self.search_term else "📸 水利防災監控點",
+            description=f"**{info['station_name']}**",
+            color=discord.Color.blue()
+        )
+        
+        embed.add_field(
+            name="📍 位置資訊",
+            value=f"🏙️ 縣市：{info['county']}\n"
+                  f"🏘️ 區域：{info['district']}\n"
+                  f"📍 詳細：{info['address']}",
+            inline=True
+        )
+        
+        embed.add_field(
+            name="📊 技術資訊",
+            value=f"🆔 ID：{info['station_id']}\n"
+                  f"📡 來源：{info['source']}\n"
+                  f"📸 狀態：{'✅ 有影像' if info['image_url'] != 'N/A' else '❌ 無影像'}",
+            inline=True
+        )
+        
+        # 嘗試添加影像，並提供備用方案
+        image_added = False
+        if info['image_url'] and info['image_url'] != 'N/A':
+            processed_url = self._process_and_validate_image_url(info['image_url'])
+            if processed_url and processed_url != 'N/A':
+                try:
+                    embed.set_image(url=processed_url)
+                    image_added = True
+                except Exception:
+                    # 如果設定圖片失敗，忽略錯誤繼續執行
+                    pass
+                
+                # 無論圖片是否成功嵌入，都提供連結讓用戶可以直接查看
+                embed.add_field(
+                    name="🔗 監控影像",
+                    value=f"[點擊查看即時影像]({processed_url})\n"
+                          f"💡 如果上方沒有顯示圖片，請點擊連結查看",
+                    inline=False
+                )
+        else:
+            embed.add_field(
+                name="📷 影像狀態",
+                value="🚫 目前暫無可用影像\n"
+                      "💡 可能原因：設備維護中或網路問題",
+                inline=False
+            )
+        
+        # 添加河川資訊（如果有的話）
+        if info['river'] and info['river'] != '未知河川':
+            embed.add_field(
+                name="🌊 水域資訊",
+                value=f"河川：{info['river']}",
+                inline=True
+            )
+        
+        embed.set_footer(text=f"監控點 {self.current_index + 1}/{self.total_cameras} | 使用按鈕切換")
+        
+        return embed
+    
+    def _format_water_image_info(self, data):
+        """格式化水利防災影像資訊"""
+        if not data:
+            return None
+        
+        # 安全獲取欄位 - 使用與主類別相同的邏輯
+        station_name = data.get('VideoSurveillanceStationName', '未知監控站')
+        county = data.get('CountiesAndCitiesWhereTheMonitoringPointsAreLocated', '未知縣市')
+        district = data.get('AdministrativeDistrictWhereTheMonitoringPointIsLocated', '未知區域')
+        address = data.get('VideoSurveillanceStationAddress', '未知地址')
+        station_id = data.get('VideoSurveillanceStationId', data.get('StationID', '未知ID'))
+        image_url = data.get('ImageURL', '')
+        
+        # 河川資訊處理
+        basin_name = data.get('BasinName', '')
+        tributary = data.get('TRIBUTARY', '')
+        river = basin_name if basin_name else (tributary if tributary else '未知河川')
+        
+        # 地址處理 - 如果沒有地址，嘗試組合縣市和區域
+        if not address or address == '未知地址':
+            if county and district:
+                address = f"{county}{district}"
+            elif county:
+                address = county
+            elif district:
+                address = district
+        
+        # 縣市名稱標準化 - 使用傳入的標準化函數
+        if self.normalize_func:
+            county_normalized = self.normalize_func(county)
+        else:
+            county_normalized = county
+        
+        return {
+            'station_name': station_name,
+            'county': county_normalized,
+            'district': district,
+            'address': address,
+            'station_id': station_id,
+            'image_url': image_url,
+            'river': river,
+            'source': '水利署',
+            'status': '✅ 有影像' if image_url else '❌ 無影像'
+        }
+    
+    def _normalize_county_name(self, county):
+        """標準化縣市名稱 - 擴充版本"""
+        if not county or county == '未知縣市':
+            return '未知縣市'
+        
+        # 先清理可能的空白字符
+        county = str(county).strip()
+        if not county:
+            return '未知縣市'
+        
+        # 擴充的縣市名稱對應表
+        county_mapping = {
+            # 繁體轉簡體對應
+            '臺北市': '台北市',
+            '臺中市': '台中市', 
+            '臺南市': '台南市',
+            '臺東縣': '台東縣',
+            '臺北縣': '新北市',  # 舊名
+            
+            # 政府機關名稱標準化
+            '新北市政府': '新北市',
+            '台北市政府': '台北市',
+            '桃園市政府': '桃園市',
+            '台中市政府': '台中市',
+            '台南市政府': '台南市',
+            '高雄市政府': '高雄市',
+            
+            # 舊縣市名稱對應
+            '桃園縣': '桃園市',
+            '台中縣': '台中市',
+            '台南縣': '台南市',
+            '高雄縣': '高雄市',
+            
+            # 可能的變體
+            '新竹市政府': '新竹市',
+            '新竹縣政府': '新竹縣',
+            '苗栗縣政府': '苗栗縣',
+            '彰化縣政府': '彰化縣',
+            '南投縣政府': '南投縣',
+            '雲林縣政府': '雲林縣',
+            '嘉義市政府': '嘉義市',
+            '嘉義縣政府': '嘉義縣',
+            '屏東縣政府': '屏東縣',
+            '宜蘭縣政府': '宜蘭縣',
+            '花蓮縣政府': '花蓮縣',
+            '澎湖縣政府': '澎湖縣',
+            '金門縣政府': '金門縣',
+            '連江縣政府': '連江縣',
+            
+            # 可能出現的英文或其他格式
+            'Taipei': '台北市',
+            'New Taipei': '新北市',
+            'Taoyuan': '桃園市',
+            'Taichung': '台中市',
+            'Tainan': '台南市',
+            'Kaohsiung': '高雄市',
+        }
+        
+        # 首先檢查完全匹配
+        if county in county_mapping:
+            return county_mapping[county]
+        
+        # 標準化處理
+        normalized = county
+        
+        # 移除可能的後綴詞（如"政府"、"市政府"等）
+        suffixes_to_remove = ['政府', '市政府', '縣政府']
+        for suffix in suffixes_to_remove:
+            if normalized.endswith(suffix):
+                normalized = normalized[:-len(suffix)]
+                break
+        
+        # 確保包含 "市" 或 "縣"
+        if normalized and not normalized.endswith(('市', '縣')):
+            # 根據常見縣市添加後綴
+            cities = ['台北', '臺北', '新北', '桃園', '台中', '臺中', '台南', '臺南', '高雄', '新竹']
+            counties = ['新竹', '苗栗', '彰化', '南投', '雲林', '嘉義', '屏東', '宜蘭', '花蓮', '台東', '臺東', '澎湖', '金門', '連江']
+            
+            if normalized in cities:
+                # 特殊處理新竹（既有市也有縣）
+                if normalized == '新竹':
+                    # 保持原樣，讓後續邏輯決定
+                    pass
+                else:
+                    normalized += '市'
+            elif normalized in counties:
+                normalized += '縣'
+        
+        # 再次檢查對應表（處理可能新增後綴後的情況）
+        if normalized in county_mapping:
+            return county_mapping[normalized]
+        
+        return normalized
+    
+    def _process_and_validate_image_url(self, image_url):
+        """處理和驗證圖片 URL - 增強版本（帶快取破壞）"""
+        if not image_url or not image_url.strip() or str(image_url).lower() == 'none':
+            return "N/A"
+        
+        processed_url = str(image_url).strip()
+        
+        # 移除可能的空白字符和特殊字符
+        processed_url = processed_url.replace(' ', '').replace('\n', '').replace('\r', '')
+        
+        # 如果已經是完整的 HTTP/HTTPS URL，加上時間戳避免快取
+        if processed_url.startswith(('http://', 'https://')):
+            final_url = self._add_timestamp_to_url(processed_url)
+            return final_url
+        
+        # 如果以 // 開頭，添加 https: 並加上時間戳
+        elif processed_url.startswith('//'):
+            full_url = 'https:' + processed_url
+            return self._add_timestamp_to_url(full_url)
+        
+        # 如果以 / 開頭，添加基礎域名並加上時間戳
+        elif processed_url.startswith('/'):
+            # 嘗試不同的基礎域名
+            base_urls = [
+                'https://alerts.ncdr.nat.gov.tw',
+                'https://fhy.wra.gov.tw',
+                'https://opendata.wra.gov.tw'
+            ]
+            # 優先使用 alerts.ncdr.nat.gov.tw，因為很多水利防災影像在那裡
+            full_url = base_urls[0] + processed_url
+            return self._add_timestamp_to_url(full_url)
+        
+        # 如果不是以上格式，可能是相對路徑
+        else:
+            # 檢查是否看起來像檔案名稱或相對路徑
+            if '.' in processed_url and any(ext in processed_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif']):
+                full_url = 'https://alerts.ncdr.nat.gov.tw/' + processed_url
+                return self._add_timestamp_to_url(full_url)
+            else:
+                # 如果不是圖片檔案，返回 N/A
+                return "N/A"
+    
+    def _add_timestamp_to_url(self, url):
+        """為URL加上時間戳避免快取"""
+        if not url or url == "N/A":
+            return url
+        
+        import time
+        timestamp = int(time.time())
+        
+        # 檢查URL是否已經有參數
+        if '?' in url:
+            return f"{url}&_t={timestamp}"
+        else:
+            return f"{url}?_t={timestamp}"
+
+
+class WaterCameraInfoModal(discord.ui.Modal):
+    """水利防災監視器詳細資訊彈窗"""
+    
+    def __init__(self, camera, current_num, total_num, normalize_func=None):
+        super().__init__(title=f"水利防災監視器詳細資訊 ({current_num}/{total_num})")
+        
+        # 直接格式化詳細資訊，並標準化縣市名稱
+        station_name = camera.get('VideoSurveillanceStationName', '未知監控站')
+        station_id = camera.get('VideoSurveillanceStationId', '未知ID')
+        raw_county = camera.get('CountiesAndCitiesWhereTheMonitoringPointsAreLocated', '未知縣市')
+        district = camera.get('AdministrativeDistrictWhereTheMonitoringPointIsLocated', '未知區域')
+        address = camera.get('VideoSurveillanceStationAddress', '未知地址')
+        river = camera.get('River', camera.get('RiverName', '未知河川'))
+        image_url = camera.get('ImageURL', '無影像URL')
+        
+        # 標準化縣市名稱（如果提供了標準化函數）
+        if normalize_func:
+            county = normalize_func(raw_county)
+        else:
+            county = raw_county
+        
+        info_text = f"監控站名稱: {station_name}\n"
+        info_text += f"監控站ID: {station_id}\n"
+        info_text += f"縣市: {county}\n"
+        info_text += f"區域: {district}\n"
+        info_text += f"詳細地址: {address}\n"
+        info_text += f"河川名稱: {river}\n"
+        info_text += f"資料來源: 水利署\n"
+        info_text += f"影像URL: {image_url}\n"
+        info_text += f"狀態: {'✅ 有影像' if image_url else '❌ 無影像'}"
+        
+        self.info_field = discord.ui.TextInput(
+            label=f"詳細資訊 ({current_num}/{total_num})",
+            style=discord.TextStyle.paragraph,
+            default=info_text,
+            max_length=4000
+        )
+        self.add_item(self.info_field)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.send_message("📋 資訊已顯示在上方文字框中", ephemeral=True)
+
 
 async def setup(bot):
     """設置 Cog"""
