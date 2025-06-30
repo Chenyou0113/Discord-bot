@@ -67,6 +67,20 @@ class RadarCommands(commands.Cog):
         self.ssl_context = ssl.create_default_context()
         self.ssl_context.check_hostname = False
         self.ssl_context.verify_mode = ssl.CERT_NONE
+    
+    def _add_timestamp_to_url(self, url):
+        """為雷達圖片 URL 加上時間戳避免快取"""
+        if not url:
+            return url
+        
+        import time
+        timestamp = int(time.time())
+        
+        # 檢查URL是否已經有參數
+        if '?' in url:
+            return f"{url}&_t={timestamp}"
+        else:
+            return f"{url}?_t={timestamp}"
         
     async def fetch_radar_data(self) -> Dict:
         """從中央氣象署 API 獲取雷達圖資料"""
