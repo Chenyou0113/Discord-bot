@@ -18,3 +18,5 @@ ENV/
 # 日誌
 *.log
 check_sync_status.py
+check_bot_cogs.py
+check_bot_status.py
