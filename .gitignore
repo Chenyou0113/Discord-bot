@@ -17,3 +17,4 @@ ENV/
 
 # 日誌
 *.log
+check_sync_status.py
