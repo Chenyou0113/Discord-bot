@@ -1,0 +1,316 @@
+{
+  "analysis_time": "2025-07-01T11:21:20.086925",
+  "total_cog_files": 19,
+  "total_commands_found": 91,
+  "total_commands_synced": 56,
+  "cog_analysis": {
+    "admin_commands_fixed.py": {
+      "commands": [
+        "clear_startup_channel",
+        "shutdown",
+        "status",
+        "send",
+        "admin_monitor",
+        "set_startup_channel",
+        "emergency_restart",
+        "dev",
+        "get_id",
+        "restart",
+        "broadcast"
+      ],
+      "command_count": 11,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 37092
+    },
+    "air_quality_commands.py": {
+      "commands": [
+        "air_quality",
+        "air_quality_county",
+        "air_quality_site"
+      ],
+      "command_count": 3,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 18646
+    },
+    "basic_commands.py": {
+      "commands": [
+        "hello",
+        "ping"
+      ],
+      "command_count": 2,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 753
+    },
+    "chat_commands.py": {
+      "commands": [
+        "clear_chat",
+        "current_model",
+        "chat",
+        "set_model",
+        "toggle_responses",
+        "api_status",
+        "set_rate_limit",
+        "reset_quota",
+        "dev_mode",
+        "add_developer",
+        "remove_developer",
+        "list_developers",
+        "dev_debug"
+      ],
+      "command_count": 13,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 37829
+    },
+    "info_commands_fixed_v4_clean.py": {
+      "commands": [
+        "earthquake",
+        "set_earthquake_channel",
+        "tsunami"
+      ],
+      "command_count": 3,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 64681
+    },
+    "level_system.py": {
+      "commands": [
+        "level",
+        "rank",
+        "leaderboard",
+        "set_level_channel",
+        "clear_level_channel",
+        "toggle_level_system",
+        "level_system_status"
+      ],
+      "command_count": 7,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 13974
+    },
+    "monitor_system.py": {
+      "commands": [
+        "set_monitor_channel",
+        "monitor"
+      ],
+      "command_count": 2,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 5300
+    },
+    "radar_commands.py": {
+      "commands": [
+        "radar",
+        "radar_info",
+        "radar_large",
+        "rainfall_radar"
+      ],
+      "command_count": 4,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 43380
+    },
+    "reservoir_commands.py": {
+      "commands": [
+        "water_level",
+        "water_cameras",
+        "national_highway_cameras",
+        "general_road_cameras",
+        "water_disaster_cameras"
+      ],
+      "command_count": 5,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 32389
+    },
+    "reservoir_commands_before_structure_fix.py": {
+      "commands": [
+        "water_level",
+        "water_cameras",
+        "national_highway_cameras",
+        "general_road_cameras",
+        "water_disaster_cameras"
+      ],
+      "command_count": 5,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 59579
+    },
+    "reservoir_commands_broken_backup.py": {
+      "commands": [
+        "water_level",
+        "water_cameras",
+        "national_highway_cameras",
+        "general_road_cameras",
+        "water_disaster_cameras",
+        "water_level",
+        "water_cameras",
+        "national_highway_cameras",
+        "general_road_cameras",
+        "water_disaster_cameras"
+      ],
+      "command_count": 10,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 92952
+    },
+    "reservoir_commands_clean.py": {
+      "commands": [
+        "water_level",
+        "water_cameras",
+        "national_highway_cameras",
+        "general_road_cameras",
+        "water_disaster_cameras"
+      ],
+      "command_count": 5,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 59579
+    },
+    "reservoir_commands_fixed.py": {
+      "commands": [
+        "water_level",
+        "water_cameras",
+        "water_disaster_cameras",
+        "national_highway_cameras",
+        "general_road_cameras"
+      ],
+      "command_count": 5,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 47487
+    },
+    "reservoir_commands_fixed_structure.py": {
+      "commands": [
+        "water_level",
+        "water_cameras",
+        "national_highway_cameras",
+        "general_road_cameras",
+        "water_disaster_cameras"
+      ],
+      "command_count": 5,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 32389
+    },
+    "search_commands.py": {
+      "commands": [
+        "search",
+        "search_summarize",
+        "search_settings",
+        "search_stats",
+        "auto_search"
+      ],
+      "command_count": 5,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 25342
+    },
+    "search_commands_clean.py": {
+      "commands": [],
+      "command_count": 0,
+      "syntax_ok": true,
+      "has_setup": false,
+      "file_size": 0
+    },
+    "temperature_commands.py": {
+      "commands": [
+        "temperature"
+      ],
+      "command_count": 1,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 16654
+    },
+    "voice_system.py": {
+      "commands": [
+        "setup_voice"
+      ],
+      "command_count": 1,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 3320
+    },
+    "weather_commands.py": {
+      "commands": [
+        "weather_station",
+        "weather_station_by_county",
+        "weather_station_info",
+        "weather"
+      ],
+      "command_count": 4,
+      "syntax_ok": true,
+      "has_setup": true,
+      "file_size": 26813
+    }
+  },
+  "synced_commands": [
+    "clear_startup_channel",
+    "shutdown",
+    "status",
+    "send",
+    "admin_monitor",
+    "set_startup_channel",
+    "emergency_restart",
+    "dev",
+    "get_id",
+    "restart",
+    "broadcast",
+    "hello",
+    "ping",
+    "earthquake",
+    "set_earthquake_channel",
+    "tsunami",
+    "level",
+    "rank",
+    "leaderboard",
+    "set_level_channel",
+    "clear_level_channel",
+    "toggle_level_system",
+    "level_system_status",
+    "set_monitor_channel",
+    "monitor",
+    "setup_voice",
+    "clear_chat",
+    "current_model",
+    "chat",
+    "set_model",
+    "toggle_responses",
+    "api_status",
+    "set_rate_limit",
+    "reset_quota",
+    "dev_mode",
+    "add_developer",
+    "remove_developer",
+    "list_developers",
+    "dev_debug",
+    "search",
+    "search_summarize",
+    "search_settings",
+    "search_stats",
+    "auto_search",
+    "weather_station",
+    "weather_station_by_county",
+    "weather_station_info",
+    "weather",
+    "air_quality",
+    "air_quality_county",
+    "air_quality_site",
+    "radar",
+    "radar_info",
+    "radar_large",
+    "rainfall_radar",
+    "temperature"
+  ],
+  "missing_from_sync": [
+    "water_level",
+    "general_road_cameras",
+    "national_highway_cameras",
+    "water_disaster_cameras",
+    "water_cameras"
+  ],
+  "extra_in_sync": []
+}
