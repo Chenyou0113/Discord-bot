@@ -279,6 +279,20 @@ class WeatherCommands(commands.Cog):
                 inline=False
             )
         
+        # 添加查看詳細資訊的提示
+        if total_stations == 1:
+            embed.add_field(
+                name="💡 查看詳細資訊",
+                value=f"使用 `/weather_station {query} detailed:True` 查看詳細資訊",
+                inline=False
+            )
+        elif total_stations > 1:
+            embed.add_field(
+                name="💡 查看詳細資訊",
+                value="使用 `/weather_station_info 測站編號` 查看特定測站的詳細資訊",
+                inline=False
+            )
+        
         embed.set_footer(text=f"第 {page}/{total_pages} 頁 | 資料來源：中央氣象署開放資料平臺")
         return embed, total_pages
     
@@ -437,9 +451,10 @@ class WeatherCommands(commands.Cog):
     @app_commands.command(name="weather_station", description="查詢中央氣象署無人氣象測站基本資料")
     @app_commands.describe(
         query="搜尋關鍵字（測站名稱、編號、縣市或位置）",
-        page="頁數（預設為第1頁）"
+        page="頁數（預設為第1頁）",
+        detailed="是否顯示詳細資訊（預設為簡化列表）"
     )
-    async def weather_station(self, interaction: discord.Interaction, query: str, page: int = 1):
+    async def weather_station(self, interaction: discord.Interaction, query: str, page: int = 1, detailed: bool = False):
         """查詢無人氣象測站資料"""
         await interaction.response.defer()
         
@@ -488,13 +503,15 @@ class WeatherCommands(commands.Cog):
                 await interaction.followup.send(embed=embed)
                 return
             
-            # 如果只有一個結果，顯示詳細資訊
-            if len(matching_stations) == 1:
+            # 根據用戶選擇決定顯示格式
+            if detailed and len(matching_stations) == 1:
+                # 用戶明確要求詳細資訊且只有一個結果
                 embed = self.create_station_embed(matching_stations[0])
                 await interaction.followup.send(embed=embed)
                 return
             
-            # 多個結果，顯示列表
+            # 預設顯示簡化列表格式，即使只有一個結果
+            # 確保用戶看到的是簡化列表而非詳細資料
             if page < 1:
                 page = 1
             

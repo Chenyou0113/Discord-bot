@@ -12,6 +12,7 @@ import datetime
 import json
 import ssl
 import logging
+import xml.etree.ElementTree as ET
 from discord.ext import commands
 from discord import app_commands
 
@@ -385,10 +386,10 @@ class ReservoirCommands(commands.Cog):
             await interaction.followup.send(f"❌ 查詢水位資料時發生錯誤: {str(e)}")
 
     async def _get_water_cameras(self, interaction: discord.Interaction, county: str = None):
-        """私有方法：獲取水利防災監控影像資料 (使用新的 JSON API)"""
+        """私有方法：獲取水利防災監控影像資料 (使用 XML API)"""
         try:
-            # 更新為新的 JSON API
-            api_url = "https://opendata.wra.gov.tw/Service/OpenData.aspx?format=json&id=362C7288-F378-4BF2-966C-2CD961732C52"
+            # 使用正確的 XML API
+            api_url = "https://opendata.wra.gov.tw/Service/OpenData.aspx?format=xml&id=362C7288-F378-4BF2-966C-2CD961732C52"
             
             ssl_context = ssl.create_default_context()
             ssl_context.check_hostname = False
@@ -413,30 +414,47 @@ class ReservoirCommands(commands.Cog):
                     if content.startswith('\ufeff'):
                         content = content[1:]
                     
-                    # 解析 JSON
+                    # 解析 XML
                     try:
-                        data = json.loads(content)
-                    except json.JSONDecodeError as e:
-                        logger.error(f"JSON 解析失敗: {e}")
+                        root = ET.fromstring(content)
+                        
+                        # 查找所有的 Table 元素
+                        items = root.findall('.//diffgr:diffgram//NewDataSet//Table', 
+                                           {'diffgr': 'urn:schemas-microsoft-com:xml-diffgram-v1'})
+                        if not items:
+                            # 嘗試其他可能的路徑
+                            items = root.findall('.//Table')
+                        
+                    except ET.ParseError as e:
+                        logger.error(f"XML 解析失敗: {e}")
                         await interaction.followup.send("❌ 水利防災監視器資料格式錯誤，服務可能暫時不可用")
                         return
                     
-                    if not isinstance(data, list) or len(data) == 0:
+                    if not items or len(items) == 0:
                         await interaction.followup.send("❌ 目前無可用的水利防災監視器資料")
                         return
                     
                     cameras = []
-                    for item in data:
+                    for item in items:
                         try:
-                            # 使用新 API 的欄位結構
+                            # 從 XML 元素中提取資料
+                            def get_xml_text(element, tag_name, default=''):
+                                elem = element.find(tag_name)
+                                return elem.text if elem is not None and elem.text else default
+                            
+                            # 使用正確的 XML API 欄位結構
                             camera_info = {
-                                'id': item.get('CameraID', ''),
-                                'name': item.get('VideoSurveillanceStationName', item.get('CameraName', '未知監視器')),
-                                'county': item.get('CountiesAndCitiesWhereTheMonitoringPointsAreLocated', '未知'),
-                                'district': item.get('AdministrativeDistrictWhereTheMonitoringPointIsLocated', ''),
-                                'image_url': item.get('VideoSurveillanceImageUrl', item.get('ImageUrl', item.get('Url', ''))),
-                                'lat': item.get('TWD97Lat', item.get('Latitude', '')),
-                                'lon': item.get('TWD97Lon', item.get('Longitude', ''))
+                                'id': get_xml_text(item, 'CameraID'),
+                                'name': get_xml_text(item, 'VideoSurveillanceStationName') or get_xml_text(item, 'CameraName', '未知監視器'),
+                                'county': get_xml_text(item, 'CountiesAndCitiesWhereTheMonitoringPointsAreLocated', '未知'),
+                                'district': get_xml_text(item, 'AdministrativeDistrictWhereTheMonitoringPointIsLocated'),
+                                'image_url': get_xml_text(item, 'ImageURL'),  # 使用正確的 ImageURL 欄位
+                                'lat': get_xml_text(item, 'latitude_4326'),
+                                'lon': get_xml_text(item, 'Longitude_4326'),
+                                'status': get_xml_text(item, 'Status'),
+                                'basin': get_xml_text(item, 'BasinName'),
+                                'tributary': get_xml_text(item, 'TRIBUTARY'),
+                                'raw_item': item  # 保留原始 XML 元素用於調試
                             }
                             
                             # 確保有基本資訊（即使沒有影像 URL 也顯示）
@@ -508,11 +526,23 @@ class ReservoirCommands(commands.Cog):
                             cache_busted_url = f"{image_url}?t={timestamp}"
                             url_text = f"🔗 [查看影像]({cache_busted_url})"
                         else:
-                            url_text = "🔗 影像連結暫不可用"
+                            # 如果沒有影像 URL，提供替代資訊
+                            camera_id = camera.get('id', '')
+                            if camera_id:
+                                url_text = f"📷 監視器ID: {camera_id}\n🔗 影像連結暫不可用"
+                            else:
+                                url_text = "🔗 影像連結暫不可用"
+                        
+                        # 添加座標資訊（如果有的話）
+                        coord_text = ""
+                        lat = camera.get('lat', '')
+                        lon = camera.get('lon', '')
+                        if lat and lon:
+                            coord_text = f"\n📍 座標: {lat}, {lon}"
                         
                         embed.add_field(
                             name=f"{i}. {name}",
-                            value=f"📍 {location}\n{url_text}",
+                            value=f"📍 {location}{coord_text}\n{url_text}",
                             inline=True
                         )
                     
@@ -1166,6 +1196,344 @@ class ReservoirCommands(commands.Cog):
         except Exception as e:
             logger.error(f"查詢公路監視器時發生錯誤: {str(e)}")
             await interaction.followup.send(f"❌ 查詢公路監視器時發生錯誤: {str(e)}")
+
+    @app_commands.command(name="debug_water_cameras", description="調試水利防災監控影像 API 資料結構（僅管理員）")
+    @app_commands.describe(
+        show_raw_data="是否顯示原始資料結構"
+    )
+    async def debug_water_cameras(self, interaction: discord.Interaction, show_raw_data: bool = False):
+        """調試水利防災監控影像 API 資料結構"""
+        await interaction.response.defer(ephemeral=True)  # 只有使用者可見
+        
+        try:
+            api_url = "https://opendata.wra.gov.tw/Service/OpenData.aspx?format=json&id=362C7288-F378-4BF2-966C-2CD961732C52"
+            
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            
+            async with aiohttp.ClientSession(connector=connector) as session:
+                async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                    if response.status != 200:
+                        await interaction.followup.send(f"❌ API 請求失敗，狀態碼: {response.status}")
+                        return
+                    
+                    content = await response.text()
+                    
+                    # 處理 BOM
+                    if content.startswith('\ufeff'):
+                        content = content[1:]
+                    
+                    try:
+                        data = json.loads(content)
+                    except json.JSONDecodeError as e:
+                        await interaction.followup.send(f"❌ JSON 解析失敗: {e}")
+                        return
+                    
+                    if not isinstance(data, list) or len(data) == 0:
+                        await interaction.followup.send("❌ API 回應格式錯誤或無資料")
+                        return
+                    
+                    # 分析第一筆資料
+                    first_item = data[0]
+                    
+                    embed = discord.Embed(
+                        title="🔍 水利防災監控影像 API 調試資訊",
+                        color=0xff9900,
+                        timestamp=datetime.datetime.now()
+                    )
+                    
+                    embed.add_field(
+                        name="📊 基本資訊",
+                        value=f"總資料筆數: {len(data)}",
+                        inline=False
+                    )
+                    
+                    # 顯示欄位結構
+                    field_info = []
+                    url_fields = []
+                    
+                    for key, value in first_item.items():
+                        if value:
+                            field_info.append(f"✅ {key}")
+                            # 檢查是否可能是 URL
+                            if isinstance(value, str) and any(keyword in value.lower() for keyword in ['http', '.jpg', '.png', 'image']):
+                                url_fields.append(f"{key}: {value}")
+                        else:
+                            field_info.append(f"⚪ {key}")
+                    
+                    # 分批顯示欄位（Discord embed 有字數限制）
+                    field_chunks = [field_info[i:i+10] for i in range(0, len(field_info), 10)]
+                    
+                    for i, chunk in enumerate(field_chunks):
+                        embed.add_field(
+                            name=f"📋 欄位結構 ({i+1}/{len(field_chunks)})",
+                            value="\n".join(chunk),
+                            inline=True
+                        )
+                    
+                    if url_fields:
+                        embed.add_field(
+                            name="🔗 可能的 URL 欄位",
+                            value="\n".join(url_fields[:5]),  # 只顯示前5個
+                            inline=False
+                        )
+                    else:
+                        embed.add_field(
+                            name="🔗 URL 欄位",
+                            value="❌ 未找到明顯的 URL 欄位",
+                            inline=False
+                        )
+                    
+                    # 檢查宜蘭資料
+                    yilan_count = sum(1 for item in data if '宜蘭' in item.get('CountiesAndCitiesWhereTheMonitoringPointsAreLocated', ''))
+                    embed.add_field(
+                        name="🏞️ 宜蘭縣資料",
+                        value=f"宜蘭縣監視器數量: {yilan_count}",
+                        inline=False
+                    )
+                    
+                    if show_raw_data:
+                        # 顯示第一筆原始資料（截短）
+                        raw_data_text = json.dumps(first_item, ensure_ascii=False, indent=2)[:1000]
+                        embed.add_field(
+                            name="📄 第一筆原始資料（前1000字元）",
+                            value=f"```json\n{raw_data_text}...\n```",
+                            inline=False
+                        )
+                    
+                    embed.set_footer(text="💡 這是調試資訊，用於分析 API 資料結構")
+                    
+                    await interaction.followup.send(embed=embed)
+                    
+        except Exception as e:
+            logger.error(f"調試水利防災監控影像時發生錯誤: {str(e)}")
+            await interaction.followup.send(f"❌ 調試過程中發生錯誤: {str(e)}")
+
+    async def _get_alert_levels(self):
+        """獲取警戒水位資料，建立測站編號對應表"""
+        try:
+            alert_api_url = "https://opendata.wra.gov.tw/Service/OpenData.aspx?format=json&id=D2A498A6-8706-42FB-B623-C08C9665BDFD"
+            
+            # 設定 SSL 上下文
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            
+            async with aiohttp.ClientSession(connector=connector) as session:
+                async with session.get(alert_api_url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                    if response.status != 200:
+                        logger.warning(f"警戒水位 API 請求失敗，狀態碼: {response.status}")
+                        return {}
+                    
+                    # 處理 UTF-8 BOM 問題
+                    text = await response.text()
+                    if text.startswith('\ufeff'):
+                        text = text[1:]
+                    
+                    try:
+                        data = json.loads(text)
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"警戒水位 JSON 解析失敗: {str(e)}")
+                        return {}
+                    
+                    # 尋找警戒水位資料
+                    alert_records = []
+                    if isinstance(data, dict):
+                        # 嘗試各種可能的鍵名
+                        possible_keys = ['FloodLevel_OPENDATA', 'AlertLevel_OPENDATA', 'WarningLevel_OPENDATA']
+                        for key in possible_keys:
+                            if key in data and isinstance(data[key], list):
+                                alert_records = data[key]
+                                break
+                        
+                        # 如果沒找到預期的鍵，使用第一個包含列表的鍵
+                        if not alert_records:
+                            for key, value in data.items():
+                                if isinstance(value, list) and value:
+                                    alert_records = value
+                                    break
+                    elif isinstance(data, list):
+                        alert_records = data
+                    
+                    if not alert_records:
+                        logger.warning("無法找到警戒水位資料")
+                        return {}
+                    
+                    # 建立測站編號到警戒水位的對應表
+                    alert_dict = {}
+                    for record in alert_records:
+                        if isinstance(record, dict):
+                            # 尋找測站編號
+                            station_keys = ['ST_NO', 'StationId', 'StationCode', 'StationNo', 'ID']
+                            station_id = None
+                            
+                            for key in station_keys:
+                                if key in record and record[key]:
+                                    station_id = record[key]
+                                    break
+                            
+                            if station_id:
+                                # 尋找警戒水位
+                                alert_keys = ['AlertLevel', 'WarningLevel', 'FloodLevel', 'AlertWaterLevel']
+                                alert_level = None
+                                
+                                for key in alert_keys:
+                                    if key in record and record[key] is not None:
+                                        try:
+                                            alert_level = float(record[key])
+                                            break
+                                        except (ValueError, TypeError):
+                                            continue
+                                
+                                if alert_level is not None:
+                                    alert_dict[station_id] = alert_level
+                    
+                    logger.info(f"成功獲取 {len(alert_dict)} 個測站的警戒水位資料")
+                    return alert_dict
+                    
+        except Exception as e:
+            logger.error(f"獲取警戒水位資料時發生錯誤: {str(e)}")
+            return {}
+
+    async def _get_alert_water_levels(self):
+        """獲取警戒水位資料"""
+        try:
+            api_url = "https://opendata.wra.gov.tw/Service/OpenData.aspx?format=json&id=D2A498A6-8706-42FB-B623-C08C9665BDFD"
+            
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            
+            async with aiohttp.ClientSession(connector=connector) as session:
+                async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                    if response.status != 200:
+                        logger.error(f"警戒水位 API 請求失敗: {response.status}")
+                        return {}
+                    
+                    content = await response.text()
+                    
+                    # 處理 BOM
+                    if content.startswith('\ufeff'):
+                        content = content[1:]
+                    
+                    try:
+                        data = json.loads(content)
+                    except json.JSONDecodeError as e:
+                        logger.error(f"警戒水位資料 JSON 解析失敗: {e}")
+                        return {}
+                    
+                    # 建立測站編號到警戒水位的映射
+                    alert_levels = {}
+                    for item in data:
+                        if isinstance(item, dict):
+                            station_no = item.get('StationNo', item.get('ST_NO', ''))
+                            first_alert = item.get('FirstAlert', item.get('AlertLevel1', ''))
+                            second_alert = item.get('SecondAlert', item.get('AlertLevel2', ''))
+                            third_alert = item.get('ThirdAlert', item.get('AlertLevel3', ''))
+                            
+                            if station_no:
+                                alert_levels[station_no] = {
+                                    'first_alert': first_alert,
+                                    'second_alert': second_alert,
+                                    'third_alert': third_alert
+                                }
+                    
+                    return alert_levels
+                    
+        except Exception as e:
+            logger.error(f"獲取警戒水位資料時發生錯誤: {e}")
+            return {}
+
+    def _check_water_level_alert(self, current_level, alert_levels):
+        """檢查水位是否達到警戒值"""
+        if not alert_levels or not current_level:
+            return "無警戒資料", "⚪"
+        
+        try:
+            current = float(current_level)
+            
+            # 檢查三級警戒
+            third_alert = alert_levels.get('third_alert', '')
+            second_alert = alert_levels.get('second_alert', '')
+            first_alert = alert_levels.get('first_alert', '')
+            
+            if third_alert and str(third_alert).replace('.', '').isdigit():
+                if current >= float(third_alert):
+                    return "三級警戒", "🔴"
+            
+            if second_alert and str(second_alert).replace('.', '').isdigit():
+                if current >= float(second_alert):
+                    return "二級警戒", "🟠"
+            
+            if first_alert and str(first_alert).replace('.', '').isdigit():
+                if current >= float(first_alert):
+                    return "一級警戒", "🟡"
+            
+            return "正常", "🟢"
+            
+        except (ValueError, TypeError):
+            return "無法判斷", "⚪"
+
+    def _construct_image_url(self, xml_item):
+        """從 XML 元素中提取影像 URL"""
+        # 對於新的 XML API，直接使用 ImageURL 標籤
+        if hasattr(xml_item, 'find'):
+            # 這是 XML 元素
+            image_url_elem = xml_item.find('ImageURL')
+            if image_url_elem is not None and image_url_elem.text:
+                url = image_url_elem.text.strip()
+                if url and ('http' in url.lower() or url.startswith('//')):
+                    return url
+            
+            # 嘗試其他可能的 URL 欄位
+            other_url_fields = ['VideoSurveillanceImageUrl', 'ImageUrl', 'Url', 'StreamUrl', 'VideoUrl']
+            for field in other_url_fields:
+                elem = xml_item.find(field)
+                if elem is not None and elem.text:
+                    url = elem.text.strip()
+                    if url and ('http' in url.lower() or url.startswith('//')):
+                        return url
+            
+            # 如果沒有找到 URL，嘗試通過 CameraID 構造
+            camera_id_elem = xml_item.find('CameraID')
+            if camera_id_elem is not None and camera_id_elem.text:
+                camera_id = camera_id_elem.text.strip()
+                if camera_id:
+                    # 嘗試一些常見的監視器 URL 模式
+                    possible_patterns = [
+                        f"https://alerts.ncdr.nat.gov.tw/Image.aspx?mode=getNewImage&id={camera_id}",
+                        f"https://fhy.wra.gov.tw/fhy/Monitor/Image.aspx?id={camera_id}",
+                        f"https://opendata.wra.gov.tw/image/{camera_id}.jpg"
+                    ]
+                    return possible_patterns[0]
+        
+        # 如果是字典格式（舊的相容性）
+        elif isinstance(xml_item, dict):
+            url_fields = ['ImageURL', 'VideoSurveillanceImageUrl', 'ImageUrl', 'Url', 'StreamUrl', 'VideoUrl', 'CameraUrl', 'LinkUrl']
+            
+            for field in url_fields:
+                url = xml_item.get(field, '')
+                if url and ('http' in url.lower() or url.startswith('//')):
+                    return url
+            
+            # 嘗試通過 ID 構造 URL
+            camera_id = xml_item.get('CameraID', '')
+            if camera_id:
+                possible_patterns = [
+                    f"https://alerts.ncdr.nat.gov.tw/Image.aspx?mode=getNewImage&id={camera_id}",
+                    f"https://fhy.wra.gov.tw/fhy/Monitor/Image.aspx?id={camera_id}",
+                    f"https://opendata.wra.gov.tw/image/{camera_id}.jpg"
+                ]
+                return possible_patterns[0]
+        
+        return ''
 
 async def setup(bot):
     """設置函數，用於載入 Cog"""
