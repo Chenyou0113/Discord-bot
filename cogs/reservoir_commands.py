@@ -1147,9 +1147,58 @@ class ReservoirCommands(commands.Cog):
 
     @app_commands.command(name="highway_cameras", description="查詢公路監視器 (運輸資料流通服務平臺)")
     @app_commands.describe(
-        location="地點關鍵字（如：國道一號、台北、高速公路等）"
+        county="選擇縣市",
+        road_type="選擇道路類型（台幾線）"
     )
-    async def highway_cameras(self, interaction: discord.Interaction, location: str = None):
+    @app_commands.choices(county=[
+        app_commands.Choice(name="基隆市", value="基隆"),
+        app_commands.Choice(name="台北市", value="台北"),
+        app_commands.Choice(name="新北市", value="新北"),
+        app_commands.Choice(name="桃園市", value="桃園"),
+        app_commands.Choice(name="新竹市", value="新竹"),
+        app_commands.Choice(name="新竹縣", value="新竹"),
+        app_commands.Choice(name="苗栗縣", value="苗栗"),
+        app_commands.Choice(name="台中市", value="台中"),
+        app_commands.Choice(name="彰化縣", value="彰化"),
+        app_commands.Choice(name="南投縣", value="南投"),
+        app_commands.Choice(name="雲林縣", value="雲林"),
+        app_commands.Choice(name="嘉義市", value="嘉義"),
+        app_commands.Choice(name="嘉義縣", value="嘉義"),
+        app_commands.Choice(name="台南市", value="台南"),
+        app_commands.Choice(name="高雄市", value="高雄"),
+        app_commands.Choice(name="屏東縣", value="屏東"),
+        app_commands.Choice(name="宜蘭縣", value="宜蘭"),
+        app_commands.Choice(name="花蓮縣", value="花蓮"),
+        app_commands.Choice(name="台東縣", value="台東"),
+    ])
+    @app_commands.choices(road_type=[
+        app_commands.Choice(name="台1線", value="台1線"),
+        app_commands.Choice(name="台2線", value="台2線"),
+        app_commands.Choice(name="台3線", value="台3線"),
+        app_commands.Choice(name="台4線", value="台4線"),
+        app_commands.Choice(name="台5線", value="台5線"),
+        app_commands.Choice(name="台7線", value="台7線"),
+        app_commands.Choice(name="台8線", value="台8線"),
+        app_commands.Choice(name="台9線", value="台9線"),
+        app_commands.Choice(name="台11線", value="台11線"),
+        app_commands.Choice(name="台14線", value="台14線"),
+        app_commands.Choice(name="台15線", value="台15線"),
+        app_commands.Choice(name="台17線", value="台17線"),
+        app_commands.Choice(name="台18線", value="台18線"),
+        app_commands.Choice(name="台19線", value="台19線"),
+        app_commands.Choice(name="台20線", value="台20線"),
+        app_commands.Choice(name="台21線", value="台21線"),
+        app_commands.Choice(name="台24線", value="台24線"),
+        app_commands.Choice(name="台26線", value="台26線"),
+        app_commands.Choice(name="台61線", value="台61線"),
+        app_commands.Choice(name="台62線", value="台62線"),
+        app_commands.Choice(name="台64線", value="台64線"),
+        app_commands.Choice(name="台65線", value="台65線"),
+        app_commands.Choice(name="台66線", value="台66線"),
+        app_commands.Choice(name="台68線", value="台68線"),
+        app_commands.Choice(name="台88線", value="台88線"),
+    ])
+    async def highway_cameras(self, interaction: discord.Interaction, county: str = None, road_type: str = None):
         """查詢公路監視器 (TDX)"""
         await interaction.response.defer()
         try:
@@ -1157,7 +1206,14 @@ class ReservoirCommands(commands.Cog):
             token_url = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token"
             client_id = "xiaoyouwu5-08c8f7b1-3ac2-431b"
             client_secret = "9946bb49-0cc5-463c-ba79-c669140df4ef"
-            api_url = "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CCTV/Highway?%24top=30&%24format=JSON"
+            
+            # 根據道路類型選擇 API 端點
+            if road_type and road_type.startswith('台'):
+                # 省道監視器 - 增加查詢數量以獲取更多監視器
+                api_url = "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CCTV/Highway?%24top=200&%24format=JSON"
+            else:
+                # 預設查詢所有公路監視器
+                api_url = "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CCTV/Highway?%24top=200&%24format=JSON"
 
             ssl_context = ssl.create_default_context()
             ssl_context.check_hostname = False
@@ -1242,102 +1298,167 @@ class ReservoirCommands(commands.Cog):
                         await interaction.followup.send("❌ 無法解析公路監視器資料")
                         return
                     
-                    # 篩選指定地點
-                    if location:
-                        filtered_cameras = []
-                        location_lower = location.lower()
-                        for cam in cameras:
+                    # 篩選條件
+                    filtered_cameras = []
+                    
+                    for cam in cameras:
+                        include_camera = True
+                        
+                        # 縣市篩選 - 改善的縣市檢測
+                        if county:
+                            # 擴展縣市關鍵字對應
+                            county_keywords = {
+                                '基隆': ['基隆', '暖暖', '七堵', '安樂'],
+                                '台北': ['台北', '北市', '大安', '中山', '信義', '松山', '中正', '萬華', '大同', '南港', '內湖', '士林', '北投', '文山'],
+                                '新北': ['新北', '板橋', '三重', '中和', '永和', '新店', '新莊', '土城', '蘆洲', '樹林', '汐止', '鶯歌', '三峽', '淡水', '瑞芳', '五股', '泰山', '林口', '深坑', '石碇', '坪林', '三芝', '石門', '八里', '平溪', '雙溪', '貢寮', '金山', '萬里', '烏來'],
+                                '桃園': ['桃園', '中壢', '平鎮', '八德', '楊梅', '蘆竹', '大溪', '龜山', '大園', '觀音', '新屋', '復興', '龍潭'],
+                                '新竹': ['新竹', '竹北', '竹東', '新埔', '關西', '湖口', '新豐', '峨眉', '寶山', '北埔', '芎林', '橫山', '五峰', '尖石'],
+                                '苗栗': ['苗栗', '頭份', '竹南', '後龍', '通霄', '苑裡', '三義', '西湖', '銅鑼', '南庄', '頭屋', '公館', '大湖', '泰安', '獅潭', '三灣', '造橋', '卓蘭'],
+                                '台中': ['台中', '中市', '豐原', '大里', '太平', '東勢', '梧棲', '烏日', '神岡', '大肚', '沙鹿', '龍井', '霧峰', '清水', '大甲', '外埔', '大安', '石岡', '新社', '和平'],
+                                '彰化': ['彰化', '員林', '和美', '鹿港', '溪湖', '二林', '田中', '北斗', '花壇', '芬園', '大村', '埔鹽', '埔心', '永靖', '社頭', '二水', '田尾', '埤頭', '芳苑', '大城', '竹塘', '溪州'],
+                                '南投': ['南投', '埔里', '草屯', '竹山', '集集', '名間', '鹿谷', '中寮', '魚池', '國姓', '水里', '信義', '仁愛'],
+                                '雲林': ['雲林', '斗六', '虎尾', '西螺', '土庫', '北港', '古坑', '大埤', '莿桐', '林內', '二崙', '崙背', '麥寮', '東勢', '褒忠', '台西', '元長', '四湖', '口湖', '水林'],
+                                '嘉義': ['嘉義', '太保', '朴子', '布袋', '大林', '民雄', '溪口', '新港', '六腳', '東石', '義竹', '鹿草', '水上', '中埔', '竹崎', '梅山', '番路', '大埔', '阿里山'],
+                                '台南': ['台南', '南市', '永康', '歸仁', '新化', '左鎮', '玉井', '楠西', '南化', '仁德', '關廟', '龍崎', '官田', '麻豆', '佳里', '西港', '七股', '將軍', '學甲', '北門', '新營', '後壁', '白河', '東山', '六甲', '下營', '柳營', '鹽水', '善化', '大內', '山上', '新市', '安定'],
+                                '高雄': ['高雄', '鳳山', '岡山', '旗山', '美濃', '橋頭', '梓官', '彌陀', '永安', '燕巢', '田寮', '阿蓮', '路竹', '湖內', '茄萣', '仁武', '大社', '鳥松', '大樹', '旗津', '前金', '苓雅', '鹽埕', '鼓山', '三民', '新興', '前鎮', '小港', '左營', '楠梓', '六龜', '內門', '杉林', '甲仙', '桃源', '那瑪夏', '茂林'],
+                                '屏東': ['屏東', '潮州', '東港', '恆春', '萬丹', '長治', '麟洛', '九如', '里港', '鹽埔', '高樹', '萬巒', '內埔', '竹田', '新埤', '枋寮', '新園', '崁頂', '林邊', '南州', '佳冬', '琉球', '車城', '滿州', '枋山', '三地門', '霧台', '瑪家', '泰武', '來義', '春日', '獅子', '牡丹'],
+                                '宜蘭': ['宜蘭', '羅東', '蘇澳', '頭城', '礁溪', '壯圍', '員山', '冬山', '五結', '三星', '大同', '南澳'],
+                                '花蓮': ['花蓮', '鳳林', '玉里', '新城', '吉安', '壽豐', '光復', '豐濱', '瑞穗', '富里', '秀林', '萬榮', '卓溪'],
+                                '台東': ['台東', '成功', '關山', '卑南', '大武', '太麻里', '東河', '長濱', '鹿野', '池上', '綠島', '延平', '海端', '達仁', '金峰', '蘭嶼']
+                            }
+                            
+                            # 取得查詢縣市的關鍵字
+                            search_keywords = county_keywords.get(county, [county])
+                            
+                            # 在監視器資料中搜尋
                             search_fields = [
                                 cam['name'].lower(),
                                 cam['road'].lower(),
-                                cam['direction'].lower(),
                                 cam['location_desc'].lower(),
-                                cam.get('mile', '').lower(),
                                 cam.get('county', '').lower()
                             ]
-                            if any(location_lower in field for field in search_fields):
-                                filtered_cameras.append(cam)
+                            
+                            # 檢查是否包含任何關鍵字
+                            found_match = False
+                            for keyword in search_keywords:
+                                if any(keyword.lower() in field for field in search_fields):
+                                    found_match = True
+                                    break
+                            
+                            if not found_match:
+                                include_camera = False
                         
-                        if not filtered_cameras:
-                            await interaction.followup.send(f"❌ 在 {location} 找不到公路監視器")
-                            return
-                    else:
-                        filtered_cameras = cameras
+                        # 道路類型篩選
+                        if road_type and include_camera:
+                            road_name = cam['road'].lower()
+                            if road_type.lower() not in road_name:
+                                include_camera = False
+                        
+                        if include_camera:
+                            filtered_cameras.append(cam)
                     
-                    display_cameras = filtered_cameras[:20]
+                    if not filtered_cameras:
+                        filter_conditions = []
+                        if county:
+                            filter_conditions.append(f"縣市: {county}")
+                        if road_type:
+                            filter_conditions.append(f"道路: {road_type}")
+                        
+                        filter_text = "、".join(filter_conditions) if filter_conditions else "全部"
+                        await interaction.followup.send(f"❌ 找不到符合條件的公路監視器\n篩選條件: {filter_text}")
+                        return
                     
+                    # 隨機選擇一支監視器顯示
+                    import random
+                    selected_camera = random.choice(filtered_cameras)
+                    
+                    name = selected_camera['name']
+                    road = selected_camera['road']
+                    direction = selected_camera['direction']
+                    video_url = selected_camera['video_url']
+                    image_url = selected_camera['image_url']
+                    mile = selected_camera.get('mile', '')
+                    county = selected_camera.get('county', '')
+                    update_time = selected_camera.get('update_time', '')
+                    lat = selected_camera.get('lat', '')
+                    lon = selected_camera.get('lon', '')
+                    
+                    # 創建 embed
                     embed = discord.Embed(
-                        title="🛣️ 公路監視器 (TDX)",
+                        title="🛣️ 公路監視器",
+                        description=f"**{name}**",
                         color=0x00aa00,
                         timestamp=datetime.datetime.now()
                     )
                     
-                    if location:
+                    # 顯示篩選條件
+                    filter_conditions = []
+                    if county:
+                        filter_conditions.append(f"縣市: {county}")
+                    if road_type:
+                        filter_conditions.append(f"道路: {road_type}")
+                    
+                    if filter_conditions:
                         embed.add_field(
-                            name="🔍 搜尋關鍵字",
-                            value=location,
+                            name="🔍 篩選條件",
+                            value=" | ".join(filter_conditions),
                             inline=False
                         )
                     
-                    for i, camera in enumerate(display_cameras, 1):
-                        name = camera['name']
-                        road = camera['road']
-                        direction = camera['direction']
-                        video_url = camera['video_url']
-                        image_url = camera['image_url']
-                        mile = camera.get('mile', '')
-                        county = camera.get('county', '')
-                        update_time = camera.get('update_time', '')
-                        
-                        # 組合位置資訊
-                        location_info = road
-                        if direction:
-                            location_info += f" {direction}向"
-                        if county:
-                            location_info += f"\n🏛️ {county}"
-                        if mile:
-                            location_info += f"\n📏 {mile}"
-                        
-                        # 處理影像 URL（優先使用快照圖片）
-                        if image_url:
-                            timestamp = int(datetime.datetime.now().timestamp())
-                            cache_busted_url = f"{image_url}?t={timestamp}"
-                            url_text = f"🔗 [查看影像]({cache_busted_url})"
-                        elif video_url:
-                            timestamp = int(datetime.datetime.now().timestamp())
-                            cache_busted_url = f"{video_url}?t={timestamp}"
-                            url_text = f"🔗 [查看影像]({cache_busted_url})"
-                        else:
-                            url_text = "🔗 影像連結暫不可用"
-                        
-                        # 座標資訊
-                        lat = camera.get('lat', '')
-                        lon = camera.get('lon', '')
-                        if lat and lon:
-                            url_text += f"\n📍 座標: {lat}, {lon}"
-                        
-                        # 更新時間資訊
-                        if update_time:
-                            url_text += f"\n⏰ 更新: {update_time}"
-                        
+                    # 道路資訊
+                    road_info = f"🛣️ **道路**: {road}"
+                    if direction:
+                        road_info += f" ({direction}向)"
+                    if mile:
+                        road_info += f"\n📏 **里程**: {mile}"
+                    
+                    embed.add_field(
+                        name="道路資訊",
+                        value=road_info,
+                        inline=True
+                    )
+                    
+                    # 位置資訊
+                    location_info = ""
+                    if lat and lon:
+                        location_info += f"📍 **座標**: {lat}, {lon}"
+                    if county:
+                        location_info += f"\n🏛️ **縣市**: {county}"
+                    
+                    if location_info:
                         embed.add_field(
-                            name=f"{i}. {name[:40]}{'...' if len(name) > 40 else ''}",
-                            value=f"🛣️ {location_info}\n{url_text}",
+                            name="位置資訊",
+                            value=location_info,
                             inline=True
                         )
                     
+                    # 影像連結
+                    if video_url:
+                        embed.add_field(
+                            name="🎥 即時影像",
+                            value=f"[點擊觀看即時影像]({video_url})",
+                            inline=False
+                        )
+                    
+                    # 設定監視器快照圖片
+                    if image_url:
+                        # 加上時間戳避免快取
+                        timestamp = int(datetime.datetime.now().timestamp())
+                        cache_busted_url = f"{image_url}?t={timestamp}"
+                        embed.set_image(url=cache_busted_url)
+                    
+                    # 統計資訊
                     embed.add_field(
-                        name="📊 統計",
-                        value=f"共找到 {len(filtered_cameras)} 個監視器，顯示前 {len(display_cameras)} 個",
+                        name="📊 統計資訊",
+                        value=f"共找到 {len(filtered_cameras)} 個符合條件的監視器\n目前顯示：隨機選擇的 1 個監視器",
                         inline=False
                     )
                     
-                    # 加入更新時間資訊
-                    if isinstance(data, dict) and 'UpdateTime' in data:
-                        update_time = data['UpdateTime']
-                        embed.set_footer(text=f"💡 點擊連結查看即時影像 | 資料來源：TDX | 更新時間: {update_time}")
+                    # 更新時間資訊
+                    if update_time:
+                        embed.set_footer(text=f"資料來源：TDX 運輸資料流通服務平臺 | 更新時間: {update_time}")
                     else:
-                        embed.set_footer(text="💡 點擊連結查看即時影像 | 資料來源：運輸資料流通服務平臺 (TDX)")
+                        embed.set_footer(text="資料來源：TDX 運輸資料流通服務平臺")
                     
                     await interaction.followup.send(embed=embed)
                     
