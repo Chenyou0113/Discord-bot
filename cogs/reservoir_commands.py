@@ -590,7 +590,7 @@ class ReservoirCommands(commands.Cog):
         # 使用私有方法獲取監視器資料
         await self._get_water_cameras(interaction, county=county)
                         
-    @app_commands.command(name="national_highway_cameras", description="查詢國道監視器")
+    @app_commands.command(name="national_highway_cameras", description="查詢國道監視器 (TDX Freeway API)")
     @app_commands.describe(
         highway="國道編號（例如：1, 3, 5）",
         location="地點關鍵字"
@@ -601,53 +601,119 @@ class ReservoirCommands(commands.Cog):
         highway: str = None, 
         location: str = None
     ):
-        """查詢國道監視器"""
+        """查詢國道監視器 (TDX Freeway API)"""
         await interaction.response.defer()
         
         try:
-            # 高速公路 API
-            api_url = "https://tisvcloud.freeway.gov.tw/api/v1/highway/camera/snapshot/info/all"
-            
+            # 1. 取得 TDX access token
+            token_url = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token"
+            client_id = "xiaoyouwu5-08c8f7b1-3ac2-431b"
+            client_secret = "9946bb49-0cc5-463c-ba79-c669140df4ef"
+            api_url = "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CCTV/Freeway?%24top=30&%24format=JSON"
+
             ssl_context = ssl.create_default_context()
             ssl_context.check_hostname = False
             ssl_context.verify_mode = ssl.CERT_NONE
-            
             connector = aiohttp.TCPConnector(ssl=ssl_context)
-            
+
             async with aiohttp.ClientSession(connector=connector) as session:
-                async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                # 取得 access token
+                token_data = {
+                    'grant_type': 'client_credentials',
+                    'client_id': client_id,
+                    'client_secret': client_secret
+                }
+                token_headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+                
+                async with session.post(token_url, data=token_data, headers=token_headers) as token_resp:
+                    if token_resp.status != 200:
+                        await interaction.followup.send(f"❌ 無法取得 TDX Token，狀態碼: {token_resp.status}")
+                        return
+                    
+                    token_json = await token_resp.json()
+                    access_token = token_json.get('access_token')
+                    if not access_token:
+                        await interaction.followup.send("❌ 無法取得 TDX access_token")
+                        return
+                
+                # 2. 查詢監視器 API
+                headers = {
+                    'Authorization': f'Bearer {access_token}',
+                    'Accept': 'application/json'
+                }
+                
+                async with session.get(api_url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
                     if response.status != 200:
                         await interaction.followup.send(f"❌ API 請求失敗，狀態碼: {response.status}")
                         return
                     
-                    data = await response.json()
+                    try:
+                        data = await response.json()
+                    except Exception as e:
+                        await interaction.followup.send(f"❌ JSON 解析失敗: {e}")
+                        return
                     
-                    if not isinstance(data, list):
+                    # 處理 TDX API 回應結構
+                    if isinstance(data, dict) and 'CCTVs' in data:
+                        cctv_list = data['CCTVs']
+                    elif isinstance(data, list):
+                        cctv_list = data
+                    else:
                         await interaction.followup.send("❌ API 回應格式錯誤")
                         return
                     
+                    if not cctv_list:
+                        await interaction.followup.send("❌ 無法解析國道監視器資料")
+                        return
+                    
                     cameras = []
-                    for camera_data in data:
-                        devices = camera_data.get('Devices', [])
-                        for device in devices:
+                    for cctv in cctv_list:
+                        try:
+                            # 根據分析結果，TDX Freeway API 的實際欄位名稱
+                            road_section = cctv.get('RoadSection', {})
+                            if isinstance(road_section, dict):
+                                location_desc = f"{road_section.get('Start', '')} 到 {road_section.get('End', '')}"
+                            else:
+                                location_desc = str(road_section) if road_section else ""
+                            
                             camera_info = {
-                                'id': device.get('DeviceID', ''),
-                                'name': device.get('DeviceName', ''),
-                                'highway': camera_data.get('RoadName', ''),
-                                'direction': device.get('RoadDirection', ''),
-                                'location': device.get('LocationDescription', ''),
-                                'image_url': device.get('ImageUrl', ''),
-                                'county': self._extract_county_from_location(device.get('LocationDescription', ''))
+                                'id': cctv.get('CCTVID', ''),
+                                'name': location_desc or f"{cctv.get('RoadName', '')} {cctv.get('LocationMile', '')}",
+                                'highway': cctv.get('RoadName', '未知道路'),
+                                'direction': cctv.get('RoadDirection', ''),
+                                'location': location_desc,
+                                'video_url': cctv.get('VideoStreamURL', ''),
+                                'image_url': cctv.get('VideoImageURL', ''),  # 可能沒有此欄位
+                                'lat': str(cctv.get('PositionLat', '')),
+                                'lon': str(cctv.get('PositionLon', '')),
+                                'mile': cctv.get('LocationMile', ''),
+                                'county': '',  # Freeway API 可能沒有縣市資訊
+                                'update_time': '',  # 個別 CCTV 可能沒有更新時間
+                                'road_section': road_section
                             }
                             
                             # 篩選條件
                             if highway and str(highway) not in camera_info['highway']:
                                 continue
                             
-                            if location and location.lower() not in camera_info['location'].lower() and location.lower() not in camera_info['name'].lower():
-                                continue
+                            # 搜尋邏輯改善
+                            if location:
+                                search_fields = [
+                                    camera_info['location'].lower(),
+                                    camera_info['name'].lower(),
+                                    camera_info['highway'].lower(),
+                                    camera_info['mile'].lower()
+                                ]
+                                if not any(location.lower() in field for field in search_fields):
+                                    continue
                             
-                            cameras.append(camera_info)
+                            # 只要有基本資訊就加入
+                            if camera_info['highway'] != '未知道路':
+                                cameras.append(camera_info)
+                                
+                        except Exception as e:
+                            logger.error(f"處理國道監視器資料時發生錯誤: {e}")
+                            continue
                     
                     if not cameras:
                         filter_msg = []
@@ -665,7 +731,7 @@ class ReservoirCommands(commands.Cog):
                     
                     # 建立 embed
                     embed = discord.Embed(
-                        title="🛣️ 國道監視器",
+                        title="🛣️ 國道監視器 (TDX Freeway API)",
                         color=0x00ff00,
                         timestamp=datetime.datetime.now()
                     )
@@ -684,27 +750,57 @@ class ReservoirCommands(commands.Cog):
                             inline=False
                         )
                     
+                    # 顯示前幾個監視器
+                    for i, camera in enumerate(display_cameras[:5], 1):
+                        name = camera['name']
+                        highway_info = camera['highway']
+                        direction = camera['direction']
+                        location_desc = camera['location']
+                        video_url = camera['video_url']
+                        image_url = camera['image_url']
+                        mile = camera.get('mile', '')
+                        county = camera.get('county', '')
+                        
+                        # 組合位置資訊
+                        location_info = highway_info
+                        if direction:
+                            location_info += f" {direction}向"
+                        if county:
+                            location_info += f"\n🏛️ {county}"
+                        if mile:
+                            location_info += f"\n📏 {mile}"
+                        
+                        # 處理影像 URL（優先使用快照圖片）
+                        if image_url:
+                            timestamp = int(datetime.datetime.now().timestamp())
+                            cache_busted_url = f"{image_url}?t={timestamp}"
+                            url_text = f"🔗 [查看影像]({cache_busted_url})"
+                        elif video_url:
+                            timestamp = int(datetime.datetime.now().timestamp())
+                            cache_busted_url = f"{video_url}?t={timestamp}"
+                            url_text = f"� [查看影像]({cache_busted_url})"
+                        else:
+                            url_text = "🔗 影像連結暫不可用"
+                        
+                        # 座標資訊
+                        lat = camera.get('lat', '')
+                        lon = camera.get('lon', '')
+                        if lat and lon:
+                            url_text += f"\n📍 座標: {lat}, {lon}"
+                        
+                        embed.add_field(
+                            name=f"{i}. {name[:35]}{'...' if len(name) > 35 else ''}",
+                            value=f"🛣️ {location_info}\n📍 {location_desc}\n{url_text}",
+                            inline=True
+                        )
+                    
                     embed.add_field(
-                        name="📊 搜尋結果",
-                        value=f"共找到 {len(cameras)} 個監視器，顯示前 {len(display_cameras)} 個",
+                        name="📊 統計",
+                        value=f"共找到 {len(cameras)} 個監視器，顯示前 {len(display_cameras[:5])} 個",
                         inline=False
                     )
                     
-                    # 顯示第一個監視器
-                    first_camera = display_cameras[0]
-                    image_url = self._add_timestamp_to_url(first_camera['image_url'])
-                    
-                    embed.add_field(
-                        name=f"📹 {first_camera['name']}",
-                        value=f"🛣️ 路段: {first_camera['highway']}\n📍 位置: {first_camera['location']}\n🧭 方向: {first_camera['direction']}\n🏙️ 縣市: {first_camera['county']}\n⏰ 更新時間: {datetime.datetime.now().strftime('%H:%M:%S')}",
-                        inline=False
-                    )
-                    
-                    if image_url and image_url != "N/A":
-                        embed.set_image(url=image_url)
-                    
-                    if len(display_cameras) > 1:
-                        embed.set_footer(text=f"第 1/{len(display_cameras)} 個監視器")
+                    embed.set_footer(text="💡 點擊連結查看即時影像 | 資料來源：運輸資料流通服務平臺 (TDX)")
                     
                     await interaction.followup.send(embed=embed)
                         
@@ -1049,60 +1145,92 @@ class ReservoirCommands(commands.Cog):
         except (ValueError, TypeError):
             return "無法判斷", "⚪"
 
-    @app_commands.command(name="highway_cameras", description="查詢公路總局監視器")
+    @app_commands.command(name="highway_cameras", description="查詢公路監視器 (運輸資料流通服務平臺)")
     @app_commands.describe(
         location="地點關鍵字（如：國道一號、台北、高速公路等）"
     )
     async def highway_cameras(self, interaction: discord.Interaction, location: str = None):
-        """查詢公路總局監視器"""
+        """查詢公路監視器 (TDX)"""
         await interaction.response.defer()
-        
         try:
-            api_url = "https://cctv-maintain.thb.gov.tw/opendataCCTVs.xml"
-            
+            # 1. 取得 TDX access token
+            token_url = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token"
+            client_id = "xiaoyouwu5-08c8f7b1-3ac2-431b"
+            client_secret = "9946bb49-0cc5-463c-ba79-c669140df4ef"
+            api_url = "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CCTV/Highway?%24top=30&%24format=JSON"
+
             ssl_context = ssl.create_default_context()
             ssl_context.check_hostname = False
             ssl_context.verify_mode = ssl.CERT_NONE
-            
             connector = aiohttp.TCPConnector(ssl=ssl_context)
-            
+
             async with aiohttp.ClientSession(connector=connector) as session:
-                async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                # 取得 access token
+                token_data = {
+                    'grant_type': 'client_credentials',
+                    'client_id': client_id,
+                    'client_secret': client_secret
+                }
+                token_headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+                async with session.post(token_url, data=token_data, headers=token_headers) as token_resp:
+                    if token_resp.status != 200:
+                        await interaction.followup.send(f"❌ 無法取得 TDX Token，狀態碼: {token_resp.status}")
+                        return
+                    token_json = await token_resp.json()
+                    access_token = token_json.get('access_token')
+                    if not access_token:
+                        await interaction.followup.send("❌ 無法取得 TDX access_token")
+                        return
+                
+                # 2. 查詢監視器 API
+                headers = {
+                    'Authorization': f'Bearer {access_token}',
+                    'Accept': 'application/json'
+                }
+                async with session.get(api_url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
                     if response.status != 200:
                         await interaction.followup.send(f"❌ API 請求失敗，狀態碼: {response.status}")
                         return
                     
-                    content = await response.text()
-                    
-                    # 檢查回應是否為空
-                    if not content or len(content.strip()) == 0:
-                        await interaction.followup.send("❌ API 回應為空，公路監視器服務可能暫時不可用")
+                    try:
+                        data = await response.json()
+                    except Exception as e:
+                        await interaction.followup.send(f"❌ JSON 解析失敗: {e}")
                         return
                     
-                    # 解析 XML
-                    import xml.etree.ElementTree as ET
-                    try:
-                        root = ET.fromstring(content)
-                    except ET.ParseError as e:
-                        logger.error(f"XML 解析失敗: {e}")
-                        await interaction.followup.send("❌ 公路監視器資料格式錯誤，服務可能暫時不可用")
+                    # 處理 TDX API 回應結構（監視器資料在 CCTVs 鍵中）
+                    if isinstance(data, dict) and 'CCTVs' in data:
+                        cctv_list = data['CCTVs']
+                    elif isinstance(data, list):
+                        cctv_list = data
+                    else:
+                        await interaction.followup.send("❌ API 回應格式錯誤")
+                        return
+                    
+                    if not cctv_list:
+                        await interaction.followup.send("❌ 無法解析公路監視器資料")
                         return
                     
                     cameras = []
-                    for cctv in root.findall('.//CCTV'):
+                    for cctv in cctv_list:
                         try:
+                            # TDX API 的欄位名稱
                             camera_info = {
-                                'id': cctv.find('CCTVID').text if cctv.find('CCTVID') is not None else '',
-                                'name': cctv.find('CCTVName').text if cctv.find('CCTVName') is not None else '未知監視器',
-                                'road': cctv.find('RoadName').text if cctv.find('RoadName') is not None else '未知道路',
-                                'direction': cctv.find('RoadDirection').text if cctv.find('RoadDirection') is not None else '',
-                                'video_url': cctv.find('VideoStreamURL').text if cctv.find('VideoStreamURL') is not None else '',
-                                'lat': cctv.find('PositionLat').text if cctv.find('PositionLat') is not None else '',
-                                'lon': cctv.find('PositionLon').text if cctv.find('PositionLon') is not None else '',
-                                'location_desc': cctv.find('LocationDescription').text if cctv.find('LocationDescription') is not None else ''
+                                'id': cctv.get('CCTVID', ''),
+                                'name': cctv.get('SurveillanceDescription', '未知監視器'),
+                                'road': cctv.get('RoadName', '未知道路'),
+                                'direction': cctv.get('RoadDirection', ''),
+                                'video_url': cctv.get('VideoStreamURL', ''),
+                                'image_url': cctv.get('VideoImageURL', ''),
+                                'lat': str(cctv.get('PositionLat', '')),
+                                'lon': str(cctv.get('PositionLon', '')),
+                                'location_desc': cctv.get('SurveillanceDescription', ''),
+                                'mile': cctv.get('LocationMile', ''),
+                                'road_class': cctv.get('RoadClass', ''),
+                                'county': cctv.get('County', ''),
+                                'update_time': cctv.get('UpdateTime', '')
                             }
                             
-                            # 確保有基本資訊
                             if camera_info['name'] and camera_info['name'] != '未知監視器':
                                 cameras.append(camera_info)
                                 
@@ -1118,16 +1246,15 @@ class ReservoirCommands(commands.Cog):
                     if location:
                         filtered_cameras = []
                         location_lower = location.lower()
-                        
                         for cam in cameras:
-                            # 在名稱、道路、方向、位置描述中搜尋
                             search_fields = [
                                 cam['name'].lower(),
                                 cam['road'].lower(),
                                 cam['direction'].lower(),
-                                cam['location_desc'].lower()
+                                cam['location_desc'].lower(),
+                                cam.get('mile', '').lower(),
+                                cam.get('county', '').lower()
                             ]
-                            
                             if any(location_lower in field for field in search_fields):
                                 filtered_cameras.append(cam)
                         
@@ -1137,12 +1264,10 @@ class ReservoirCommands(commands.Cog):
                     else:
                         filtered_cameras = cameras
                     
-                    # 限制顯示數量
                     display_cameras = filtered_cameras[:20]
                     
-                    # 建立 embed
                     embed = discord.Embed(
-                        title="🛣️ 公路總局監視器",
+                        title="🛣️ 公路監視器 (TDX)",
                         color=0x00aa00,
                         timestamp=datetime.datetime.now()
                     )
@@ -1159,26 +1284,44 @@ class ReservoirCommands(commands.Cog):
                         road = camera['road']
                         direction = camera['direction']
                         video_url = camera['video_url']
-                        location_desc = camera['location_desc']
+                        image_url = camera['image_url']
+                        mile = camera.get('mile', '')
+                        county = camera.get('county', '')
+                        update_time = camera.get('update_time', '')
                         
                         # 組合位置資訊
                         location_info = road
                         if direction:
-                            location_info += f" {direction}"
-                        if location_desc:
-                            location_info += f"\n📍 {location_desc}"
+                            location_info += f" {direction}向"
+                        if county:
+                            location_info += f"\n🏛️ {county}"
+                        if mile:
+                            location_info += f"\n📏 {mile}"
                         
-                        # 處理影像 URL
-                        if video_url:
-                            # 加上時間戳避免快取
+                        # 處理影像 URL（優先使用快照圖片）
+                        if image_url:
+                            timestamp = int(datetime.datetime.now().timestamp())
+                            cache_busted_url = f"{image_url}?t={timestamp}"
+                            url_text = f"🔗 [查看影像]({cache_busted_url})"
+                        elif video_url:
                             timestamp = int(datetime.datetime.now().timestamp())
                             cache_busted_url = f"{video_url}?t={timestamp}"
                             url_text = f"🔗 [查看影像]({cache_busted_url})"
                         else:
                             url_text = "🔗 影像連結暫不可用"
                         
+                        # 座標資訊
+                        lat = camera.get('lat', '')
+                        lon = camera.get('lon', '')
+                        if lat and lon:
+                            url_text += f"\n📍 座標: {lat}, {lon}"
+                        
+                        # 更新時間資訊
+                        if update_time:
+                            url_text += f"\n⏰ 更新: {update_time}"
+                        
                         embed.add_field(
-                            name=f"{i}. {name}",
+                            name=f"{i}. {name[:40]}{'...' if len(name) > 40 else ''}",
                             value=f"🛣️ {location_info}\n{url_text}",
                             inline=True
                         )
@@ -1189,7 +1332,12 @@ class ReservoirCommands(commands.Cog):
                         inline=False
                     )
                     
-                    embed.set_footer(text="💡 點擊連結查看即時影像 | 資料來源：公路總局")
+                    # 加入更新時間資訊
+                    if isinstance(data, dict) and 'UpdateTime' in data:
+                        update_time = data['UpdateTime']
+                        embed.set_footer(text=f"💡 點擊連結查看即時影像 | 資料來源：TDX | 更新時間: {update_time}")
+                    else:
+                        embed.set_footer(text="💡 點擊連結查看即時影像 | 資料來源：運輸資料流通服務平臺 (TDX)")
                     
                     await interaction.followup.send(embed=embed)
                     
