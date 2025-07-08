@@ -1,0 +1,38 @@
+{
+  "total_cameras": 2263,
+  "fields": [
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LocationMile",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}CCTVID",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}SurveillanceDescription",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LinkID",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}VideoImageURL",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadID",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}SubAuthorityCode",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}PositionLat",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadDirection",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}PositionLon",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadName",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadClass",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LocationType",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}VideoStreamURL"
+  ],
+  "authority_codes": {},
+  "sample_camera": {
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}CCTVID": "CCTV-14-0620-009-002",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}SubAuthorityCode": "THB-1R",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LinkID": "1006200100900C",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}VideoStreamURL": "https://cctv-ss02.thb.gov.tw:443/T62-9K+020",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}VideoImageURL": "https://cctv-ss02.thb.gov.tw:443/T62-9K+020/snapshot",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LocationType": "6",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}PositionLon": "121.7321",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}PositionLat": "25.10529",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}SurveillanceDescription": "快速公路62號(暖暖交流道到大華系統交流道)(W)",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadID": "100620",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadName": "台62線",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadClass": "1",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadDirection": "W",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LocationMile": "9K+020"
+  },
+  "video_url_samples": [],
+  "analysis_time": "2025-07-08T14:25:55.374040"
+}

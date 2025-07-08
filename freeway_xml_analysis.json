@@ -1,0 +1,47 @@
+{
+  "total_cameras": 1777,
+  "fields": [
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}SubAuthorityCode",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadID",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}PositionLon",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LinkID",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadName",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LocationMile",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadSection",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadClass",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}VideoStreamURL",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadDirection",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LocationType",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}PositionLat",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}CCTVID"
+  ],
+  "road_classes": {},
+  "road_class_mapping": {
+    "0": "國道",
+    "1": "快速道路",
+    "2": "市區快速道路",
+    "3": "省道",
+    "4": "縣道",
+    "5": "鄉道",
+    "6": "市區一般道路",
+    "7": "匝道"
+  },
+  "road_names": [],
+  "sample_camera": {
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}CCTVID": "CCTV-N1-S-0.000-M",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}SubAuthorityCode": "NFB-NR",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LinkID": "0000101001030C",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}VideoStreamURL": "https://cctvn.freeway.gov.tw/abs2mjpg/bmjpg?camera=10000",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LocationType": "1",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}PositionLon": "121.735695",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}PositionLat": "25.1229931",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadID": "000010",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadName": "國道1號",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadClass": "0",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadDirection": "S",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadSection": "",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LocationMile": "0K+000"
+  },
+  "video_url_samples": [],
+  "analysis_time": "2025-07-08T14:50:56.063012"
+}
