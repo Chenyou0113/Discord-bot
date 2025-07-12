@@ -1,0 +1,162 @@
+2025-06-28 22:35:46,985 - INFO - __main__ - 🧹 執行核子級別清理...
+2025-06-28 22:35:46,986 - INFO - __main__ - 1. 重建命令樹...
+2025-06-28 22:35:46,987 - ERROR - __main__ - ❌ 核子級別清理失敗: This client already has an associated command tree.
+2025-06-28 22:35:46,992 - ERROR - __main__ - 錯誤詳情: Traceback (most recent call last):
+  File "C:\Users\xiaoy\Desktop\Discord bot\test_final_command_fix.py", line 151, in nuclear_cleanup
+    self.tree = app_commands.CommandTree(self)
+                ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\xiaoy\Desktop\Discord bot\venv\Lib\site-packages\discord\app_commands\tree.py", line 150, in __init__
+    raise ClientException('This client already has an associated command tree.')
+discord.errors.ClientException: This client already has an associated command tree.
+
+2025-06-28 22:35:46,993 - INFO - __main__ - 🚀 開始智慧型擴展載入...
+2025-06-28 22:35:46,993 - INFO - __main__ - 載入 cogs.admin_commands_fixed (1/12)...
+2025-06-28 22:35:46,993 - INFO - __main__ -    🔄 重新載入模組: cogs.admin_commands_fixed
+2025-06-28 22:35:47,003 - INFO - __main__ -    ✅ 成功載入 cogs.admin_commands_fixed (1/12)
+2025-06-28 22:35:47,510 - INFO - __main__ - 載入 cogs.basic_commands (2/12)...
+2025-06-28 22:35:47,511 - INFO - __main__ -    🔄 重新載入模組: cogs.basic_commands
+2025-06-28 22:35:47,524 - INFO - __main__ -    ✅ 成功載入 cogs.basic_commands (2/12)
+2025-06-28 22:35:48,042 - INFO - __main__ - 載入 cogs.info_commands_fixed_v4_clean (3/12)...
+2025-06-28 22:35:48,043 - INFO - __main__ -    🔄 重新載入模組: cogs.info_commands_fixed_v4_clean
+2025-06-28 22:35:48,053 - INFO - cogs.info_commands_fixed_v4_clean - 已初始化 aiohttp 工作階段 (使用自訂 SSL 上下文)
+2025-06-28 22:35:48,053 - INFO - __main__ -    ✅ 成功載入 cogs.info_commands_fixed_v4_clean (3/12)
+2025-06-28 22:35:48,557 - INFO - __main__ - 載入 cogs.level_system (4/12)...
+2025-06-28 22:35:48,559 - INFO - __main__ -    🔄 重新載入模組: cogs.level_system
+2025-06-28 22:35:48,576 - INFO - __main__ -    ✅ 成功載入 cogs.level_system (4/12)
+2025-06-28 22:35:49,088 - INFO - __main__ - 載入 cogs.monitor_system (5/12)...
+2025-06-28 22:35:49,089 - INFO - __main__ -    🔄 重新載入模組: cogs.monitor_system
+2025-06-28 22:35:49,093 - INFO - __main__ -    ✅ 成功載入 cogs.monitor_system (5/12)
+2025-06-28 22:35:49,600 - INFO - __main__ - 載入 cogs.voice_system (6/12)...
+2025-06-28 22:35:49,601 - INFO - __main__ -    🔄 重新載入模組: cogs.voice_system
+2025-06-28 22:35:49,604 - INFO - __main__ -    ✅ 成功載入 cogs.voice_system (6/12)
+2025-06-28 22:35:50,115 - INFO - __main__ - 載入 cogs.chat_commands (7/12)...
+2025-06-28 22:35:50,117 - INFO - __main__ -    🔄 重新載入模組: cogs.chat_commands
+2025-06-28 22:35:50,122 - INFO - cogs.chat_commands - 成功初始化聊天系統，使用模型: gemini-2.0-flash-exp
+2025-06-28 22:35:50,123 - INFO - __main__ -    ✅ 成功載入 cogs.chat_commands (7/12)
+2025-06-28 22:35:50,632 - INFO - __main__ - 載入 cogs.search_commands (8/12)...
+2025-06-28 22:35:50,634 - INFO - __main__ -    🔄 重新載入模組: cogs.search_commands
+2025-06-28 22:35:50,639 - INFO - __main__ -    ✅ 成功載入 cogs.search_commands (8/12)
+2025-06-28 22:35:50,640 - INFO - cogs.search_commands - Search commands aiohttp session initialized
+2025-06-28 22:35:51,141 - INFO - __main__ - 載入 cogs.weather_commands (9/12)...
+2025-06-28 22:35:51,142 - INFO - __main__ -    🔄 重新載入模組: cogs.weather_commands
+2025-06-28 22:35:51,145 - INFO - cogs.weather_commands - WeatherCommands cog 已載入
+2025-06-28 22:35:51,146 - INFO - __main__ -    ✅ 成功載入 cogs.weather_commands (9/12)
+2025-06-28 22:35:51,654 - INFO - __main__ - 載入 cogs.air_quality_commands (10/12)...
+2025-06-28 22:35:51,655 - INFO - __main__ -    🔄 重新載入模組: cogs.air_quality_commands
+2025-06-28 22:35:51,714 - INFO - __main__ -    ✅ 成功載入 cogs.air_quality_commands (10/12)
+2025-06-28 22:35:52,232 - INFO - __main__ - 載入 cogs.radar_commands (11/12)...
+2025-06-28 22:35:52,233 - INFO - __main__ -    🔄 重新載入模組: cogs.radar_commands
+2025-06-28 22:35:52,314 - INFO - __main__ -    ✅ 成功載入 cogs.radar_commands (11/12)
+2025-06-28 22:35:52,823 - INFO - __main__ - 載入 cogs.temperature_commands (12/12)...
+2025-06-28 22:35:52,824 - INFO - __main__ -    🔄 重新載入模組: cogs.temperature_commands
+2025-06-28 22:35:52,900 - INFO - __main__ -    ✅ 成功載入 cogs.temperature_commands (12/12)
+2025-06-28 22:35:53,414 - INFO - __main__ - 📊 載入完成: 成功 12/12
+2025-06-28 22:35:53,510 - ERROR - asyncio - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x000001DFFD91D6D0>
+2025-06-28 22:35:53,512 - ERROR - asyncio - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x000001DFFD9C2BA0>
+2025-06-28 22:35:53,513 - ERROR - asyncio - Task exception was never retrieved
+future: <Task finished name='Task-2' coro=<InfoCommands.check_earthquake_updates() done, defined at C:\Users\xiaoy\Desktop\Discord bot\cogs\info_commands_fixed_v4_clean.py:194> exception=RuntimeError('Client has not been properly initialised. Please use the login method or asynchronous context manager before calling this method')>
+Traceback (most recent call last):
+  File "C:\Users\xiaoy\Desktop\Discord bot\cogs\info_commands_fixed_v4_clean.py", line 196, in check_earthquake_updates
+    await self.bot.wait_until_ready()
+  File "C:\Users\xiaoy\Desktop\Discord bot\venv\Lib\site-packages\discord\client.py", line 1203, in wait_until_ready
+    raise RuntimeError(
+    ...<2 lines>...
+    )
+RuntimeError: Client has not been properly initialised. Please use the login method or asynchronous context manager before calling this method
+2025-06-28 22:35:53,516 - ERROR - asyncio - Task exception was never retrieved
+future: <Task finished name='discord-ext-tasks: MonitorSystem.monitor_task' coro=<Loop._loop() done, defined at C:\Users\xiaoy\Desktop\Discord bot\venv\Lib\site-packages\discord\ext\tasks\__init__.py:207> exception=RuntimeError('Client has not been properly initialised. Please use the login method or asynchronous context manager before calling this method')>
+Traceback (most recent call last):
+  File "C:\Users\xiaoy\Desktop\Discord bot\venv\Lib\site-packages\discord\ext\tasks\__init__.py", line 209, in _loop
+    await self._call_loop_function('before_loop')
+  File "C:\Users\xiaoy\Desktop\Discord bot\venv\Lib\site-packages\discord\ext\tasks\__init__.py", line 193, in _call_loop_function
+    await coro(self._injected, *args, **kwargs)
+  File "C:\Users\xiaoy\Desktop\Discord bot\cogs\monitor_system.py", line 154, in before_monitor_task
+    await self.bot.wait_until_ready()
+  File "C:\Users\xiaoy\Desktop\Discord bot\venv\Lib\site-packages\discord\client.py", line 1203, in wait_until_ready
+    raise RuntimeError(
+    ...<2 lines>...
+    )
+RuntimeError: Client has not been properly initialised. Please use the login method or asynchronous context manager before calling this method
+2025-06-28 22:39:05,257 - INFO - __main__ - 🧹 執行核子級別清理...
+2025-06-28 22:39:05,262 - INFO - __main__ - 1. 重建命令樹...
+2025-06-28 22:39:05,263 - ERROR - __main__ - ❌ 核子級別清理失敗: This client already has an associated command tree.
+2025-06-28 22:39:05,267 - ERROR - __main__ - 錯誤詳情: Traceback (most recent call last):
+  File "C:\Users\xiaoy\Desktop\Discord bot\test_final_command_fix.py", line 151, in nuclear_cleanup
+    self.tree = app_commands.CommandTree(self)
+                ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\xiaoy\Desktop\Discord bot\venv\Lib\site-packages\discord\app_commands\tree.py", line 150, in __init__
+    raise ClientException('This client already has an associated command tree.')
+discord.errors.ClientException: This client already has an associated command tree.
+
+2025-06-28 22:39:05,268 - INFO - __main__ - 🚀 開始智慧型擴展載入...
+2025-06-28 22:39:05,268 - INFO - __main__ - 載入 cogs.admin_commands_fixed (1/12)...
+2025-06-28 22:39:05,268 - INFO - __main__ -    🔄 重新載入模組: cogs.admin_commands_fixed
+2025-06-28 22:39:05,272 - INFO - __main__ -    ✅ 成功載入 cogs.admin_commands_fixed (1/12)
+2025-06-28 22:39:05,781 - INFO - __main__ - 載入 cogs.basic_commands (2/12)...
+2025-06-28 22:39:05,781 - INFO - __main__ -    🔄 重新載入模組: cogs.basic_commands
+2025-06-28 22:39:05,783 - INFO - __main__ -    ✅ 成功載入 cogs.basic_commands (2/12)
+2025-06-28 22:39:06,294 - INFO - __main__ - 載入 cogs.info_commands_fixed_v4_clean (3/12)...
+2025-06-28 22:39:06,295 - INFO - __main__ -    🔄 重新載入模組: cogs.info_commands_fixed_v4_clean
+2025-06-28 22:39:06,301 - INFO - cogs.info_commands_fixed_v4_clean - 已初始化 aiohttp 工作階段 (使用自訂 SSL 上下文)
+2025-06-28 22:39:06,302 - INFO - __main__ -    ✅ 成功載入 cogs.info_commands_fixed_v4_clean (3/12)
+2025-06-28 22:39:06,808 - INFO - __main__ - 載入 cogs.level_system (4/12)...
+2025-06-28 22:39:06,808 - INFO - __main__ -    🔄 重新載入模組: cogs.level_system
+2025-06-28 22:39:06,814 - INFO - __main__ -    ✅ 成功載入 cogs.level_system (4/12)
+2025-06-28 22:39:07,324 - INFO - __main__ - 載入 cogs.monitor_system (5/12)...
+2025-06-28 22:39:07,325 - INFO - __main__ -    🔄 重新載入模組: cogs.monitor_system
+2025-06-28 22:39:07,341 - INFO - __main__ -    ✅ 成功載入 cogs.monitor_system (5/12)
+2025-06-28 22:39:07,843 - INFO - __main__ - 載入 cogs.voice_system (6/12)...
+2025-06-28 22:39:07,844 - INFO - __main__ -    🔄 重新載入模組: cogs.voice_system
+2025-06-28 22:39:07,848 - INFO - __main__ -    ✅ 成功載入 cogs.voice_system (6/12)
+2025-06-28 22:39:08,377 - INFO - __main__ - 載入 cogs.chat_commands (7/12)...
+2025-06-28 22:39:08,377 - INFO - __main__ -    🔄 重新載入模組: cogs.chat_commands
+2025-06-28 22:39:08,400 - INFO - cogs.chat_commands - 成功初始化聊天系統，使用模型: gemini-2.0-flash-exp
+2025-06-28 22:39:08,400 - INFO - __main__ -    ✅ 成功載入 cogs.chat_commands (7/12)
+2025-06-28 22:39:08,908 - INFO - __main__ - 載入 cogs.search_commands (8/12)...
+2025-06-28 22:39:08,909 - INFO - __main__ -    🔄 重新載入模組: cogs.search_commands
+2025-06-28 22:39:08,919 - INFO - __main__ -    ✅ 成功載入 cogs.search_commands (8/12)
+2025-06-28 22:39:08,920 - INFO - cogs.search_commands - Search commands aiohttp session initialized
+2025-06-28 22:39:09,426 - INFO - __main__ - 載入 cogs.weather_commands (9/12)...
+2025-06-28 22:39:09,426 - INFO - __main__ -    🔄 重新載入模組: cogs.weather_commands
+2025-06-28 22:39:09,430 - INFO - cogs.weather_commands - WeatherCommands cog 已載入
+2025-06-28 22:39:09,430 - INFO - __main__ -    ✅ 成功載入 cogs.weather_commands (9/12)
+2025-06-28 22:39:09,945 - INFO - __main__ - 載入 cogs.air_quality_commands (10/12)...
+2025-06-28 22:39:09,945 - INFO - __main__ -    🔄 重新載入模組: cogs.air_quality_commands
+2025-06-28 22:39:09,982 - INFO - __main__ -    ✅ 成功載入 cogs.air_quality_commands (10/12)
+2025-06-28 22:39:10,493 - INFO - __main__ - 載入 cogs.radar_commands (11/12)...
+2025-06-28 22:39:10,493 - INFO - __main__ -    🔄 重新載入模組: cogs.radar_commands
+2025-06-28 22:39:10,534 - INFO - __main__ -    ✅ 成功載入 cogs.radar_commands (11/12)
+2025-06-28 22:39:11,045 - INFO - __main__ - 載入 cogs.temperature_commands (12/12)...
+2025-06-28 22:39:11,045 - INFO - __main__ -    🔄 重新載入模組: cogs.temperature_commands
+2025-06-28 22:39:11,104 - INFO - __main__ -    ✅ 成功載入 cogs.temperature_commands (12/12)
+2025-06-28 22:39:11,606 - INFO - __main__ - 📊 載入完成: 成功 12/12
+2025-06-28 22:39:11,657 - ERROR - asyncio - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x0000027D97466BA0>
+2025-06-28 22:39:11,658 - ERROR - asyncio - Task exception was never retrieved
+future: <Task finished name='Task-2' coro=<InfoCommands.check_earthquake_updates() done, defined at C:\Users\xiaoy\Desktop\Discord bot\cogs\info_commands_fixed_v4_clean.py:194> exception=RuntimeError('Client has not been properly initialised. Please use the login method or asynchronous context manager before calling this method')>
+Traceback (most recent call last):
+  File "C:\Users\xiaoy\Desktop\Discord bot\cogs\info_commands_fixed_v4_clean.py", line 196, in check_earthquake_updates
+    await self.bot.wait_until_ready()
+  File "C:\Users\xiaoy\Desktop\Discord bot\venv\Lib\site-packages\discord\client.py", line 1203, in wait_until_ready
+    raise RuntimeError(
+    ...<2 lines>...
+    )
+RuntimeError: Client has not been properly initialised. Please use the login method or asynchronous context manager before calling this method
+2025-06-28 22:39:11,660 - ERROR - asyncio - Task exception was never retrieved
+future: <Task finished name='discord-ext-tasks: MonitorSystem.monitor_task' coro=<Loop._loop() done, defined at C:\Users\xiaoy\Desktop\Discord bot\venv\Lib\site-packages\discord\ext\tasks\__init__.py:207> exception=RuntimeError('Client has not been properly initialised. Please use the login method or asynchronous context manager before calling this method')>
+Traceback (most recent call last):
+  File "C:\Users\xiaoy\Desktop\Discord bot\venv\Lib\site-packages\discord\ext\tasks\__init__.py", line 209, in _loop
+    await self._call_loop_function('before_loop')
+  File "C:\Users\xiaoy\Desktop\Discord bot\venv\Lib\site-packages\discord\ext\tasks\__init__.py", line 193, in _call_loop_function
+    await coro(self._injected, *args, **kwargs)
+  File "C:\Users\xiaoy\Desktop\Discord bot\cogs\monitor_system.py", line 154, in before_monitor_task
+    await self.bot.wait_until_ready()
+  File "C:\Users\xiaoy\Desktop\Discord bot\venv\Lib\site-packages\discord\client.py", line 1203, in wait_until_ready
+    raise RuntimeError(
+    ...<2 lines>...
+    )
+RuntimeError: Client has not been properly initialised. Please use the login method or asynchronous context manager before calling this method
+2025-06-28 22:39:11,662 - ERROR - asyncio - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x0000027D974E9810>
