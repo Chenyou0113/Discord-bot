@@ -1,19 +1,19 @@
 {
   "total_cameras": 1718,
   "fields": [
-    "{http://traffic.transportdata.tw/standard/traffic/schema/}VideoStreamURL",
-    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadName",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}SubAuthorityCode",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LinkID",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}LocationMile",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadClass",
     "{http://traffic.transportdata.tw/standard/traffic/schema/}PositionLon",
     "{http://traffic.transportdata.tw/standard/traffic/schema/}PositionLat",
     "{http://traffic.transportdata.tw/standard/traffic/schema/}CCTVID",
-    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadClass",
-    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadID",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadName",
     "{http://traffic.transportdata.tw/standard/traffic/schema/}LocationType",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}VideoStreamURL",
     "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadDirection",
-    "{http://traffic.transportdata.tw/standard/traffic/schema/}LinkID",
-    "{http://traffic.transportdata.tw/standard/traffic/schema/}LocationMile",
-    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadSection",
-    "{http://traffic.transportdata.tw/standard/traffic/schema/}SubAuthorityCode"
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadID",
+    "{http://traffic.transportdata.tw/standard/traffic/schema/}RoadSection"
   ],
   "road_classes": {},
   "road_class_mapping": {
@@ -43,5 +43,5 @@
     "{http://traffic.transportdata.tw/standard/traffic/schema/}LocationMile": "0K+000"
   },
   "video_url_samples": [],
-  "analysis_time": "2025-07-11T22:01:08.797171"
+  "analysis_time": "2025-07-12T20:30:12.020342"
 }
