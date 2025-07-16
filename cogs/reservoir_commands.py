@@ -18,6 +18,191 @@ import xml.etree.ElementTree as ET
 from discord.ext import commands
 from discord import app_commands
 
+logger = logging.getLogger(__name__)
+
+class CameraView(discord.ui.View):
+    """監視器分頁顯示的 View 類別"""
+    
+    def __init__(self, cameras, current_index=0, county=None, road_type=None, command_type="highway"):
+        super().__init__(timeout=300)  # 5分鐘後過期
+        self.cameras = cameras
+        self.current_index = current_index
+        self.county = county
+        self.road_type = road_type
+        self.command_type = command_type
+        self.max_index = len(cameras) - 1
+        
+        # 根據當前位置更新按鈕狀態
+        self.update_buttons()
+    
+    def update_buttons(self):
+        """根據當前位置更新按鈕狀態"""
+        # 清除現有按鈕
+        self.clear_items()
+        
+        # 上一個按鈕
+        if self.current_index > 0:
+            prev_button = discord.ui.Button(
+                style=discord.ButtonStyle.primary,
+                label="◀️ 上一個",
+                custom_id="previous_camera"
+            )
+            prev_button.callback = self.previous_callback
+            self.add_item(prev_button)
+        
+        # 位置指示器
+        pos_button = discord.ui.Button(
+            style=discord.ButtonStyle.secondary,
+            label=f"{self.current_index + 1} / {len(self.cameras)}",
+            disabled=True,
+            custom_id="position_indicator"
+        )
+        self.add_item(pos_button)
+        
+        # 下一個按鈕
+        if self.current_index < self.max_index:
+            next_button = discord.ui.Button(
+                style=discord.ButtonStyle.primary,
+                label="下一個 ▶️",
+                custom_id="next_camera"
+            )
+            next_button.callback = self.next_callback
+            self.add_item(next_button)
+    
+    async def previous_callback(self, interaction: discord.Interaction):
+        """上一個按鈕回調"""
+        if self.current_index > 0:
+            self.current_index -= 1
+            self.update_buttons()
+            
+            embed = self.create_embed()
+            if embed:
+                await interaction.response.edit_message(embed=embed, view=self)
+            else:
+                await interaction.response.send_message("❌ 無法載入監視器資料", ephemeral=True)
+    
+    async def next_callback(self, interaction: discord.Interaction):
+        """下一個按鈕回調"""
+        if self.current_index < self.max_index:
+            self.current_index += 1
+            self.update_buttons()
+            
+            embed = self.create_embed()
+            if embed:
+                await interaction.response.edit_message(embed=embed, view=self)
+            else:
+                await interaction.response.send_message("❌ 無法載入監視器資料", ephemeral=True)
+    
+    def get_current_camera(self):
+        """取得當前監視器資料"""
+        if 0 <= self.current_index < len(self.cameras):
+            return self.cameras[self.current_index]
+        return None
+    
+    def create_embed(self):
+        """創建當前監視器的 embed"""
+        camera = self.get_current_camera()
+        if not camera:
+            return None
+        
+        # 創建篩選條件描述
+        filter_desc = []
+        if self.county:
+            filter_desc.append(f"縣市: {self.county}")
+        if self.road_type:
+            if self.command_type == "national":
+                filter_desc.append(f"國道: {self.road_type}")
+            else:
+                filter_desc.append(f"道路: {self.road_type}")
+        
+        filter_text = " | ".join(filter_desc) if filter_desc else "全部監視器"
+        
+        # 根據指令類型設定標題和顏色
+        if self.command_type == "national":
+            title = "🛣️ 國道監視器"
+            color = 0x00ff00
+        elif self.command_type == "general":
+            title = "🚗 一般道路監視器"
+            color = 0xff9900
+        else:
+            title = "🛣️ 公路監視器"
+            color = 0x2E8B57
+        
+        embed = discord.Embed(
+            title=title,
+            description=f"📍 {camera.get('name', '未知監視器')}",
+            color=color,
+            timestamp=datetime.datetime.now()
+        )
+        
+        # 篩選條件
+        embed.add_field(
+            name="🔍 篩選條件",
+            value=filter_text,
+            inline=False
+        )
+        
+        # 道路資訊
+        road_info = []
+        if camera.get('road'):
+            direction = f" ({camera.get('direction', '')})" if camera.get('direction') else ""
+            road_info.append(f"🛣️ 道路: {camera.get('road')}{direction}")
+        elif camera.get('highway'):
+            direction = f" ({camera.get('direction', '')})" if camera.get('direction') else ""
+            road_info.append(f"🛣️ 國道: {camera.get('highway')}{direction}")
+        
+        if camera.get('mile'):
+            road_info.append(f"📏 里程: {camera.get('mile')}")
+        
+        if road_info:
+            embed.add_field(
+                name="道路資訊",
+                value="\n".join(road_info),
+                inline=True
+            )
+        
+        # 位置資訊
+        location_info = []
+        if camera.get('county'):
+            location_info.append(f"📍 縣市: {camera.get('county')}")
+        if camera.get('location'):
+            location_info.append(f"📍 位置: {camera.get('location')}")
+        if camera.get('lat') and camera.get('lon'):
+            location_info.append(f"🌐 座標: {camera.get('lat')}, {camera.get('lon')}")
+        
+        if location_info:
+            embed.add_field(
+                name="位置資訊",
+                value="\n".join(location_info),
+                inline=True
+            )
+        
+        # 即時影像連結
+        if camera.get('video_url'):
+            embed.add_field(
+                name="🎥 即時影像",
+                value=f"[點擊觀看即時影像]({camera.get('video_url')})",
+                inline=False
+            )
+        
+        # 設置監視器快照圖片
+        if camera.get('image_url'):
+            # 添加時間戳避免快取
+            timestamp = int(time.time())
+            image_url_with_timestamp = f"{camera.get('image_url')}?t={timestamp}"
+            embed.set_image(url=image_url_with_timestamp)
+        
+        # 統計資訊
+        embed.add_field(
+            name="📊 瀏覽資訊",
+            value=f"第 {self.current_index + 1} / {len(self.cameras)} 個監視器\n資料來源: TDX 運輸資料流通服務平臺",
+            inline=False
+        )
+        
+        embed.set_footer(text="💡 使用按鈕切換監視器 | 點擊連結查看即時影像")
+        
+        return embed
+
 # 設定日誌
 logger = logging.getLogger(__name__)
 
@@ -1007,15 +1192,22 @@ class ReservoirCommands(commands.Cog):
                             inline=True
                         )
                     
-                    embed.add_field(
-                        name="📊 統計",
-                        value=f"共找到 {len(cameras)} 個監視器，顯示前 {len(display_cameras[:5])} 個",
-                        inline=False
+                    # 創建分頁視圖
+                    view = CameraView(
+                        cameras=cameras,
+                        current_index=0,
+                        county=None,
+                        road_type=highway,
+                        command_type="national"
                     )
                     
-                    embed.set_footer(text="💡 點擊連結查看即時影像 | 資料來源：運輸資料流通服務平臺 (TDX)")
+                    # 創建第一個監視器的 embed
+                    embed = view.create_embed()
                     
-                    await interaction.followup.send(embed=embed)
+                    if embed:
+                        await interaction.followup.send(embed=embed, view=view)
+                    else:
+                        await interaction.followup.send("❌ 無法載入監視器資料，請稍後再試。")
                         
         except Exception as e:
             logger.error(f"查詢國道監視器時發生錯誤: {str(e)}")
