@@ -24,13 +24,13 @@ logger = logging.getLogger(__name__)
 class CameraView(discord.ui.View):
     """監視器分頁顯示的 View 類別"""
     
-    def __init__(self, cameras, current_index=0, county=None, road_type=None, data_source=None):
+    def __init__(self, cameras, current_index=0, county=None, road_type=None, command_type="general"):
         super().__init__(timeout=300)  # 5分鐘後過期
         self.cameras = cameras
         self.current_index = current_index
         self.county = county
         self.road_type = road_type
-        self.data_source = data_source
+        self.command_type = command_type  # "general", "national", "water"
         self.max_index = len(cameras) - 1
         
         # 根據當前位置更新按鈕狀態
@@ -106,23 +106,31 @@ class CameraView(discord.ui.View):
         if not camera:
             return None
         
+        # 根據指令類型設置不同的標題和顏色
+        if self.command_type == "national":
+            title = "🛣️ 國道監視器"
+            color = 0x00ff00
+        elif self.command_type == "water":
+            title = "🌊 水利防災監控影像"
+            color = 0x0099ff
+        else:
+            title = "🚗 一般道路監視器"
+            color = 0xff9900
+        
         # 創建篩選條件描述
         filter_desc = []
         if self.county:
             filter_desc.append(f"縣市: {self.county}")
         if self.road_type:
             filter_desc.append(f"道路: {self.road_type}")
-        if self.data_source and self.data_source != "merged":
-            source_names = {"tdx": "TDX", "highway_bureau": "公路局"}
-            filter_desc.append(f"來源: {source_names.get(self.data_source, self.data_source)}")
         
         filter_text = " | ".join(filter_desc) if filter_desc else "全部監視器"
         
         embed = discord.Embed(
-            title="🛣️ 公路監視器",
+            title=title,
             description=f"📍 {camera.get('name', '未知監視器')}",
-            color=0x2E8B57,
-            timestamp=datetime.now()
+            color=color,
+            timestamp=datetime.datetime.now()
         )
         
         # 篩選條件
@@ -137,6 +145,10 @@ class CameraView(discord.ui.View):
         if camera.get('road'):
             direction = f" ({camera.get('direction', '')})" if camera.get('direction') else ""
             road_info.append(f"🛣️ 道路: {camera.get('road')}{direction}")
+        elif camera.get('highway'):
+            direction = f" ({camera.get('direction', '')})" if camera.get('direction') else ""
+            road_info.append(f"🛣️ 國道: {camera.get('highway')}{direction}")
+        
         if camera.get('mile'):
             road_info.append(f"📏 里程: {camera.get('mile')}")
         
@@ -151,6 +163,8 @@ class CameraView(discord.ui.View):
         location_info = []
         if camera.get('county'):
             location_info.append(f"📍 縣市: {camera.get('county')}")
+        if camera.get('district'):
+            location_info.append(f"🏘️ 區域: {camera.get('district')}")
         if camera.get('location'):
             location_info.append(f"📍 位置: {camera.get('location')}")
         if camera.get('lat') and camera.get('lon'):
@@ -172,19 +186,22 @@ class CameraView(discord.ui.View):
             )
         
         # 設置監視器快照圖片
-        if camera.get('image_url'):
+        image_url = camera.get('image_url')
+        if image_url and image_url != "N/A":
             # 添加時間戳避免快取
-            image_url_with_timestamp = f"{camera.get('image_url')}?t={int(time.time())}"
+            timestamp = int(time.time())
+            if '?' in image_url:
+                image_url_with_timestamp = f"{image_url}&t={timestamp}"
+            else:
+                image_url_with_timestamp = f"{image_url}?t={timestamp}"
             embed.set_image(url=image_url_with_timestamp)
         
         # 統計資訊
         embed.add_field(
             name="📊 瀏覽資訊",
-            value=f"第 {self.current_index + 1} / {len(self.cameras)} 個監視器\n資料來源: {camera.get('source', 'TDX')}",
+            value=f"第 {self.current_index + 1} / {len(self.cameras)} 個監視器\n⏰ 更新時間: {datetime.datetime.now().strftime('%H:%M:%S')}\n資料來源: {camera.get('source', 'TDX')}",
             inline=False
         )
-        
-        embed.set_footer(text="💡 使用按鈕切換監視器 | 資料來源：運輸資料流通服務平臺")
         
         return embed
 
@@ -412,7 +429,7 @@ class ReservoirCommands(commands.Cog):
                         if not isinstance(record, dict):
                             logger.warning(f"跳過非字典記錄: {type(record)} - {record}")
                             continue
-                            
+                        
                         station_id = record.get('ST_NO', '')
                         observatory_id = record.get('ObservatoryIdentifier', '')
                         water_level = record.get('WaterLevel', '')
@@ -1162,53 +1179,22 @@ class ReservoirCommands(commands.Cog):
                     await interaction.followup.send(f"❌ 找不到符合條件的一般道路監視器\n篩選條件: {filter_text}")
                     return
                 
-                # 限制顯示數量
-                display_cameras = filtered_cameras[:20]
-                
-                # 建立 embed
-                embed = discord.Embed(
-                    title="🚗 一般道路監視器",
-                    color=0xff9900,
-                    timestamp=datetime.datetime.now()
+                # 創建分頁視圖
+                view = CameraView(
+                    cameras=filtered_cameras,
+                    current_index=0,
+                    county=county,
+                    road_type=road,
+                    command_type="general"
                 )
                 
-                # 設定篩選資訊
-                filter_info = []
-                if county:
-                    filter_info.append(f"縣市: {county}")
-                if road:
-                    filter_info.append(f"道路: {road}")
+                # 創建第一個監視器的 embed
+                embed = view.create_embed()
                 
-                if filter_info:
-                    embed.add_field(
-                        name="🔍 篩選條件",
-                        value=" | ".join(filter_info),
-                        inline=False
-                    )
-                
-                embed.add_field(
-                    name="📊 搜尋結果",
-                    value=f"共找到 {len(filtered_cameras)} 個監視器，顯示前 {len(display_cameras)} 個",
-                    inline=False
-                )
-                
-                # 顯示第一個監視器
-                first_camera = display_cameras[0]
-                image_url = self._add_timestamp_to_url(first_camera['image_url'])
-                
-                embed.add_field(
-                    name=f"📹 {first_camera['name']}",
-                    value=f"🛣️ 道路: {first_camera['road']}\n📍 位置: {first_camera['location']}\n🧭 方向: {first_camera['direction']}\n🏙️ 縣市: {first_camera['county']}\n⏰ 更新時間: {datetime.datetime.now().strftime('%H:%M:%S')}",
-                    inline=False
-                )
-                
-                if image_url and image_url != "N/A":
-                    embed.set_image(url=image_url)
-                
-                if len(display_cameras) > 1:
-                    embed.set_footer(text=f"第 1/{len(display_cameras)} 個監視器")
-                
-                await interaction.followup.send(embed=embed)
+                if embed:
+                    await interaction.followup.send(embed=embed, view=view)
+                else:
+                    await interaction.followup.send("❌ 無法載入監視器資料，請稍後再試。")
                         
         except Exception as e:
             logger.error(f"查詢一般道路監視器時發生錯誤: {str(e)}")
