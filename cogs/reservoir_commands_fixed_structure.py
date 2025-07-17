@@ -172,10 +172,18 @@ class ReservoirCommands(commands.Cog):
         await interaction.response.defer()
         
         try:
+            # 從環境變數讀取 CWA API 密鑰
+            import os
+            from dotenv import load_dotenv
+            load_dotenv()
+            authorization = os.getenv('CWA_API_KEY')
+            if not authorization:
+                await interaction.followup.send("❌ 錯誤: 找不到 CWA API 密鑰，請聯繫管理員設定。", ephemeral=True)
+                return
+            
             # API 設定
             api_base = "https://opendata.cwa.gov.tw/api/v1/rest/datastore"
             endpoint = "E-A0015-001"  # 河川水位即時資料 API
-            authorization = "CWA-675CED45-09DF-4249-9599-B9B5A5AB761A"
             
             url = f"{api_base}/{endpoint}"
             params = {

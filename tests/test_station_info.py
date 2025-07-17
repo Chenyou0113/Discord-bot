@@ -26,13 +26,23 @@ def test_api_connection():
     print("=" * 60)
     
     api_url = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/C-B0074-001"
-    api_key = "CWA-675CED45-09DF-4249-9599-B9B5A5AB761A"
+    
+    # 從環境變數讀取 API 密鑰
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+    api_key = os.getenv('CWA_API_KEY')
+    
+    if not api_key:
+        print("❌ 錯誤: 找不到 CWA_API_KEY 環境變數")
+        print("請在 .env 檔案中設定 CWA_API_KEY=您的中央氣象署API密鑰")
+        return None, None
     
     print(f"📡 API 端點: {api_url}")
     print(f"🔑 授權金鑰: {api_key[:20]}...")
     print("-" * 60)
     
-    return api_url, api_key
+    return api_key, api_key
 
 async def fetch_station_info_data(api_url: str, api_key: str):
     """非同步獲取氣象測站基本資料"""

@@ -31,7 +31,17 @@ class AirQualityCommands(commands.Cog):
             "https://data.moenv.gov.tw/api/v2/aqx_p_432",  # 環境部新域名
             "https://opendata.epa.gov.tw/api/v2/aqx_p_432",  # 開放資料平台
         ]
-        self.api_key = "94650864-6a80-4c58-83ce-fd13e7ef0504"
+        
+        # 從環境變數讀取 AQI API 密鑰
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        self.api_key = os.getenv('AQI_API_KEY')
+        if not self.api_key:
+            logger.warning("⚠️  AQI_API_KEY 未設定，空氣品質功能將無法使用")
+            logger.info("請在 .env 檔案中設定 AQI_API_KEY=您的環保署API密鑰")
+            self.api_key = None  # 不設定預設值，強制使用環境變數
+        
         self.air_quality_cache = {}  # 快取空氣品質資料
         self.cache_timestamp = 0
         self.cache_duration = 1800  # 快取 30 分鐘
@@ -67,6 +77,11 @@ class AirQualityCommands(commands.Cog):
     async def fetch_air_quality_data(self) -> Dict:
         """從環保署 API 獲取空氣品質資料，支援多端點備援"""
         try:
+            # 檢查 API 密鑰是否設定
+            if not self.api_key:
+                logger.error("❌ AQI API 密鑰未設定，無法查詢空氣品質資料")
+                return {}
+            
             # 檢查快取
             current_time = asyncio.get_event_loop().time()
             if (self.air_quality_cache and 

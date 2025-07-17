@@ -25,7 +25,15 @@ class TemperatureCommands(commands.Cog):
         self.bot = bot
         # 溫度分布 API
         self.temperature_api = "https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/O-A0038-001"
-        self.authorization = "CWA-675CED45-09DF-4249-9599-B9B5A5AB761A"
+        
+        # 從環境變數讀取 CWA API 密鑰
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        self.authorization = os.getenv('CWA_API_KEY')
+        if not self.authorization:
+            logger.error("❌ 錯誤: 找不到 CWA_API_KEY 環境變數")
+            logger.info("請在 .env 檔案中設定 CWA_API_KEY=您的中央氣象署API密鑰")
         
         # 快取設定
         self.temperature_cache = {}

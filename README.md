@@ -190,16 +190,39 @@ python tests/simple_function_test.py
    # copy .env.example .env
    ```
    
-   **重要**: 在 `.env` 檔案中設定您的 Discord Bot Token：
+   **重要**: 在 `.env` 檔案中設定必要的 API 密鑰：
    ```env
+   # 必需的 API 密鑰
    DISCORD_TOKEN=您的機器人Token
-   GOOGLE_API_KEY=您的Google_API金鑰（可選）
+   CWA_API_KEY=您的中央氣象署API密鑰
+   TDX_CLIENT_ID=您的TDX客戶端ID
+   TDX_CLIENT_SECRET=您的TDX客戶端密鑰
+   
+   # 可選的 API 密鑰
+   AQI_API_KEY=您的環保署AQI_API密鑰
+   GOOGLE_API_KEY=您的Google_API金鑰
    ```
    
    > 📝 **如何取得 Discord Bot Token**:
    > 1. 前往 [Discord Developer Portal](https://discord.com/developers/applications)
    > 2. 創建新應用程式 → Bot → 複製 Token
    > 3. 將 Token 填入 `.env` 檔案中
+   
+   > 🌦️ **如何取得 CWA API 密鑰**:
+   > 1. 前往 [中央氣象署開放資料平臺](https://opendata.cwa.gov.tw/)
+   > 2. 註冊帳號並登入
+   > 3. 前往「會員中心」→「API金鑰管理」
+   > 4. 申請新的 API 金鑰
+   > 5. 將密鑰填入 `.env` 檔案中
+   
+   > 🚗 **如何取得 TDX API 憑證**:
+   > 1. 前往 [TDX 運輸資料流通服務平臺](https://tdx.transportdata.tw/)
+   > 2. 註冊帳號並登入
+   > 3. 前往「應用程式管理」→ 創建新應用程式
+   > 4. 取得 Client ID 和 Client Secret
+   > 5. 將憑證填入 `.env` 檔案中
+   
+   **快速設定工具**: 執行 `python setup_all_apis.py` 來協助設定所有 API 密鑰
 
 4. **啟動機器人**
    ```bash

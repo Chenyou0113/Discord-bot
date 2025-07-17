@@ -15,8 +15,13 @@ import logging
 import time
 import random
 import xml.etree.ElementTree as ET
+import os
 from discord.ext import commands
 from discord import app_commands
+from dotenv import load_dotenv
+
+# 載入環境變數
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -1003,10 +1008,16 @@ class ReservoirCommands(commands.Cog):
         await interaction.response.defer()
         
         try:
+            # 從環境變數讀取 TDX API 憑證
+            client_id = os.getenv('TDX_CLIENT_ID')
+            client_secret = os.getenv('TDX_CLIENT_SECRET')
+            
+            if not client_id or not client_secret:
+                await interaction.followup.send("❌ 錯誤: 找不到 TDX API 憑證，請聯繫管理員設定。", ephemeral=True)
+                return
+            
             # 1. 取得 TDX access token
             token_url = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token"
-            client_id = "xiaoyouwu5-08c8f7b1-3ac2-431b"
-            client_secret = "9946bb49-0cc5-463c-ba79-c669140df4ef"
             api_url = "https://tdx.transportdata.tw/api/basic/v2/Road/Traffic/CCTV/Freeway?%24top=30&%24format=JSON"
 
             ssl_context = ssl.create_default_context()

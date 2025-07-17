@@ -87,17 +87,21 @@ def generate_new_env_template():
 DISCORD_TOKEN=YOUR_NEW_BOT_TOKEN_HERE
 
 # Google API Key (for AI Chat)
-GOOGLE_API_KEY=AIzaSyAAY46iC-9tKtY6WkmXwFh5-pYQ0y1OUAk
+GOOGLE_API_KEY=your_google_api_key_here
 
-# Google Search API 設定 (新增)
-GOOGLE_SEARCH_API_KEY=AIzaSyDdmepstb-jtUPL-Kjm6_sWayJESVWZTVc
-GOOGLE_SEARCH_ENGINE_ID=80bda9688e81247b8
+# 中央氣象署 API 密鑰
+CWA_API_KEY=your_cwa_api_key_here
+
+# Google Search API 設定 (可選)
+GOOGLE_SEARCH_API_KEY=your_google_search_api_key_here
+GOOGLE_SEARCH_ENGINE_ID=your_search_engine_id_here
 
 # 其他設定
 LOGGING_LEVEL=INFO
 
 # 使用說明：
 # 1. 將 YOUR_NEW_BOT_TOKEN_HERE 替換為您的新 Discord Bot Token
+# 2. 將 your_cwa_api_key_here 替換為您的中央氣象署 API 密鑰
 # 2. 確保 Token 格式正確：MTxxxxx.xxxxxx.xxxxxxxxx
 # 3. 不要在 Token 前後添加引號或空格
 """
