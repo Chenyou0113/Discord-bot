@@ -2,7 +2,76 @@
 
 一個功能完整的 Discord 機器人，提供台灣地區的地震資訊、天氣預報、氣象站觀測資料、水利防災影像以及公路監視器查詢服務。
 
-## ✨ 主要功能
+## 🔧 故障排除
+
+### 常見問題與解決方案
+
+#### 1. 機器人無法顯示圖片或嵌入內容
+**症狀**: 機器人回應指令但只顯示純文字，沒有圖片
+**解決方案**:
+- 檢查機器人是否具有「嵌入連結 (Embed Links)」權限
+- 確認「附加檔案 (Attach Files)」權限已開啟
+- 詳細權限設定請參考 `discord_permission_setup_guide.txt`
+
+#### 2. 斜線指令無法使用
+**症狀**: 無法看到或使用斜線指令
+**解決方案**:
+- 確認機器人具有「使用斜線指令 (Use Application Commands)」權限
+- 重新邀請機器人並確保權限正確
+- 等待 Discord 同步斜線指令 (通常需要 1-5 分鐘)
+
+#### 3. 啟動時出現 Token 錯誤
+**症狀**: `錯誤: 找不到 DISCORD_TOKEN 環境變數`
+**解決方案**:
+```bash
+# 確認 .env 檔案存在並包含正確的 Token
+echo DISCORD_TOKEN=你的機器人Token > .env
+```
+
+#### 4. API 請求失敗或超時
+**症狀**: 查詢功能回應「查詢失敗」或超時
+**解決方案**:
+- 檢查網路連線
+- 確認防火牆沒有阻擋機器人
+- 稍後重試，可能是 API 伺服器繁忙
+
+#### 5. Python 模組導入錯誤
+**症狀**: `ModuleNotFoundError` 或導入失敗
+**解決方案**:
+```bash
+# 重新安裝依賴套件
+pip install -r requirements.txt
+
+# 如果使用虛擬環境
+pip install --upgrade -r requirements.txt
+```
+
+#### 6. 監視器圖片載入失敗
+**症狀**: 監視器查詢顯示「圖片載入失敗」
+**解決方案**:
+- 切換資料來源 (使用 `data_source` 參數)
+- 嘗試其他監視器點位
+- 檢查目標監視器是否正常運作
+
+### 🛠️ 除錯指令
+```bash
+# 檢查 Python 環境
+python --version
+
+# 測試 Discord.py 安裝
+python -c "import discord; print(discord.__version__)"
+
+# 執行內建測試
+python tests/simple_function_test.py
+```
+
+### 📞 取得協助
+如果問題仍未解決：
+1. 查看 `bot.log` 檔案中的錯誤訊息
+2. 檢查是否有相關的 [GitHub Issues](../../issues)
+3. 創建新的 Issue 並附上錯誤訊息和環境資訊
+
+## 🔄 更新日誌
 
 ### 🔔 地震監控
 - **即時地震通知**: 自動監控中央氣象署地震資料，即時推送最新地震資訊
@@ -78,6 +147,21 @@
 
 ### 環境需求
 - Python 3.8+
+- Discord 機器人 Token
+- 網路連接
+
+### 機器人權限設定
+在邀請機器人到您的伺服器時，請確保授予以下權限：
+- ✅ **檢視頻道** (View Channels)
+- ✅ **發送訊息** (Send Messages)  
+- ⭐ **嵌入連結** (Embed Links) - **重要！** 顯示圖片和嵌入式內容必需
+- ✅ **使用斜線指令** (Use Application Commands)
+- ✅ **附加檔案** (Attach Files) - 建議開啟
+- ✅ **讀取訊息記錄** (Read Message History) - 建議開啟
+
+> 💡 **提示**: 如果機器人無法顯示圖片，請檢查「嵌入連結」權限是否已開啟
+> 
+> 詳細權限設定指南請參考：[discord_permission_setup_guide.txt](discord_permission_setup_guide.txt)
 - Discord.py 2.3+
 - aiohttp
 - xmltodict
@@ -98,9 +182,24 @@
 
 3. **設定環境變數**
    ```bash
+   # 複製範例環境變數檔案
    cp .env.example .env
+   
    # 編輯 .env 檔案，填入您的 Discord Bot Token
+   # Windows 用戶可以直接複製檔案：
+   # copy .env.example .env
    ```
+   
+   **重要**: 在 `.env` 檔案中設定您的 Discord Bot Token：
+   ```env
+   DISCORD_TOKEN=您的機器人Token
+   GOOGLE_API_KEY=您的Google_API金鑰（可選）
+   ```
+   
+   > 📝 **如何取得 Discord Bot Token**:
+   > 1. 前往 [Discord Developer Portal](https://discord.com/developers/applications)
+   > 2. 創建新應用程式 → Bot → 複製 Token
+   > 3. 將 Token 填入 `.env` 檔案中
 
 4. **啟動機器人**
    ```bash
@@ -392,13 +491,112 @@ python diagnose_highway_classification.py
 - 改善天氣預報功能
 - 新增海嘯警報功能
 
+## 🔒 安全性與效能
+
+### 安全性考量
+- ✅ **環境變數保護**: 敏感資訊 (如 Token) 存放在 `.env` 檔案中
+- ✅ **權限最小化**: 機器人僅要求必要的 Discord 權限
+- ✅ **輸入驗證**: 所有用戶輸入都經過驗證和清理
+- ✅ **錯誤處理**: 避免洩露系統內部資訊
+- ⚠️ **管理員權限**: 部分管理功能需要適當的權限檢查
+
+### 效能最佳化
+- ⚡ **非同步處理**: 使用 `asyncio` 和 `aiohttp` 提升回應速度
+- 📦 **資料快取**: 減少重複 API 請求，提升查詢效率
+- 🔄 **連線池管理**: 有效管理 HTTP 連線資源
+- ⏱️ **超時設定**: 避免長時間等待造成的阻塞
+- 📊 **批次處理**: 大量資料採用分頁顯示
+
+### 監控與日誌
+機器人會自動記錄以下資訊到 `bot.log`：
+- 指令使用統計
+- API 請求狀態
+- 錯誤和警告訊息
+- 系統啟動和關閉事件
+
 ## 🤝 貢獻指南
 
+### 開發環境設置
 1. Fork 本專案
-2. 創建功能分支 (`git checkout -b feature/新功能`)
-3. 提交更改 (`git commit -am '新增某功能'`)
-4. 推送到分支 (`git push origin feature/新功能`)
+2. 克隆您的 Fork
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/Discord-bot.git
+   cd Discord-bot
+   ```
+3. 創建虛擬環境 (建議)
+   ```bash
+   python -m venv venv
+   # Windows
+   venv\Scripts\activate
+   # Linux/Mac
+   source venv/bin/activate
+   ```
+4. 安裝開發依賴
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### 開發流程
+1. 創建功能分支
+   ```bash
+   git checkout -b feature/新功能名稱
+   ```
+2. 進行開發並測試
+   ```bash
+   # 執行測試確保功能正常
+   python tests/simple_function_test.py
+   python tests/final_verification.py
+   ```
+3. 提交更改
+   ```bash
+   git add .
+   git commit -m "新增: 簡短描述新功能"
+   ```
+4. 推送到您的 Fork
+   ```bash
+   git push origin feature/新功能名稱
+   ```
 5. 創建 Pull Request
+
+### 程式碼規範
+- 使用 4 個空格縮排
+- 函數和變數名使用蛇式命名法 (snake_case)
+- 類別名使用帕斯卡命名法 (PascalCase)
+- 加入適當的註解和文檔字串
+- 遵循 PEP 8 程式碼風格指南
+
+### 測試規範
+在提交 PR 前，請確保：
+- [ ] 所有現有測試通過
+- [ ] 新功能包含相應的測試
+- [ ] 測試覆蓋率維持在合理水準
+- [ ] 手動測試新功能在 Discord 中正常運作
+
+### 提交訊息格式
+使用以下格式撰寫提交訊息：
+```
+類型: 簡短描述 (不超過 50 字元)
+
+詳細描述 (如果需要)
+- 說明更改的原因
+- 描述解決的問題
+- 列出相關的 Issue 編號
+```
+
+類型包括：
+- `新增`: 新功能
+- `修復`: Bug 修復
+- `更新`: 現有功能改進
+- `重構`: 程式碼重構
+- `文檔`: 文檔更新
+- `測試`: 測試相關更改
+
+### 新增功能建議
+如果您想新增功能，建議先：
+1. 開啟 Issue 討論功能需求
+2. 確認功能符合專案目標
+3. 考慮 API 限制和效能影響
+4. 設計用戶友善的指令介面
 
 ## 📄 授權
 
@@ -425,4 +623,5 @@ python diagnose_highway_classification.py
 **版本**: v6.0  
 **維護狀態**: 🟢 積極維護  
 **功能狀態**: ✅ 所有核心功能正常運作  
-**重大更新**: 🎉 公路監視器雙資料來源整合完成
+**重大更新**: 🎉 公路監視器雙資料來源整合完成  
+**文檔狀態**: 📚 完整更新 (包含故障排除、開發指南、安全性說明)

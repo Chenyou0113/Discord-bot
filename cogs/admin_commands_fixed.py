@@ -75,70 +75,6 @@ class AdminCommands(commands.Cog):
             ephemeral=True
         )
 
-    @app_commands.command(name="shutdown", description="關閉機器人 (僅限管理員使用)")
-    async def shutdown(self, interaction: discord.Interaction):
-        """關閉機器人"""
-        try:
-            if not await self._check_admin(interaction):
-                return
-                
-            # 使用defer而不是直接發送訊息，避免互動超時
-            await interaction.response.defer(ephemeral=True)
-            logger.info(f'管理員 {interaction.user} 執行了關閉指令')
-            
-            # 發送關機公告到系統監控頻道
-            embed = discord.Embed(
-                title="🛑 系統監控通知",
-                description="機器人正在關閉...\n若需要重新啟動，請聯絡管理員。",
-                color=discord.Color.red()
-            )
-            embed.set_footer(text=f"管理員: {interaction.user}")
-            
-            # 先通知用戶操作已開始
-            await interaction.followup.send("🛑 正在關閉機器人...", ephemeral=True)
-            
-            # 發送到每個伺服器的系統監控頻道
-            notification_tasks = []
-            for guild in self.bot.guilds:
-                channel = discord.utils.find(
-                    lambda c: isinstance(c, discord.TextChannel) and 
-                             c.permissions_for(guild.me).send_messages and
-                             "系統" in c.name and "監控" in c.name,
-                    guild.channels
-                )
-                if channel:
-                    try:
-                        # 將發送操作添加到任務列表但不等待
-                        task = asyncio.create_task(channel.send(embed=embed))
-                        notification_tasks.append(task)
-                    except Exception as e:
-                        logger.error(f'創建發送關機訊息任務到 {guild.name} 的系統監控頻道時發生錯誤: {str(e)}')
-            
-            # 等待所有通知任務完成，但設定超時時間
-            try:
-                await asyncio.wait_for(asyncio.gather(*notification_tasks, return_exceptions=True), timeout=2.5)
-            except asyncio.TimeoutError:
-                logger.warning("部分關機通知可能未發送完成，但將繼續關閉流程")
-            
-            # 嘗試再次通知用戶
-            try:
-                await interaction.followup.send("✅ 系統通知已發送，機器人即將關閉！", ephemeral=True)
-            except Exception:
-                pass  # 忽略可能的報錯，因為我們即將關閉機器人
-                
-            # 稍微延遲後關閉機器人
-            await asyncio.sleep(0.5)
-            
-            # 關閉機器人
-            await self.bot.close()
-            
-        except Exception as e:
-            logger.error(f'關閉時發生錯誤: {str(e)}')
-            try:
-                await interaction.followup.send(f"❌ 關閉過程發生錯誤: {str(e)}", ephemeral=True)
-            except:
-                pass
-
     @app_commands.command(name="status", description="顯示機器人的運行狀態")
     async def status(self, interaction: discord.Interaction):
         """顯示機器人運行狀態"""
@@ -364,76 +300,6 @@ class AdminCommands(commands.Cog):
                 "❌ 設定過程發生錯誤！請確認機器人權限是否正確。",
                 ephemeral=True
             )
-
-    async def _send_restart_message(self, guild: discord.Guild) -> None:
-        """發送重啟訊息到指定伺服器的系統監控頻道"""
-        # 先檢查是否有特定設定的啟動頻道
-        channel_id = self.bot.startup_channels.get(guild.id)
-        channel = None
-        
-        if channel_id:
-            channel = guild.get_channel(channel_id)
-        
-        # 如果沒有設定或找不到頻道，尋找包含「系統」和「監控」的頻道
-        if not channel:
-            channel = discord.utils.find(
-                lambda c: isinstance(c, discord.TextChannel) and 
-                          c.permissions_for(guild.me).send_messages and
-                          "系統" in c.name and "監控" in c.name,
-                guild.channels
-            )
-        
-        # 如果找到適合的頻道，發送訊息
-        if channel:
-            try:
-                embed = discord.Embed(
-                    title="🔄 系統監控通知",
-                    description="機器人正在重啟，請稍候...",
-                    color=discord.Color.blue()
-                )
-                embed.set_footer(text=f"重啟時間: {discord.utils.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
-                await channel.send(embed=embed)
-                logger.info(f'已發送重啟訊息到 {guild.name} 的頻道 {channel.name}')
-            except Exception as e:
-                logger.error(f'無法發送重啟訊息到 {guild.name} 的頻道: {str(e)}')
-
-    @app_commands.command(name="emergency_restart", description="緊急重啟機器人（僅限管理員）")
-    async def emergency_restart(self, ctx):
-        """緊急重啟功能"""
-        if ctx.author.guild_permissions.administrator:
-            await ctx.send("🔄 執行緊急重啟...")
-            logger.info(f'管理員 {ctx.author} 執行了緊急重啟')
-            try:
-                # 發送重啟通知到每個伺服器的系統監控頻道
-                embed = discord.Embed(
-                    title="🔄 系統監控通知",
-                    description="機器人正在執行緊急重啟...\n請稍候片刻！",
-                    color=discord.Color.yellow()
-                )
-                embed.set_footer(text=f"管理員: {ctx.author} | 時間: {discord.utils.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
-                
-                for guild in self.bot.guilds:
-                    # 尋找系統監控頻道
-                    channel = discord.utils.find(
-                        lambda c: isinstance(c, discord.TextChannel) and 
-                                 c.permissions_for(guild.me).send_messages and
-                                 "系統" in c.name and "監控" in c.name,
-                        guild.channels
-                    )
-                    if channel:
-                        try:
-                            await channel.send(embed=embed)
-                        except:
-                            continue
-                
-                await asyncio.sleep(2)
-                await self.bot.close()
-                
-            except Exception as e:
-                logger.error(f'緊急重啟時發生錯誤: {str(e)}')
-                await ctx.send("❌ 重啟過程發生錯誤！")
-        else:
-            await ctx.send("❌ 此指令僅限管理員使用！")
 
     @app_commands.command(name="dev", description="開發者工具（僅限管理員）")
     @app_commands.describe(
@@ -769,47 +635,6 @@ class AdminCommands(commands.Cog):
         embed.set_footer(text=f"執行者: {interaction.user.name}")
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    @app_commands.command(name="restart", description="重新啟動機器人（僅限管理員使用）")
-    async def restart(self, interaction: discord.Interaction):
-        """重新啟動機器人"""
-        if not await self._check_admin(interaction):
-            return
-            
-        await interaction.response.defer(ephemeral=True)
-        logger.info(f'管理員 {interaction.user} 執行了重啟指令')
-        
-        try:
-            # 向每個伺服器發送重啟通知
-            restart_tasks = []
-            for guild in self.bot.guilds:
-                task = asyncio.create_task(self._send_restart_message(guild))
-                restart_tasks.append(task)
-                
-            # 等待所有通知任務完成，但設定超時時間
-            try:
-                await asyncio.wait_for(asyncio.gather(*restart_tasks, return_exceptions=True), timeout=3)
-            except asyncio.TimeoutError:
-                logger.warning("部分重啟通知可能未發送完成，但將繼續重啟流程")
-                
-            # 通知用戶操作成功
-            await interaction.followup.send("✅ 重啟通知已發送，機器人即將重新啟動...", ephemeral=True)
-            
-            # 創建重啟標記文件
-            import os
-            restart_flag_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'restart_flag.txt')
-            with open(restart_flag_path, 'w', encoding='utf-8') as f:
-                f.write(f"restart_requested_by_{interaction.user.id}_{int(asyncio.get_event_loop().time())}")
-            
-            logger.info("重啟標記文件已創建，即將關閉機器人")
-            
-            # 稍微延遲後關閉機器人
-            await asyncio.sleep(1)
-            await self.bot.close()
-            
-        except Exception as e:
-            logger.error(f'重啟過程發生錯誤: {str(e)}')
-            await interaction.followup.send(f"❌ 重啟過程發生錯誤: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="broadcast", description="發送全域公告（僅限管理員）")
     @app_commands.describe(
