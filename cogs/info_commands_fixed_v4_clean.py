@@ -58,6 +58,17 @@ class InfoCommands(commands.Cog):
             logger.error("❌ 錯誤: 找不到 CWA_API_KEY 環境變數")
             logger.info("請在 .env 檔案中設定 CWA_API_KEY=您的中央氣象署API密鑰")
         
+        # 從環境變數讀取 TDX API 憑證
+        self.tdx_client_id = os.getenv('TDX_CLIENT_ID')
+        self.tdx_client_secret = os.getenv('TDX_CLIENT_SECRET')
+        if not self.tdx_client_id or not self.tdx_client_secret:
+            logger.error("❌ 錯誤: 找不到 TDX API 憑證")
+            logger.info("請在 .env 檔案中設定 TDX_CLIENT_ID 和 TDX_CLIENT_SECRET")
+        
+        # TDX 存取權杖快取
+        self.tdx_access_token = None
+        self.tdx_token_expires_at = 0
+        
         self.notification_channels = {}
         self.last_eq_time = {}
         self.check_interval = 300  # 每5分鐘檢查一次
@@ -1018,6 +1029,382 @@ class InfoCommands(commands.Cog):
             }
         }
         return backup_data
+
+    async def get_tdx_access_token(self) -> Optional[str]:
+        """取得 TDX API 存取權杖"""
+        try:
+            import time
+            import base64
+            
+            # 檢查是否有有效的權杖
+            current_time = time.time()
+            if (self.tdx_access_token and 
+                current_time < self.tdx_token_expires_at - 60):  # 提前60秒更新
+                return self.tdx_access_token
+            
+            # 準備認證資料
+            auth_url = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token"
+            
+            # 建立 Basic Authentication
+            credentials = f"{self.tdx_client_id}:{self.tdx_client_secret}"
+            encoded_credentials = base64.b64encode(credentials.encode()).decode()
+            
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': f'Basic {encoded_credentials}'
+            }
+            
+            data = 'grant_type=client_credentials'
+            
+            logger.info("正在取得 TDX 存取權杖...")
+            
+            # 使用 aiohttp 發送請求
+            async with self.session.post(auth_url, headers=headers, data=data) as response:
+                if response.status == 200:
+                    token_data = await response.json()
+                    
+                    self.tdx_access_token = token_data.get('access_token')
+                    expires_in = token_data.get('expires_in', 3600)  # 預設1小時
+                    self.tdx_token_expires_at = current_time + expires_in
+                    
+                    logger.info("✅ 成功取得 TDX 存取權杖")
+                    return self.tdx_access_token
+                else:
+                    error_text = await response.text()
+                    logger.error(f"❌ 取得 TDX 存取權杖失敗: {response.status} - {error_text}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"取得 TDX 存取權杖時發生錯誤: {str(e)}")
+            return None
+
+    async def fetch_rail_alerts(self, rail_type: str = "tra") -> Optional[List[Dict[str, Any]]]:
+        """從TDX平台取得鐵路事故資料"""
+        try:
+            # 取得 TDX 存取權杖
+            access_token = await self.get_tdx_access_token()
+            if not access_token:
+                logger.error("❌ 無法取得 TDX 存取權杖")
+                return None
+            
+            if rail_type == "tra":
+                # 台鐵事故資料
+                url = "https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/Alert?$top=30&$format=JSON"
+                logger.info("開始獲取台鐵事故資料")
+            else:
+                # 高鐵事故資料
+                url = "https://tdx.transportdata.tw/api/basic/v2/Rail/THSR/AlertInfo?$top=30&$format=JSON"
+                logger.info("開始獲取高鐵事故資料")
+            
+            # 設定認證標頭
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json'
+            }
+            
+            # 使用非同步請求獲取資料
+            logger.info(f"正在發送認證請求到 {url}")
+            async with self.session.get(url, headers=headers, timeout=30) as response:
+                if response.status == 200:
+                    try:
+                        data = await response.json()
+                        
+                        # 處理不同的回應格式
+                        if isinstance(data, list):
+                            logger.info(f"✅ 成功獲取{rail_type.upper()}事故資料，共 {len(data)} 筆 (列表格式)")
+                            return data
+                        elif isinstance(data, dict):
+                            # 如果是字典格式，檢查是否有事故列表
+                            if 'alerts' in data or 'data' in data:
+                                alerts = data.get('alerts', data.get('data', []))
+                                if isinstance(alerts, list):
+                                    logger.info(f"✅ 成功獲取{rail_type.upper()}事故資料，共 {len(alerts)} 筆 (字典格式)")
+                                    return alerts
+                            
+                            # 如果是單一事故物件，包裝為列表
+                            if 'Title' in data or 'Description' in data:
+                                logger.info(f"✅ 成功獲取{rail_type.upper()}事故資料，1 筆 (單一物件)")
+                                return [data]
+                            
+                            # 如果字典中沒有明確的事故資料，返回空列表
+                            logger.info(f"✅ {rail_type.upper()}目前沒有事故通報")
+                            return []
+                        else:
+                            logger.warning(f"❌ {rail_type.upper()}事故資料格式不正確: {type(data)}")
+                            return None
+                    except Exception as e:
+                        logger.error(f"解析{rail_type.upper()}事故資料JSON時發生錯誤: {str(e)}")
+                        return None
+                else:
+                    error_text = await response.text()
+                    logger.error(f"❌ TDX API請求失敗: {response.status} - {error_text}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"獲取{rail_type.upper()}事故資料時發生錯誤: {str(e)}")
+            return None
+
+    def format_rail_alert(self, alert_data: Dict[str, Any], rail_type: str = "tra") -> Optional[discord.Embed]:
+        """將鐵路事故資料格式化為Discord嵌入訊息"""
+        try:
+            if rail_type == "tra":
+                # 台鐵事故格式
+                title = alert_data.get('Title', alert_data.get('AlertTitle', '未知事故'))
+                description = alert_data.get('Description', alert_data.get('AlertDescription', '暫無詳細資訊'))
+                start_time = alert_data.get('StartTime', alert_data.get('AlertStartTime', '未知時間'))
+                end_time = alert_data.get('EndTime', alert_data.get('AlertEndTime', '尚未結束'))
+                url_link = alert_data.get('URL', alert_data.get('AlertURL', ''))
+                
+                # 檢查是否為正常營運狀態
+                if '正常' in title or 'Normal' in title:
+                    embed = discord.Embed(
+                        title="✅ 台鐵營運狀況",
+                        description="目前台鐵營運正常，沒有事故通報。",
+                        color=discord.Color.green()
+                    )
+                    embed.set_footer(
+                        text=f"資料來源: TDX運輸資料流通服務平臺 | 查詢時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    )
+                    return embed
+                
+                # 解析影響路線
+                affected_lines = []
+                if 'Lines' in alert_data and alert_data['Lines']:
+                    for line in alert_data['Lines']:
+                        line_name = line.get('LineName', line.get('Name', ''))
+                        if line_name:
+                            affected_lines.append(line_name)
+                
+                # 解析影響車站
+                affected_stations = []
+                if 'Stations' in alert_data and alert_data['Stations']:
+                    for station in alert_data['Stations']:
+                        station_name = station.get('StationName', station.get('Name', ''))
+                        if station_name:
+                            affected_stations.append(station_name)
+                
+                embed = discord.Embed(
+                    title="🚆 台鐵事故通報",
+                    description=f"**{title}**",
+                    color=discord.Color.orange(),
+                    url=url_link if url_link else None
+                )
+                
+            else:
+                # 高鐵事故格式
+                title = alert_data.get('Title', alert_data.get('AlertTitle', '未知事故'))
+                description = alert_data.get('Description', alert_data.get('AlertDescription', '暫無詳細資訊'))
+                start_time = alert_data.get('StartTime', alert_data.get('AlertStartTime', '未知時間'))
+                end_time = alert_data.get('EndTime', alert_data.get('AlertEndTime', '尚未結束'))
+                url_link = alert_data.get('URL', alert_data.get('AlertURL', ''))
+                
+                # 檢查是否為正常營運狀態
+                if '正常' in title or 'Normal' in title:
+                    embed = discord.Embed(
+                        title="✅ 高鐵營運狀況",
+                        description="目前高鐵營運正常，沒有事故通報。",
+                        color=discord.Color.green()
+                    )
+                    embed.set_footer(
+                        text=f"資料來源: TDX運輸資料流通服務平臺 | 查詢時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    )
+                    return embed
+                
+                embed = discord.Embed(
+                    title="🚄 高鐵事故通報",
+                    description=f"**{title}**",
+                    color=discord.Color.red(),
+                    url=url_link if url_link else None
+                )
+                
+                affected_lines = []
+                affected_stations = []
+            
+            # 添加詳細資訊
+            if description and description != title and description != '暫無詳細資訊':
+                embed.add_field(
+                    name="📋 詳細說明",
+                    value=description[:1000] + ("..." if len(description) > 1000 else ""),
+                    inline=False
+                )
+            
+            # 添加時間資訊
+            if start_time and start_time != '未知時間':
+                try:
+                    # 解析時間格式
+                    if 'T' in start_time:
+                        formatted_start = start_time.replace('T', ' ').split('+')[0].split('.')[0]
+                    else:
+                        formatted_start = start_time
+                    embed.add_field(
+                        name="⏰ 開始時間",
+                        value=formatted_start,
+                        inline=True
+                    )
+                except:
+                    embed.add_field(
+                        name="⏰ 開始時間",
+                        value=start_time,
+                        inline=True
+                    )
+            
+            if end_time and end_time != '尚未結束' and end_time != '':
+                try:
+                    if 'T' in end_time:
+                        formatted_end = end_time.replace('T', ' ').split('+')[0].split('.')[0]
+                    else:
+                        formatted_end = end_time
+                    embed.add_field(
+                        name="⏰ 結束時間",
+                        value=formatted_end,
+                        inline=True
+                    )
+                except:
+                    embed.add_field(
+                        name="⏰ 結束時間",
+                        value=end_time,
+                        inline=True
+                    )
+            
+            # 添加影響路線
+            if affected_lines:
+                embed.add_field(
+                    name="🛤️ 影響路線",
+                    value=", ".join(affected_lines[:5]) + ("..." if len(affected_lines) > 5 else ""),
+                    inline=False
+                )
+            
+            # 添加影響車站
+            if affected_stations:
+                embed.add_field(
+                    name="🚉 影響車站",
+                    value=", ".join(affected_stations[:10]) + ("..." if len(affected_stations) > 10 else ""),
+                    inline=False
+                )
+            
+            # 添加頁尾
+            embed.set_footer(
+                text=f"資料來源: TDX運輸資料流通服務平臺 | 更新時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            
+            return embed
+            
+        except Exception as e:
+            logger.error(f"格式化{rail_type.upper()}事故資料時發生錯誤: {str(e)}")
+            return None
+
+    @app_commands.command(name="鐵路事故", description="查詢台鐵或高鐵事故資訊")
+    @app_commands.describe(鐵路類型="選擇要查詢的鐵路類型")
+    @app_commands.choices(鐵路類型=[
+        app_commands.Choice(name="台鐵", value="tra"),
+        app_commands.Choice(name="高鐵", value="thsr")
+    ])
+    async def rail_alert(self, interaction: discord.Interaction, 鐵路類型: str = "tra"):
+        """查詢台鐵或高鐵事故資訊"""
+        await interaction.response.defer()
+        
+        try:
+            # 獲取鐵路事故資料
+            alerts = await self.fetch_rail_alerts(鐵路類型)
+            
+            if alerts is None:
+                rail_name = "台鐵" if 鐵路類型 == "tra" else "高鐵"
+                await interaction.followup.send(f"❌ 無法獲取{rail_name}事故資料，請稍後再試。")
+                return
+            
+            if len(alerts) == 0:
+                rail_name = "台鐵" if 鐵路類型 == "tra" else "高鐵"
+                embed = discord.Embed(
+                    title=f"✅ {rail_name}營運狀況",
+                    description=f"目前{rail_name}沒有事故通報，營運正常。",
+                    color=discord.Color.green()
+                )
+                embed.set_footer(
+                    text=f"資料來源: TDX運輸資料流通服務平臺 | 查詢時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 檢查是否只有正常營運的通知
+            normal_operation = True
+            actual_alerts = []
+            
+            for alert in alerts:
+                title = alert.get('Title', alert.get('AlertTitle', ''))
+                if not ('正常' in title or 'Normal' in title):
+                    normal_operation = False
+                    actual_alerts.append(alert)
+            
+            # 如果只有正常營運通知，顯示正常狀態
+            if normal_operation and len(actual_alerts) == 0:
+                rail_name = "台鐵" if 鐵路類型 == "tra" else "高鐵"
+                embed = discord.Embed(
+                    title=f"✅ {rail_name}營運狀況",
+                    description=f"目前{rail_name}營運正常，沒有事故通報。",
+                    color=discord.Color.green()
+                )
+                embed.set_footer(
+                    text=f"資料來源: TDX運輸資料流通服務平臺 | 查詢時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 如果有實際的事故，處理事故資料
+            alerts_to_show = actual_alerts if actual_alerts else alerts
+            
+            # 如果只有一筆事故，直接顯示
+            if len(alerts_to_show) == 1:
+                embed = self.format_rail_alert(alerts_to_show[0], 鐵路類型)
+                if embed:
+                    await interaction.followup.send(embed=embed)
+                else:
+                    await interaction.followup.send("❌ 無法解析事故資料，請稍後再試。")
+                return
+            
+            # 如果有多筆事故，顯示列表
+            rail_name = "台鐵" if 鐵路類型 == "tra" else "高鐵"
+            embed = discord.Embed(
+                title=f"⚠️ {rail_name}事故通報列表",
+                description=f"共發現 {len(alerts_to_show)} 筆事故通報",
+                color=discord.Color.orange() if 鐵路類型 == "tra" else discord.Color.red()
+            )
+            
+            # 顯示前5筆事故的簡要資訊
+            for i, alert in enumerate(alerts_to_show[:5], 1):
+                title = alert.get('Title', alert.get('AlertTitle', f'事故 #{i}'))
+                start_time = alert.get('StartTime', alert.get('AlertStartTime', '未知時間'))
+                
+                # 格式化時間
+                try:
+                    if 'T' in start_time:
+                        formatted_time = start_time.replace('T', ' ').split('+')[0].split('.')[0]
+                    else:
+                        formatted_time = start_time
+                except:
+                    formatted_time = start_time
+                
+                embed.add_field(
+                    name=f"{i}. {title[:50]}{'...' if len(title) > 50 else ''}",
+                    value=f"⏰ {formatted_time}",
+                    inline=False
+                )
+            
+            if len(alerts_to_show) > 5:
+                embed.add_field(
+                    name="",
+                    value=f"*還有 {len(alerts_to_show) - 5} 筆事故通報未顯示*",
+                    inline=False
+                )
+            
+            embed.set_footer(
+                text=f"資料來源: TDX運輸資料流通服務平臺 | 查詢時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"鐵路事故指令執行時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
 
 
 
