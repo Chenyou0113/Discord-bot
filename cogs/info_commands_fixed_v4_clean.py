@@ -9,6 +9,10 @@ import asyncio
 from typing import Optional, Dict, Any, List
 import urllib3
 from discord.ui import Select, View
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +63,16 @@ class InfoCommands(commands.Cog):
         self.check_interval = 300  # 每5分鐘檢查一次
           # 建立 aiohttp 工作階段
         self.session = None
+
+    async def _check_admin(self, interaction: discord.Interaction) -> bool:
+        """檢查使用者是否為機器人開發者"""
+        developer_id = os.getenv('BOT_DEVELOPER_ID')
+        if developer_id and str(interaction.user.id) == developer_id:
+            return True
+        
+        await interaction.response.send_message("❌ 此指令僅限機器人開發者使用！", ephemeral=True)
+        logger.warning(f"用戶 {interaction.user.name} ({interaction.user.id}) 嘗試使用管理員指令")
+        return False
         self.eq_check_task = None
         
     async def cog_load(self):
@@ -715,8 +729,7 @@ class InfoCommands(commands.Cog):
     async def set_earthquake_channel(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
         """設定地震通知頻道"""
         # 檢查權限
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ 此指令需要管理員權限！", ephemeral=True)
+        if not await self._check_admin(interaction):
             return
             
         if channel:

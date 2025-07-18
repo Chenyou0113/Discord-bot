@@ -10,6 +10,11 @@ import asyncio
 import google.generativeai as genai
 import time
 from datetime import timedelta
+import os
+from dotenv import load_dotenv
+
+# 載入環境變數
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +32,21 @@ class AdminCommands(commands.Cog):
         self.bot.startup_channels = {}
 
     async def _check_admin(self, interaction: discord.Interaction) -> bool:
-        """檢查使用者是否為管理員"""
-        if not interaction.guild or not isinstance(interaction.user, discord.Member) or not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ 此指令僅限管理員使用！", ephemeral=True)
+        """檢查使用者是否為機器人開發者"""
+        # 從環境變數讀取開發者ID
+        developer_id = os.getenv('BOT_DEVELOPER_ID')
+        
+        if not developer_id:
+            await interaction.response.send_message("❌ 系統錯誤：開發者ID未設定！", ephemeral=True)
+            logger.error("BOT_DEVELOPER_ID 環境變數未設定")
             return False
+        
+        # 檢查是否為開發者
+        if str(interaction.user.id) != developer_id:
+            await interaction.response.send_message("❌ 此指令僅限機器人開發者使用！", ephemeral=True)
+            logger.warning(f"用戶 {interaction.user.name} ({interaction.user.id}) 嘗試使用管理員指令")
+            return False
+        
         return True
 
     async def _announce_to_all_guilds(self, embed: discord.Embed):

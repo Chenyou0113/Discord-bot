@@ -61,6 +61,16 @@ class ChatCommands(commands.Cog):
         self.dev_mode_enabled = False
         self.dev_mode_guilds = set()  # 啟用開發者模式的伺服器ID
 
+    async def _check_admin(self, interaction: discord.Interaction) -> bool:
+        """檢查使用者是否為機器人開發者"""
+        developer_id = os.getenv('BOT_DEVELOPER_ID')
+        if developer_id and str(interaction.user.id) == developer_id:
+            return True
+        
+        await interaction.response.send_message("❌ 此指令僅限機器人開發者使用！", ephemeral=True)
+        logger.warning(f"用戶 {interaction.user.name} ({interaction.user.id}) 嘗試使用管理員指令")
+        return False
+
     async def _check_rate_limit(self):
         """檢查API使用頻率，避免達到配額限制"""
         current_time = time.time()
@@ -338,7 +348,8 @@ class ChatCommands(commands.Cog):
         )
         
         # 如果是管理員，顯示所有可用的模型
-        if interaction.user.guild_permissions.administrator:
+        developer_id = os.getenv('BOT_DEVELOPER_ID')
+        if developer_id and str(interaction.user.id) == developer_id:
             embed.add_field(
                 name="可用模型",
                 value="\n".join([f"・{model}" for model in self.available_models]),
@@ -414,8 +425,7 @@ class ChatCommands(commands.Cog):
         model_name: str
     ):
         """更換 AI 模型"""
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("❌ 此指令僅限管理員使用！", ephemeral=True)
+        if not await self._check_admin(interaction):
             return
 
         # 如果模型名稱不在可用列表中，顯示可用模型列表
