@@ -350,13 +350,14 @@ class CustomBot(commands.Bot):
     async def on_ready(self):
         """當機器人準備就緒時執行"""
         try:
-            # 設定機器人狀態為「正在玩 C. Y.」
-            activity = discord.Game(name="C. Y.")
+            # 設定機器人狀態為顯示伺服器數量
+            server_count = len(self.guilds)
+            activity = discord.Game(name=f"在 {server_count} 個伺服器中遊玩")
             await self.change_presence(status=discord.Status.online, activity=activity)
             
             logger.info(f'機器人 {self.user} 已成功上線！')
-            logger.info(f'機器人正在 {len(self.guilds)} 個伺服器中運行')
-            logger.info('機器人狀態已設定為「正在玩 C. Y.」')
+            logger.info(f'機器人正在 {server_count} 個伺服器中運行')
+            logger.info(f'機器人狀態已設定為「正在玩 在 {server_count} 個伺服器中遊玩」')
             
             # 顯示連接的伺服器列表
             for guild in self.guilds:
@@ -364,6 +365,45 @@ class CustomBot(commands.Bot):
                 
         except Exception as e:
             logger.error(f'設定機器人狀態時發生錯誤: {str(e)}')
+    
+    async def update_status(self):
+        """更新機器人狀態顯示伺服器數量"""
+        try:
+            server_count = len(self.guilds)
+            
+            # 不同的狀態類型選項：
+            # 1. 正在玩 (Game)
+            activity = discord.Game(name=f"在 {server_count} 個伺服器中遊玩")
+            
+            # 2. 正在聽 (Listening) - 取消註釋來使用
+            # activity = discord.Activity(type=discord.ActivityType.listening, name=f"{server_count} 個伺服器的訊息")
+            
+            # 3. 正在觀看 (Watching) - 取消註釋來使用
+            # activity = discord.Activity(type=discord.ActivityType.watching, name=f"{server_count} 個伺服器")
+            
+            # 4. 自訂狀態 (Custom) - 取消註釋來使用
+            # activity = discord.CustomActivity(name=f"服務 {server_count} 個伺服器")
+            
+            await self.change_presence(status=discord.Status.online, activity=activity)
+            logger.info(f'機器人狀態已更新為「正在玩 在 {server_count} 個伺服器中遊玩」')
+        except Exception as e:
+            logger.error(f'更新機器人狀態時發生錯誤: {str(e)}')
+    
+    async def on_guild_join(self, guild):
+        """當機器人加入新伺服器時"""
+        try:
+            logger.info(f'機器人已加入新伺服器: {guild.name} (ID: {guild.id}, 成員數: {guild.member_count})')
+            await self.update_status()  # 更新狀態
+        except Exception as e:
+            logger.error(f'處理加入伺服器事件時發生錯誤: {str(e)}')
+    
+    async def on_guild_remove(self, guild):
+        """當機器人離開伺服器時"""
+        try:
+            logger.info(f'機器人已離開伺服器: {guild.name} (ID: {guild.id})')
+            await self.update_status()  # 更新狀態
+        except Exception as e:
+            logger.error(f'處理離開伺服器事件時發生錯誤: {str(e)}')
     
     def _try_register_basic_commands(self):
         """嘗試手動註冊基本命令"""

@@ -58,6 +58,12 @@ class ChatCommands(commands.Cog):
             # 在這裡添加開發者的 Discord ID (數字)
             # 例如: 123456789012345678,
         ]
+        
+        # 從環境變數中添加開發者 ID
+        env_dev_id = os.getenv('BOT_DEVELOPER_ID')
+        if env_dev_id and env_dev_id.isdigit():
+            self.developer_ids.append(int(env_dev_id))
+            
         self.dev_mode_enabled = True  # 預設啟用開發者模式
         self.dev_mode_guilds = set()  # 啟用開發者模式的伺服器ID
 
@@ -119,6 +125,11 @@ class ChatCommands(commands.Cog):
         
     def _is_developer(self, user_id: int) -> bool:
         """檢查用戶是否為開發者"""
+        # 檢查環境變數中的開發者 ID
+        env_dev_id = os.getenv('BOT_DEVELOPER_ID')
+        if env_dev_id and str(user_id) == env_dev_id:
+            return True
+        # 檢查開發者 ID 列表
         return str(user_id) in map(str, self.developer_ids)
     
     def _check_dev_permission(self, user_id: int, guild_id: int = None) -> bool:
