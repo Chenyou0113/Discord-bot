@@ -58,7 +58,7 @@ class ChatCommands(commands.Cog):
             # 在這裡添加開發者的 Discord ID (數字)
             # 例如: 123456789012345678,
         ]
-        self.dev_mode_enabled = False
+        self.dev_mode_enabled = True  # 預設啟用開發者模式
         self.dev_mode_guilds = set()  # 啟用開發者模式的伺服器ID
 
     async def _check_admin(self, interaction: discord.Interaction) -> bool:
@@ -1041,7 +1041,7 @@ class ChatCommands(commands.Cog):
                 result_msg = "✅ 已重置所有使用數據 (對話歷史、配額狀態、用戶冷卻時間)"
             else:
                 # 如果是直接開發者，同時重置開發者模式
-                self.dev_mode_enabled = False
+                self.dev_mode_enabled = True  # 重置後仍保持開發者模式啟用
                 self.dev_mode_guilds.clear()
                 result_msg = "✅ 已重置所有系統數據 (包括對話歷史、配額狀態、開發者模式設置)"
                 
