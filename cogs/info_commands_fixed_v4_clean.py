@@ -6,6 +6,7 @@ import aiohttp
 import xmltodict
 import logging
 import asyncio
+import ssl
 from typing import Optional, Dict, Any, List
 import urllib3
 from discord.ui import Select, View
@@ -1144,6 +1145,219 @@ class InfoCommands(commands.Cog):
             logger.error(f"獲取{rail_type.upper()}事故資料時發生錯誤: {str(e)}")
             return None
 
+    async def fetch_metro_alerts(self, metro_system: str = "TRTC") -> Optional[List[Dict[str, Any]]]:
+        """從TDX平台取得捷運系統事故資料"""
+        try:
+            # 取得 TDX 存取權杖
+            access_token = await self.get_tdx_access_token()
+            if not access_token:
+                logger.error("❌ 無法取得 TDX 存取權杖")
+                return None
+            
+            # 捷運系統 API 端點對應
+            metro_apis = {
+                "TRTC": "https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/Alert/TRTC?$top=30&$format=JSON",  # 台北捷運
+                "KRTC": "https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/Alert/KRTC?$top=30&$format=JSON",  # 高雄捷運
+                "TYMC": "https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/Alert/TYMC?$top=30&$format=JSON",  # 桃園捷運
+                "KLRT": "https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/Alert/KLRT?$top=30&$format=JSON",  # 高雄輕軌
+                "TMRT": "https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/Alert/TMRT?$top=30&$format=JSON"   # 台中捷運
+            }
+            
+            url = metro_apis.get(metro_system)
+            if not url:
+                logger.error(f"❌ 不支援的捷運系統: {metro_system}")
+                return None
+            
+            logger.info(f"開始獲取{metro_system}捷運事故資料")
+            
+            # 設定認證標頭
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json'
+            }
+            
+            # 使用非同步請求獲取資料
+            logger.info(f"正在發送認證請求到 {url}")
+            async with self.session.get(url, headers=headers, timeout=30) as response:
+                if response.status == 200:
+                    try:
+                        data = await response.json()
+                        
+                        # 處理不同的回應格式
+                        if isinstance(data, list):
+                            logger.info(f"✅ 成功獲取{metro_system}事故資料，共 {len(data)} 筆 (列表格式)")
+                            return data
+                        elif isinstance(data, dict):
+                            # 如果是字典格式，檢查是否有事故列表
+                            if 'alerts' in data or 'data' in data:
+                                alerts = data.get('alerts', data.get('data', []))
+                                if isinstance(alerts, list):
+                                    logger.info(f"✅ 成功獲取{metro_system}事故資料，共 {len(alerts)} 筆 (字典格式)")
+                                    return alerts
+                            
+                            # 如果是單一事故物件，包裝為列表
+                            if 'Title' in data or 'Description' in data:
+                                logger.info(f"✅ 成功獲取{metro_system}事故資料，1 筆 (單一物件)")
+                                return [data]
+                            
+                            # 如果字典中沒有明確的事故資料，返回空列表
+                            logger.info(f"✅ {metro_system}目前沒有事故通報")
+                            return []
+                        else:
+                            logger.warning(f"❌ {metro_system}事故資料格式不正確: {type(data)}")
+                            return None
+                    except Exception as e:
+                        logger.error(f"解析{metro_system}事故資料JSON時發生錯誤: {str(e)}")
+                        return None
+                else:
+                    error_text = await response.text()
+                    logger.error(f"❌ TDX API請求失敗: {response.status} - {error_text}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"獲取{metro_system}事故資料時發生錯誤: {str(e)}")
+            return None
+
+    def format_metro_alert(self, alert_data: Dict[str, Any], metro_system: str = "TRTC") -> Optional[discord.Embed]:
+        """將捷運事故資料格式化為Discord嵌入訊息"""
+        try:
+            # 捷運系統名稱對應
+            metro_names = {
+                "TRTC": "台北捷運",
+                "KRTC": "高雄捷運", 
+                "TYMC": "桃園捷運",
+                "KLRT": "高雄輕軌",
+                "TMRT": "台中捷運"
+            }
+            
+            # 捷運系統顏色對應
+            metro_colors = {
+                "TRTC": discord.Color.blue(),      # 台北捷運 - 藍色
+                "KRTC": discord.Color.red(),       # 高雄捷運 - 紅色
+                "TYMC": discord.Color.purple(),    # 桃園捷運 - 紫色
+                "KLRT": discord.Color.orange(),    # 高雄輕軌 - 橘色
+                "TMRT": discord.Color.green()      # 台中捷運 - 綠色
+            }
+            
+            metro_name = metro_names.get(metro_system, f"{metro_system}捷運")
+            metro_color = metro_colors.get(metro_system, discord.Color.blue())
+            
+            # 取得事故資訊
+            title = alert_data.get('Title', alert_data.get('AlertTitle', '未知事故'))
+            description = alert_data.get('Description', alert_data.get('AlertDescription', '暫無詳細資訊'))
+            start_time = alert_data.get('StartTime', alert_data.get('AlertStartTime', '未知時間'))
+            end_time = alert_data.get('EndTime', alert_data.get('AlertEndTime', '尚未結束'))
+            url_link = alert_data.get('URL', alert_data.get('AlertURL', ''))
+            
+            # 檢查是否為正常營運狀態
+            if '正常' in title or 'Normal' in title or '營運正常' in title:
+                embed = discord.Embed(
+                    title=f"✅ {metro_name}營運狀況",
+                    description=f"目前{metro_name}營運正常，沒有事故通報。",
+                    color=discord.Color.green()
+                )
+                embed.set_footer(
+                    text=f"資料來源: TDX運輸資料流通服務平臺 | 查詢時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                return embed
+            
+            # 建立事故通報嵌入
+            embed = discord.Embed(
+                title=f"⚠️ {metro_name}事故通報",
+                description=f"**{title}**",
+                color=metro_color,
+                url=url_link if url_link else None
+            )
+            
+            # 添加詳細資訊
+            if description and description != title and description != '暫無詳細資訊':
+                embed.add_field(
+                    name="📋 詳細說明",
+                    value=description[:1000] + ("..." if len(description) > 1000 else ""),
+                    inline=False
+                )
+            
+            # 添加時間資訊
+            if start_time and start_time != '未知時間':
+                try:
+                    # 解析時間格式
+                    if 'T' in start_time:
+                        formatted_start = start_time.replace('T', ' ').split('+')[0].split('.')[0]
+                    else:
+                        formatted_start = start_time
+                    embed.add_field(
+                        name="⏰ 開始時間",
+                        value=formatted_start,
+                        inline=True
+                    )
+                except:
+                    embed.add_field(
+                        name="⏰ 開始時間",
+                        value=start_time,
+                        inline=True
+                    )
+            
+            if end_time and end_time != '尚未結束' and end_time != '':
+                try:
+                    if 'T' in end_time:
+                        formatted_end = end_time.replace('T', ' ').split('+')[0].split('.')[0]
+                    else:
+                        formatted_end = end_time
+                    embed.add_field(
+                        name="⏰ 結束時間",
+                        value=formatted_end,
+                        inline=True
+                    )
+                except:
+                    embed.add_field(
+                        name="⏰ 結束時間",
+                        value=end_time,
+                        inline=True
+                    )
+            
+            # 解析影響路線
+            affected_lines = []
+            if 'Lines' in alert_data and alert_data['Lines']:
+                for line in alert_data['Lines']:
+                    line_name = line.get('LineName', line.get('Name', ''))
+                    if line_name:
+                        affected_lines.append(line_name)
+            
+            # 解析影響車站
+            affected_stations = []
+            if 'Stations' in alert_data and alert_data['Stations']:
+                for station in alert_data['Stations']:
+                    station_name = station.get('StationName', station.get('Name', ''))
+                    if station_name:
+                        affected_stations.append(station_name)
+            
+            # 添加影響路線
+            if affected_lines:
+                embed.add_field(
+                    name="🚇 影響路線",
+                    value=", ".join(affected_lines[:5]) + ("..." if len(affected_lines) > 5 else ""),
+                    inline=False
+                )
+            
+            # 添加影響車站
+            if affected_stations:
+                embed.add_field(
+                    name="🚉 影響車站",
+                    value=", ".join(affected_stations[:10]) + ("..." if len(affected_stations) > 10 else ""),
+                    inline=False
+                )
+            
+            # 添加頁尾
+            embed.set_footer(
+                text=f"資料來源: TDX運輸資料流通服務平臺 | 更新時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            
+            return embed
+            
+        except Exception as e:
+            logger.error(f"格式化{metro_system}事故資料時發生錯誤: {str(e)}")
+            return None
+
     def format_rail_alert(self, alert_data: Dict[str, Any], rail_type: str = "tra") -> Optional[discord.Embed]:
         """將鐵路事故資料格式化為Discord嵌入訊息"""
         try:
@@ -1404,6 +1618,260 @@ class InfoCommands(commands.Cog):
             
         except Exception as e:
             logger.error(f"鐵路事故指令執行時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+
+    @app_commands.command(name='捷運狀態', description='查詢各捷運系統運行狀態')
+    @app_commands.describe(metro_system='選擇捷運系統')
+    @app_commands.choices(metro_system=[
+        app_commands.Choice(name='台北捷運', value='TRTC'),
+        app_commands.Choice(name='高雄捷運', value='KRTC'),
+        app_commands.Choice(name='桃園捷運', value='TYMC'),
+        app_commands.Choice(name='高雄輕軌', value='KLRT'),
+        app_commands.Choice(name='台中捷運', value='TMRT')
+    ])
+    async def metro_status(self, interaction: discord.Interaction, metro_system: app_commands.Choice[str]):
+        """查詢捷運系統運行狀態"""
+        await interaction.response.defer()
+        
+        try:
+            logger.info(f"使用者 {interaction.user} 查詢捷運狀態: {metro_system.name}")
+            
+            # 獲取捷運狀態資料
+            metro_data = await self.fetch_metro_alerts(metro_system.value)
+            
+            if not metro_data:
+                embed = discord.Embed(
+                    title="🚇 捷運狀態查詢",
+                    description="❌ 目前無法取得捷運狀態資料，請稍後再試。",
+                    color=0xFF0000
+                )
+                embed.add_field(name="系統", value=metro_system.name, inline=True)
+                embed.add_field(name="狀態", value="資料取得失敗", inline=True)
+                embed.set_footer(text="資料來源: 交通部TDX平台")
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 格式化資料
+            embed = await self.format_metro_alert(metro_data, metro_system.value, metro_system.name)
+            
+            if embed is None:
+                embed = discord.Embed(
+                    title="🚇 捷運狀態查詢",
+                    description="❌ 資料處理時發生錯誤。",
+                    color=0xFF0000
+                )
+                embed.add_field(name="系統", value=metro_system.name, inline=True)
+                embed.set_footer(text="資料來源: 交通部TDX平台")
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"捷運狀態指令執行時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+
+    async def fetch_metro_liveboard(self, metro_system: str = "TRTC") -> Optional[List[Dict[str, Any]]]:
+        """從TDX平台取得捷運車站即時到離站電子看板資料"""
+        try:
+            logger.info(f"正在從TDX平台取得{metro_system}車站即時電子看板資料...")
+            
+            # 取得access token
+            access_token = await self.get_tdx_access_token()
+            if not access_token:
+                logger.error("無法取得TDX access token")
+                return None
+            
+            # 設定API端點
+            api_endpoints = {
+                'TRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TRTC?%24top=30&%24format=JSON',
+                'KRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KRTC?%24top=30&%24format=JSON', 
+                'KLRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KLRT?%24top=30&%24format=JSON'
+            }
+            
+            url = api_endpoints.get(metro_system)
+            if not url:
+                logger.error(f"不支援的捷運系統: {metro_system}")
+                return None
+            
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json'
+            }
+            
+            # 建立SSL連接
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            timeout = aiohttp.ClientTimeout(total=30)
+            
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        logger.info(f"成功取得{metro_system}車站電子看板資料，共{len(data)}筆")
+                        return data
+                    else:
+                        logger.error(f"TDX API請求失敗: HTTP {response.status}")
+                        response_text = await response.text()
+                        logger.error(f"錯誤回應: {response_text}")
+                        return None
+                        
+        except asyncio.TimeoutError:
+            logger.error("TDX API請求超時")
+        except Exception as e:
+            logger.error(f"取得捷運車站電子看板資料時發生錯誤: {str(e)}")
+            import traceback
+            logger.error(f"錯誤詳情: {traceback.format_exc()}")
+        
+        return None
+
+    def format_metro_liveboard(self, liveboard_data: List[Dict[str, Any]], metro_system: str, system_name: str) -> Optional[discord.Embed]:
+        """將捷運車站即時電子看板資料格式化為Discord嵌入訊息"""
+        try:
+            if not liveboard_data:
+                embed = discord.Embed(
+                    title="🚇 車站即時電子看板",
+                    description="目前沒有即時電子看板資料",
+                    color=0x95A5A6
+                )
+                embed.add_field(name="系統", value=system_name, inline=True)
+                embed.set_footer(text="資料來源: 交通部TDX平台")
+                return embed
+            
+            # 捷運系統顏色設定
+            colors = {
+                'TRTC': 0x0070BD,  # 台北捷運藍
+                'KRTC': 0xFF6B35,  # 高雄捷運橘紅  
+                'KLRT': 0x00A651   # 高雄輕軌綠
+            }
+            
+            color = colors.get(metro_system, 0x3498DB)
+            
+            embed = discord.Embed(
+                title="🚇 車站即時電子看板",
+                description=f"📍 **{system_name}** 車站即時到離站資訊",
+                color=color
+            )
+            
+            # 處理資料（限制顯示前10筆以避免訊息過長）
+            display_count = min(10, len(liveboard_data))
+            
+            for i, station_data in enumerate(liveboard_data[:display_count]):
+                try:
+                    # 取得車站資訊
+                    station_name = station_data.get('StationName', {})
+                    if isinstance(station_name, dict):
+                        station_name_zh = station_name.get('Zh_tw', '未知車站')
+                    else:
+                        station_name_zh = str(station_name)
+                    
+                    # 取得路線資訊
+                    line_info = station_data.get('LineID', '未知路線')
+                    
+                    # 取得列車資訊
+                    trains_info = []
+                    live_boards = station_data.get('LiveBoards', [])
+                    
+                    if live_boards:
+                        for board in live_boards[:3]:  # 最多顯示3班列車
+                            direction = board.get('Direction', '未知')
+                            destination = board.get('DestinationStationName', {})
+                            if isinstance(destination, dict):
+                                dest_name = destination.get('Zh_tw', '未知目的地')
+                            else:
+                                dest_name = str(destination)
+                            
+                            # 取得到站時間
+                            enter_time = board.get('EnterTime', '')
+                            if enter_time:
+                                trains_info.append(f"➤ 往{dest_name} ({enter_time})")
+                            else:
+                                trains_info.append(f"➤ 往{dest_name}")
+                    
+                    # 組合顯示資訊
+                    if trains_info:
+                        train_text = '\n'.join(trains_info)
+                    else:
+                        train_text = "暫無列車資訊"
+                    
+                    # 添加到embed (限制字數以避免過長)
+                    field_name = f"🚉 {station_name_zh}"
+                    if line_info != '未知路線':
+                        field_name += f" ({line_info})"
+                    
+                    embed.add_field(
+                        name=field_name,
+                        value=train_text[:100] + ("..." if len(train_text) > 100 else ""),
+                        inline=False
+                    )
+                    
+                except Exception as field_error:
+                    logger.warning(f"處理車站資料時發生錯誤: {str(field_error)}")
+                    continue
+            
+            # 如果有更多資料，顯示提示
+            if len(liveboard_data) > display_count:
+                embed.add_field(
+                    name="📊 資料統計",
+                    value=f"顯示前 {display_count} 個車站，共 {len(liveboard_data)} 筆資料",
+                    inline=False
+                )
+            
+            # 設定頁腳
+            embed.set_footer(text="資料來源: 交通部TDX平台 | 即時更新")
+            
+            return embed
+            
+        except Exception as e:
+            logger.error(f"格式化捷運電子看板資料時發生錯誤: {str(e)}")
+            return None
+
+    @app_commands.command(name='即時電子看板', description='查詢捷運車站即時到離站電子看板')
+    @app_commands.describe(metro_system='選擇捷運系統')
+    @app_commands.choices(metro_system=[
+        app_commands.Choice(name='台北捷運', value='TRTC'),
+        app_commands.Choice(name='高雄捷運', value='KRTC'),
+        app_commands.Choice(name='高雄輕軌', value='KLRT')
+    ])
+    async def metro_liveboard(self, interaction: discord.Interaction, metro_system: app_commands.Choice[str]):
+        """查詢捷運車站即時電子看板"""
+        await interaction.response.defer()
+        
+        try:
+            logger.info(f"使用者 {interaction.user} 查詢捷運電子看板: {metro_system.name}")
+            
+            # 獲取即時電子看板資料
+            liveboard_data = await self.fetch_metro_liveboard(metro_system.value)
+            
+            if not liveboard_data:
+                embed = discord.Embed(
+                    title="🚇 車站即時電子看板",
+                    description="❌ 目前無法取得即時電子看板資料，請稍後再試。",
+                    color=0xFF0000
+                )
+                embed.add_field(name="系統", value=metro_system.name, inline=True)
+                embed.add_field(name="狀態", value="資料取得失敗", inline=True)
+                embed.set_footer(text="資料來源: 交通部TDX平台")
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 格式化資料
+            embed = self.format_metro_liveboard(liveboard_data, metro_system.value, metro_system.name)
+            
+            if embed is None:
+                embed = discord.Embed(
+                    title="🚇 車站即時電子看板",
+                    description="❌ 資料處理時發生錯誤。",
+                    color=0xFF0000
+                )
+                embed.add_field(name="系統", value=metro_system.name, inline=True)
+                embed.set_footer(text="資料來源: 交通部TDX平台")
+            
+            await interaction.followup.send(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"即時電子看板指令執行時發生錯誤: {str(e)}")
             await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
 
 
