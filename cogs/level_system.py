@@ -167,7 +167,7 @@ class LevelSystem(commands.Cog):
             user_data = self.get_user_data(message.author.id, message.guild.id)
             await self.send_level_up_notification(message.author, user_data['level'], message.guild)
     
-    @app_commands.command(name='level', description='查看你的等級資訊')
+    @app_commands.command(name='等級', description='查看你的等級資訊')
     async def level(self, interaction: discord.Interaction):
         """查看等級資訊指令"""
         # 先延遲回應
@@ -209,7 +209,7 @@ class LevelSystem(commands.Cog):
         # 使用 followup 而非 response
         await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name="rank", description="查看自己或其他人的等級")
+    @app_commands.command(name="排名", description="查看自己或其他人的等級")
     async def rank(self, interaction: discord.Interaction, member: discord.Member = None):
         """查看等級狀態"""
         # 先延遲回應
@@ -233,7 +233,7 @@ class LevelSystem(commands.Cog):
         # 使用 followup 而非 response
         await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name="leaderboard", description="顯示伺服器等級排行榜")
+    @app_commands.command(name="排行榜", description="顯示伺服器等級排行榜")
     async def leaderboard(self, interaction: discord.Interaction):
         """顯示排行榜"""
         # 先延遲回應，避免互動超時
@@ -272,7 +272,7 @@ class LevelSystem(commands.Cog):
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(
-        name="set_level_channel",
+        name="設定等級頻道",
         description="設定等級通知頻道（僅限管理員使用）"
     )
     async def set_level_channel(
@@ -295,7 +295,7 @@ class LevelSystem(commands.Cog):
         )
 
     @app_commands.command(
-        name="clear_level_channel",
+        name="清除等級頻道",
         description="清除等級通知頻道設定（僅限管理員使用）"
     )
     async def clear_level_channel(self, interaction: discord.Interaction):
@@ -313,7 +313,7 @@ class LevelSystem(commands.Cog):
             await interaction.response.send_message("⚠️ 此伺服器尚未設定等級通知頻道。", ephemeral=True)
 
     @app_commands.command(
-        name="toggle_level_system",
+        name="切換等級系統",
         description="開啟或關閉伺服器的等級系統（僅限管理員使用）"
     )
     async def toggle_level_system(self, interaction: discord.Interaction):
@@ -358,7 +358,7 @@ class LevelSystem(commands.Cog):
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(
-        name="level_system_status",
+        name="等級系統狀態",
         description="查看伺服器等級系統的開啟狀態"
     )
     async def level_system_status(self, interaction: discord.Interaction):

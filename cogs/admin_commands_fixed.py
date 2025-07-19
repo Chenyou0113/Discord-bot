@@ -156,7 +156,7 @@ class AdminCommands(commands.Cog):
         
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="send", description="發送訊息到指定頻道（僅限管理員）")
+    @app_commands.command(name="發送訊息", description="發送訊息到指定頻道（僅限管理員）")
     @app_commands.describe(
         channel="要發送訊息的頻道",
         message="要發送的訊息內容"
@@ -189,8 +189,8 @@ class AdminCommands(commands.Cog):
                 ephemeral=True
             )
 
-    @app_commands.command(name="admin_monitor", description="顯示即時系統資源使用狀況（僅限管理員）")
-    async def monitor(self, interaction: discord.Interaction):
+    @app_commands.command(name="管理員監控", description="顯示即時系統資源使用狀況（僅限管理員）")
+    async def admin_monitor(self, interaction: discord.Interaction):
         """顯示即時系統資源監控資訊（僅限管理員）"""
         if not await self._check_admin(interaction):
             return
@@ -274,7 +274,7 @@ class AdminCommands(commands.Cog):
         
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name="set_startup_channel", description="設定機器人啟動訊息的頻道（僅限管理員）")
+    @app_commands.command(name="設定啟動頻道", description="設定機器人啟動訊息的頻道（僅限管理員）")
     @app_commands.describe(
         channel="要設定為機器人啟動通知頻道的文字頻道"
     )
@@ -317,7 +317,7 @@ class AdminCommands(commands.Cog):
                 ephemeral=True
             )
 
-    @app_commands.command(name="dev", description="開發者工具（僅限管理員）")
+    @app_commands.command(name="開發者工具", description="開發者工具（僅限管理員）")
     @app_commands.describe(
         object_type="要查詢的對象類型",
         object_id="對象ID（如未提供則使用當前頻道/使用者）",
@@ -579,7 +579,7 @@ class AdminCommands(commands.Cog):
                 ephemeral=True
             )
 
-    @app_commands.command(name="get_id", description="獲取Discord對象的ID（僅限管理員）")
+    @app_commands.command(name="取得ID", description="獲取Discord對象的ID（僅限管理員）")
     @app_commands.describe(
         user="要獲取ID的用戶",
         channel="要獲取ID的頻道",
@@ -652,7 +652,7 @@ class AdminCommands(commands.Cog):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="broadcast", description="發送全域公告（僅限管理員）")
+    @app_commands.command(name="全域廣播", description="發送全域公告（僅限管理員）")
     @app_commands.describe(
         message="要發送的公告訊息",
         title="公告標題",

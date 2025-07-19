@@ -327,7 +327,7 @@ class ChatCommands(commands.Cog):
                     logger.error(f"回覆標記訊息時發生錯誤: {str(e)}")
                     await message.reply("❌ 抱歉，處理您的訊息時發生錯誤。請稍後再試或使用 `/chat` 指令開始新對話。")
 
-    @app_commands.command(name="clear_chat", description="清除與 AI 助手的對話歷史")
+    @app_commands.command(name="清除對話", description="清除與 AI 助手的對話歷史")
     async def clear_chat(self, interaction: discord.Interaction):
         """清除對話歷史"""
         user_id = str(interaction.user.id)
@@ -347,7 +347,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(
-        name="current_model",
+        name="目前模型",
         description="查看目前使用的 AI 模型"
     )
     async def current_model(self, interaction: discord.Interaction):
@@ -375,7 +375,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(
-        name="chat",
+        name="聊天",
         description="與 AI 助手對話"
     )
     @app_commands.describe(
@@ -424,7 +424,7 @@ class ChatCommands(commands.Cog):
                     await interaction.followup.send("❌ 抱歉，我現在似乎無法正常回應。請稍後再試或使用 `/clear_chat` 重新開始對話。", ephemeral=True)
 
     @app_commands.command(
-        name="set_model",
+        name="設定模型",
         description="更換 AI 模型 (僅限管理員使用)"
     )
     @app_commands.describe(
@@ -494,7 +494,7 @@ class ChatCommands(commands.Cog):
             )
             
     @app_commands.command(
-        name="toggle_responses",
+        name="切換回應",
         description="暫停或恢復機器人的回應 (僅限管理員使用)"
     )
     async def toggle_responses(self, interaction: discord.Interaction):
@@ -553,7 +553,7 @@ class ChatCommands(commands.Cog):
             logger.error(f"發送系統通知時發生錯誤: {str(e)}")
             
     @app_commands.command(
-        name="api_status",
+        name="API狀態",
         description="查看 API 使用狀態和配額設置 (僅限管理員使用)"
     )
     async def api_status(self, interaction: discord.Interaction):
@@ -619,7 +619,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed)
         
     @app_commands.command(
-        name="set_rate_limit",
+        name="設定速率限制",
         description="設置 API 請求速率限制 (僅限管理員使用)"
     )
     @app_commands.describe(
@@ -703,7 +703,7 @@ class ChatCommands(commands.Cog):
             logger.error(f"發送系統通知時發生錯誤: {str(e)}")
             
     @app_commands.command(
-        name="reset_quota",
+        name="重置配額",
         description="手動重置 API 配額限制狀態 (僅限管理員使用)"
     )
     async def reset_quota(self, interaction: discord.Interaction):
@@ -745,7 +745,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed)
         
     @app_commands.command(
-        name="dev_mode",
+        name="開發者模式",
         description="開啟或關閉開發者模式 (僅限開發者使用)"
     )
     @app_commands.describe(
@@ -831,7 +831,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         
     @app_commands.command(
-        name="add_developer",
+        name="新增開發者",
         description="添加開發者 (僅限現有開發者使用)"
     )
     @app_commands.describe(
@@ -878,7 +878,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed)
         
     @app_commands.command(
-        name="remove_developer",
+        name="移除開發者",
         description="移除開發者身份 (僅限現有開發者使用)"
     )
     @app_commands.describe(
@@ -937,7 +937,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed)
         
     @app_commands.command(
-        name="list_developers",
+        name="開發者清單",
         description="列出所有開發者 (僅限開發者和管理員使用)"
     )
     async def list_developers(self, interaction: discord.Interaction):
@@ -997,7 +997,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         
     @app_commands.command(
-        name="dev_debug",
+        name="開發者除錯",
         description="執行開發者偵錯動作 (僅限開發者使用)"
     )
     @app_commands.describe(

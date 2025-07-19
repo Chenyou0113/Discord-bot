@@ -551,7 +551,7 @@ class InfoCommands(commands.Cog):
             logger.error(f"格式化地震資料時發生錯誤: {str(e)}")
             return None
             
-    @app_commands.command(name="earthquake", description="查詢最新地震資訊")
+    @app_commands.command(name="地震資訊", description="查詢最新地震資訊")
     @app_commands.describe(earthquake_type="選擇地震資料類型")
     @app_commands.choices(earthquake_type=[
         app_commands.Choice(name="一般地震", value="normal"),
@@ -736,7 +736,7 @@ class InfoCommands(commands.Cog):
             logger.error(f"增強地震資料時發生錯誤: {str(e)}")
             return eq_data  # 返回原始資料
 
-    @app_commands.command(name="set_earthquake_channel", description="設定地震通知頻道 (需管理員權限)")
+    @app_commands.command(name="設定地震頻道", description="設定地震通知頻道 (需管理員權限)")
     @app_commands.describe(channel="要設定為地震通知頻道的文字頻道")
     async def set_earthquake_channel(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
         """設定地震通知頻道"""
@@ -935,7 +935,7 @@ class InfoCommands(commands.Cog):
             logger.error(f"格式化海嘯資料時發生錯誤: {str(e)}")
             return None
 
-    @app_commands.command(name="tsunami", description="查詢最新海嘯資訊")
+    @app_commands.command(name="海嘯資訊", description="查詢最新海嘯資訊")
     async def tsunami(self, interaction: discord.Interaction):
         """查詢最新海嘯資訊"""
         await interaction.response.defer()

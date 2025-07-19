@@ -350,7 +350,7 @@ class TemperatureCommands(commands.Cog):
             )
             return error_embed
     
-    @app_commands.command(name="temperature", description="查詢台灣溫度分布狀態")
+    @app_commands.command(name="溫度", description="查詢台灣溫度分布狀態")
     async def temperature_distribution(self, interaction: discord.Interaction):
         """查詢台灣溫度分布狀態"""
         await interaction.response.defer()
