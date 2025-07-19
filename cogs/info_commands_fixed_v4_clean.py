@@ -1356,7 +1356,7 @@ class InfoCommands(commands.Cog):
             headers = {
                 'Authorization': f'Bearer {access_token}',
                 'Accept': 'application/json',
-                'User-Agent': 'Discord-Bot-TDX-Client/1.0'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
             }
             
             # 使用非同步請求獲取資料
@@ -1430,7 +1430,7 @@ class InfoCommands(commands.Cog):
             headers = {
                 'Authorization': f'Bearer {access_token}',
                 'Accept': 'application/json',
-                'User-Agent': 'Discord-Bot-TDX-Client/1.0'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
             }
             
             # 使用非同步請求獲取資料
@@ -1941,7 +1941,7 @@ class InfoCommands(commands.Cog):
             api_endpoints = {
                 'TRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TRTC?%24top=117&%24format=JSON',
                 'KRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KRTC?%24top=77&%24format=JSON', 
-                'KLRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KLRT?%24top=38&%24format=JSON'
+                'KLRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KLRT?%24top=33&%24format=JSON'
             }
             
             url = api_endpoints.get(metro_system)
@@ -1952,7 +1952,7 @@ class InfoCommands(commands.Cog):
             headers = {
                 'Authorization': f'Bearer {access_token}',
                 'Accept': 'application/json',
-                'User-Agent': 'Discord-Bot-TDX-Client/1.0'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
             }
             
             # 建立SSL連接
@@ -3056,7 +3056,7 @@ class TRALiveboardView(View):
                 headers = {
                     'Authorization': f'Bearer {access_token}',
                     'Accept': 'application/json',
-                    'User-Agent': 'DiscordBot/1.0'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
                 }
                 
                 url = f"https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/LiveBoard/Station/{self.station_id}?%24format=JSON"
@@ -3286,7 +3286,7 @@ class TRADelayView(View):
                 headers = {
                     'Authorization': f'Bearer {access_token}',
                     'Accept': 'application/json',
-                    'User-Agent': 'DiscordBot/1.0'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
                 }
                 
                 # 如果指定縣市，篩選該縣市的車站
