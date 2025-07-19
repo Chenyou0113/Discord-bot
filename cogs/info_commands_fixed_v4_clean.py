@@ -254,28 +254,28 @@ TRA_STATIONS = {
         {"name": "和平", "id": "2640"}
     ],
     "宜蘭縣": [
-        {"name": "漢本", "id": "2650"},
-        {"name": "武塔", "id": "2660"},
-        {"name": "南澳", "id": "2670"},
-        {"name": "東澳", "id": "2680"},
-        {"name": "永樂", "id": "2690"},
-        {"name": "蘇澳", "id": "2700"},
-        {"name": "蘇澳新", "id": "2710"},
-        {"name": "新馬", "id": "2720"},
-        {"name": "冬山", "id": "2730"},
-        {"name": "羅東", "id": "2740"},
-        {"name": "中里", "id": "2750"},
-        {"name": "二結", "id": "2760"},
-        {"name": "宜蘭", "id": "2770"},
-        {"name": "四城", "id": "2780"},
-        {"name": "礁溪", "id": "2790"},
-        {"name": "頂埔", "id": "2800"},
-        {"name": "頭城", "id": "2810"},
-        {"name": "外澳", "id": "2820"},
-        {"name": "龜山", "id": "2830"},
-        {"name": "大溪", "id": "2840"},
-        {"name": "大里", "id": "2850"},
-        {"name": "石城", "id": "2860"}
+        {"name": "漢本", "id": "7070"},
+        {"name": "武塔", "id": "7080"},
+        {"name": "南澳", "id": "7090"},
+        {"name": "東澳", "id": "7100"},
+        {"name": "永樂", "id": "7110"},
+        {"name": "蘇澳", "id": "7120"},
+        {"name": "蘇澳新", "id": "7130"},
+        {"name": "新馬", "id": "7140"},
+        {"name": "冬山", "id": "7150"},
+        {"name": "羅東", "id": "7160"},
+        {"name": "中里", "id": "7170"},
+        {"name": "二結", "id": "7180"},
+        {"name": "宜蘭", "id": "7190"},
+        {"name": "四城", "id": "7200"},
+        {"name": "礁溪", "id": "7210"},
+        {"name": "頂埔", "id": "7220"},
+        {"name": "頭城", "id": "7230"},
+        {"name": "外澳", "id": "7240"},
+        {"name": "龜山", "id": "7250"},
+        {"name": "大溪", "id": "7260"},
+        {"name": "大里", "id": "7270"},
+        {"name": "石城", "id": "7280"}
     ]
 }
 
@@ -3059,12 +3059,18 @@ class TRALiveboardView(View):
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
                 }
                 
-                url = f"https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/LiveBoard/Station/{self.station_id}?%24format=JSON"
+                url = "https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/LiveBoard?%24top=1000&%24format=JSON"
                 
                 async with session.get(url, headers=headers) as response:
                     if response.status == 200:
                         data = await response.json()
-                        self.trains = data
+                        # 篩選出指定車站的資料
+                        if isinstance(data, list):
+                            # 過濾出符合車站ID的資料
+                            station_trains = [train for train in data if train.get('StationID') == self.station_id]
+                            self.trains = station_trains
+                        else:
+                            self.trains = []
                         return self.format_liveboard_data()
                     else:
                         embed = discord.Embed(
