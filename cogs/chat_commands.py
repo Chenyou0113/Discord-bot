@@ -553,7 +553,7 @@ class ChatCommands(commands.Cog):
             logger.error(f"發送系統通知時發生錯誤: {str(e)}")
             
     @app_commands.command(
-        name="API狀態",
+        name="api狀態",
         description="查看 API 使用狀態和配額設置 (僅限管理員使用)"
     )
     async def api_status(self, interaction: discord.Interaction):

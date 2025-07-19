@@ -579,7 +579,7 @@ class AdminCommands(commands.Cog):
                 ephemeral=True
             )
 
-    @app_commands.command(name="取得ID", description="獲取Discord對象的ID（僅限管理員）")
+    @app_commands.command(name="取得id", description="獲取Discord對象的ID（僅限管理員）")
     @app_commands.describe(
         user="要獲取ID的用戶",
         channel="要獲取ID的頻道",
