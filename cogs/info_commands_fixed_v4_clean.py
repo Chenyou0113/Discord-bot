@@ -1100,7 +1100,8 @@ class InfoCommands(commands.Cog):
             # 設定認證標頭
             headers = {
                 'Authorization': f'Bearer {access_token}',
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'User-Agent': 'Discord-Bot-TDX-Client/1.0'
             }
             
             # 使用非同步請求獲取資料
@@ -1173,7 +1174,8 @@ class InfoCommands(commands.Cog):
             # 設定認證標頭
             headers = {
                 'Authorization': f'Bearer {access_token}',
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'User-Agent': 'Discord-Bot-TDX-Client/1.0'
             }
             
             # 使用非同步請求獲取資料
@@ -1680,11 +1682,11 @@ class InfoCommands(commands.Cog):
                 logger.error("無法取得TDX access token")
                 return None
             
-            # 設定API端點
+            # 設定API端點 - 增加更多資料
             api_endpoints = {
-                'TRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TRTC?%24top=30&%24format=JSON',
-                'KRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KRTC?%24top=30&%24format=JSON', 
-                'KLRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KLRT?%24top=30&%24format=JSON'
+                'TRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TRTC?%24top=50&%24format=JSON',
+                'KRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KRTC?%24top=50&%24format=JSON', 
+                'KLRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KLRT?%24top=50&%24format=JSON'
             }
             
             url = api_endpoints.get(metro_system)
@@ -1694,7 +1696,8 @@ class InfoCommands(commands.Cog):
             
             headers = {
                 'Authorization': f'Bearer {access_token}',
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'User-Agent': 'Discord-Bot-TDX-Client/1.0'
             }
             
             # 建立SSL連接
@@ -1710,6 +1713,21 @@ class InfoCommands(commands.Cog):
                     if response.status == 200:
                         data = await response.json()
                         logger.info(f"成功取得{metro_system}車站電子看板資料，共{len(data)}筆")
+                        
+                        # 調試：記錄第一筆資料的結構
+                        if data and len(data) > 0:
+                            first_station = data[0]
+                            logger.debug(f"第一筆車站資料結構: {list(first_station.keys())}")
+                            
+                            # 檢查LiveBoards結構
+                            live_boards = first_station.get('LiveBoards', [])
+                            if live_boards and len(live_boards) > 0:
+                                first_board = live_boards[0]
+                                logger.debug(f"第一筆LiveBoard資料結構: {list(first_board.keys())}")
+                                logger.debug(f"LiveBoard內容範例: {first_board}")
+                            else:
+                                logger.debug("該車站沒有LiveBoard資料")
+                        
                         return data
                     else:
                         logger.error(f"TDX API請求失敗: HTTP {response.status}")
@@ -1856,19 +1874,19 @@ class InfoCommands(commands.Cog):
                 await interaction.followup.send(embed=embed)
                 return
             
-            # 格式化資料
-            embed = self.format_metro_liveboard(liveboard_data, metro_system.value, metro_system.name)
+            # 使用翻頁視圖
+            view = MetroLiveboardView(
+                cog=self,
+                user_id=interaction.user.id,
+                liveboard_data=liveboard_data,
+                metro_system=metro_system.value,
+                system_name=metro_system.name
+            )
             
-            if embed is None:
-                embed = discord.Embed(
-                    title="🚇 車站即時電子看板",
-                    description="❌ 資料處理時發生錯誤。",
-                    color=0xFF0000
-                )
-                embed.add_field(name="系統", value=metro_system.name, inline=True)
-                embed.set_footer(text="資料來源: 交通部TDX平台")
+            # 創建第一頁的嵌入訊息
+            embed = view.create_page_embed()
             
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(embed=embed, view=view)
             
         except Exception as e:
             logger.error(f"即時電子看板指令執行時發生錯誤: {str(e)}")
@@ -2055,6 +2073,289 @@ class InfoCommands(commands.Cog):
         obs_time = stations[0].get('ObsTime', {}).get('DateTime', '未知時間') if stations else '未知時間' 
         embed.set_footer(text=f"觀測時間: {obs_time} | 資料來源: 中央氣象署")
         return embed
+
+# 捷運即時電子看板翻頁視圖類
+class MetroLiveboardView(View):
+    """捷運即時電子看板翻頁視圖"""
+    def __init__(self, cog, user_id: int, liveboard_data: List[Dict[str, Any]], metro_system: str, system_name: str):
+        super().__init__(timeout=300)  # 5分鐘超時
+        self.cog = cog
+        self.user_id = user_id
+        self.liveboard_data = liveboard_data
+        self.metro_system = metro_system
+        self.system_name = system_name
+        self.current_page = 0
+        self.stations_per_page = 10  # 每頁顯示10個車站
+        self.total_pages = max(1, (len(liveboard_data) + self.stations_per_page - 1) // self.stations_per_page)
+        
+        self._update_buttons()
+    
+    def _update_buttons(self):
+        """更新按鈕狀態"""
+        self.clear_items()
+        
+        # 只有在多頁時才顯示翻頁按鈕
+        if self.total_pages > 1:
+            # 上一頁按鈕
+            prev_button = discord.ui.Button(
+                label="◀️ 上一頁",
+                style=discord.ButtonStyle.primary,
+                disabled=self.current_page == 0
+            )
+            prev_button.callback = self.previous_page
+            self.add_item(prev_button)
+            
+            # 頁面資訊按鈕
+            page_button = discord.ui.Button(
+                label=f"{self.current_page + 1}/{self.total_pages}",
+                style=discord.ButtonStyle.secondary,
+                disabled=True
+            )
+            self.add_item(page_button)
+            
+            # 下一頁按鈕
+            next_button = discord.ui.Button(
+                label="下一頁 ▶️",
+                style=discord.ButtonStyle.primary,
+                disabled=self.current_page >= self.total_pages - 1
+            )
+            next_button.callback = self.next_page
+            self.add_item(next_button)
+        
+        # 刷新按鈕
+        refresh_button = discord.ui.Button(
+            label="🔄 刷新",
+            style=discord.ButtonStyle.success
+        )
+        refresh_button.callback = self.refresh_data
+        self.add_item(refresh_button)
+    
+    async def previous_page(self, interaction: discord.Interaction):
+        """上一頁"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        if self.current_page > 0:
+            self.current_page -= 1
+            self._update_buttons()
+            embed = self.create_page_embed()
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.response.defer()
+    
+    async def next_page(self, interaction: discord.Interaction):
+        """下一頁"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            self._update_buttons()
+            embed = self.create_page_embed()
+            await interaction.response.edit_message(embed=embed, view=self)
+        else:
+            await interaction.response.defer()
+    
+    async def refresh_data(self, interaction: discord.Interaction):
+        """刷新資料"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        try:
+            # 重新獲取資料
+            new_data = await self.cog.fetch_metro_liveboard(self.metro_system)
+            if new_data:
+                self.liveboard_data = new_data
+                self.total_pages = max(1, (len(new_data) + self.stations_per_page - 1) // self.stations_per_page)
+                
+                # 如果當前頁超出範圍，調整到最後一頁
+                if self.current_page >= self.total_pages:
+                    self.current_page = max(0, self.total_pages - 1)
+                
+                self._update_buttons()
+                embed = self.create_page_embed()
+                embed.description += "\n🔄 **資料已刷新**"
+                await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
+            else:
+                await interaction.followup.send("❌ 刷新資料失敗，請稍後再試", ephemeral=True)
+        except Exception as e:
+            logger.error(f"刷新捷運電子看板資料時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 刷新資料時發生錯誤", ephemeral=True)
+    
+    def create_page_embed(self) -> discord.Embed:
+        """創建當前頁面的嵌入訊息"""
+        # 捷運系統顏色設定
+        colors = {
+            'TRTC': 0x0070BD,  # 台北捷運藍
+            'KRTC': 0xFF6B35,  # 高雄捷運橘紅  
+            'KLRT': 0x00A651   # 高雄輕軌綠
+        }
+        
+        color = colors.get(self.metro_system, 0x3498DB)
+        
+        embed = discord.Embed(
+            title="🚇 車站即時電子看板",
+            description=f"📍 **{self.system_name}** 車站即時到離站資訊",
+            color=color
+        )
+        
+        if not self.liveboard_data:
+            embed.description = "目前沒有即時電子看板資料"
+            embed.set_footer(text="資料來源: 交通部TDX平台")
+            return embed
+        
+        # 計算當前頁面的資料範圍
+        start_idx = self.current_page * self.stations_per_page
+        end_idx = min(start_idx + self.stations_per_page, len(self.liveboard_data))
+        current_page_data = self.liveboard_data[start_idx:end_idx]
+        
+        # 處理當前頁面的車站資料
+        for station_data in current_page_data:
+            try:
+                # 取得車站資訊
+                station_name = station_data.get('StationName', {})
+                if isinstance(station_name, dict):
+                    station_name_zh = station_name.get('Zh_tw', '未知車站')
+                else:
+                    station_name_zh = str(station_name)
+                
+                # 取得路線資訊
+                line_info = station_data.get('LineID', '未知路線')
+                
+                # 🔧 修正：TDX LiveBoard API的資料結構
+                # 每個車站記錄本身就是一個列車資訊，不是包含LiveBoards陣列
+                trains_info = []
+                
+                try:
+                    # 取得目的地資訊
+                    destination = station_data.get('DestinationStationName', {})
+                    if isinstance(destination, dict):
+                        dest_name = destination.get('Zh_tw', destination.get('En', ''))
+                    else:
+                        dest_name = str(destination) if destination else ''
+                    
+                    # 取得班次標示
+                    trip_head_sign = station_data.get('TripHeadSign', '')
+                    
+                    # 取得預估時間
+                    estimate_time = station_data.get('EstimateTime', 0)
+                    
+                    # 取得服務狀態
+                    service_status = station_data.get('ServiceStatus', 0)
+                    
+                    # 取得更新時間
+                    update_time = station_data.get('UpdateTime', '')
+                    src_update_time = station_data.get('SrcUpdateTime', '')
+                    
+                    # 組合列車資訊
+                    if dest_name or trip_head_sign:
+                        train_info_parts = []
+                        
+                        # 使用班次標示或目的地
+                        if trip_head_sign:
+                            train_info_parts.append(trip_head_sign)
+                        elif dest_name:
+                            train_info_parts.append(f"往{dest_name}")
+                        
+                        # 處理預估時間
+                        if estimate_time > 0:
+                            if estimate_time < 60:
+                                train_info_parts.append(f"({estimate_time}秒)")
+                            else:
+                                minutes = estimate_time // 60
+                                seconds = estimate_time % 60
+                                if seconds > 0:
+                                    train_info_parts.append(f"({minutes}分{seconds}秒)")
+                                else:
+                                    train_info_parts.append(f"({minutes}分鐘)")
+                        elif estimate_time == 0:
+                            # 檢查服務狀態
+                            if service_status == 0:
+                                train_info_parts.append("(即將進站)")
+                            elif service_status == 1:
+                                train_info_parts.append("(正在進站)")
+                            else:
+                                train_info_parts.append("(準備中)")
+                        
+                        # 添加服務狀態說明
+                        status_text = ""
+                        if service_status == 0:
+                            status_text = "🟢"  # 正常
+                        elif service_status == 1:
+                            status_text = "🟡"  # 進站中
+                        elif service_status == 2:
+                            status_text = "🟠"  # 離站
+                        else:
+                            status_text = "⚪"  # 其他狀態
+                        
+                        if train_info_parts:
+                            trains_info.append(f"{status_text} {' '.join(train_info_parts)}")
+                    
+                    # 如果沒有具體的列車資訊，檢查是否有更新時間
+                    if not trains_info and (update_time or src_update_time):
+                        trains_info.append("📡 資料已更新但無即將到站列車")
+                        
+                except Exception as train_error:
+                    logger.warning(f"處理車站 {station_name_zh} 列車資料時發生錯誤: {str(train_error)}")
+                
+                # 組合顯示資訊
+                if trains_info:
+                    train_text = '\n'.join(trains_info)
+                else:
+                    # 根據時間提供更友善的提示
+                    import datetime
+                    current_hour = datetime.datetime.now().hour
+                    if 1 <= current_hour <= 5:
+                        train_text = "🌙 深夜時段，捷運暫停營運"
+                    elif 0 <= current_hour <= 6 or 23 <= current_hour <= 23:
+                        train_text = "⏰ 非營運時間或班次較少"
+                    else:
+                        train_text = "📭 暫無即將到站列車"
+                
+                # 添加到embed (限制字數以避免過長)
+                field_name = f"🚉 {station_name_zh}"
+                if line_info != '未知路線':
+                    field_name += f" ({line_info})"
+                
+                embed.add_field(
+                    name=field_name,
+                    value=train_text[:100] + ("..." if len(train_text) > 100 else ""),
+                    inline=False
+                )
+                
+            except Exception as field_error:
+                logger.warning(f"處理車站資料時發生錯誤: {str(field_error)}")
+                continue
+        
+        # 添加頁面資訊
+        if self.total_pages > 1:
+            embed.add_field(
+                name="📊 頁面資訊",
+                value=f"第 {self.current_page + 1} 頁，共 {self.total_pages} 頁 | 總共 {len(self.liveboard_data)} 個車站",
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="📊 資料統計",
+                value=f"共 {len(self.liveboard_data)} 個車站",
+                inline=False
+            )
+        
+        # 設定頁腳
+        embed.set_footer(text="資料來源: 交通部TDX平台 | 即時更新")
+        
+        return embed
+    
+    async def on_timeout(self):
+        """處理超時"""
+        # 禁用所有按鈕
+        for item in self.children:
+            item.disabled = True
 
 # 氣象測站資料翻頁視圖類
 class WeatherStationView(View):

@@ -1,0 +1,122 @@
+[
+  {
+    "LineNO": "BL",
+    "LineID": "BL",
+    "LineName": {
+      "Zh_tw": "板南線",
+      "En": "Bannan Line"
+    },
+    "StationID": "BL05",
+    "StationName": {
+      "Zh_tw": "亞東醫院",
+      "En": "Far Eastern Hospital"
+    },
+    "TripHeadSign": "往頂埔",
+    "DestinationStaionID": "BL01",
+    "DestinationStationID": "BL01",
+    "DestinationStationName": {
+      "Zh_tw": "頂埔",
+      "En": "Dingpu"
+    },
+    "ServiceStatus": 0,
+    "EstimateTime": 0,
+    "SrcUpdateTime": "2025-07-19T10:09:28+08:00",
+    "UpdateTime": "2025-07-19T10:09:54+08:00"
+  },
+  {
+    "LineNO": "BL",
+    "LineID": "BL",
+    "LineName": {
+      "Zh_tw": "板南線",
+      "En": "Bannan Line"
+    },
+    "StationID": "BL11",
+    "StationName": {
+      "Zh_tw": "西門",
+      "En": "Ximen"
+    },
+    "TripHeadSign": "往頂埔",
+    "DestinationStaionID": "BL01",
+    "DestinationStationID": "BL01",
+    "DestinationStationName": {
+      "Zh_tw": "頂埔",
+      "En": "Dingpu"
+    },
+    "ServiceStatus": 0,
+    "EstimateTime": 0,
+    "SrcUpdateTime": "2025-07-19T10:09:28+08:00",
+    "UpdateTime": "2025-07-19T10:09:54+08:00"
+  },
+  {
+    "LineNO": "BL",
+    "LineID": "BL",
+    "LineName": {
+      "Zh_tw": "板南線",
+      "En": "Bannan Line"
+    },
+    "StationID": "BL11",
+    "StationName": {
+      "Zh_tw": "西門",
+      "En": "Ximen"
+    },
+    "TripHeadSign": "往南港展覽館",
+    "DestinationStaionID": "BL23",
+    "DestinationStationID": "BL23",
+    "DestinationStationName": {
+      "Zh_tw": "南港展覽館",
+      "En": "Taipei Nangang Exhibition Center"
+    },
+    "ServiceStatus": 0,
+    "EstimateTime": 0,
+    "SrcUpdateTime": "2025-07-19T10:09:18+08:00",
+    "UpdateTime": "2025-07-19T10:09:54+08:00"
+  },
+  {
+    "LineNO": "BL",
+    "LineID": "BL",
+    "LineName": {
+      "Zh_tw": "板南線",
+      "En": "Bannan Line"
+    },
+    "StationID": "BL13",
+    "StationName": {
+      "Zh_tw": "善導寺",
+      "En": "Shandao Temple"
+    },
+    "TripHeadSign": "往南港展覽館",
+    "DestinationStaionID": "BL23",
+    "DestinationStationID": "BL23",
+    "DestinationStationName": {
+      "Zh_tw": "南港展覽館",
+      "En": "Taipei Nangang Exhibition Center"
+    },
+    "ServiceStatus": 0,
+    "EstimateTime": 0,
+    "SrcUpdateTime": "2025-07-19T10:09:18+08:00",
+    "UpdateTime": "2025-07-19T10:09:54+08:00"
+  },
+  {
+    "LineNO": "BL",
+    "LineID": "BL",
+    "LineName": {
+      "Zh_tw": "板南線",
+      "En": "Bannan Line"
+    },
+    "StationID": "BL15",
+    "StationName": {
+      "Zh_tw": "忠孝復興",
+      "En": "Zhongxiao Fuxing"
+    },
+    "TripHeadSign": "往南港展覽館",
+    "DestinationStaionID": "BL23",
+    "DestinationStationID": "BL23",
+    "DestinationStationName": {
+      "Zh_tw": "南港展覽館",
+      "En": "Taipei Nangang Exhibition Center"
+    },
+    "ServiceStatus": 0,
+    "EstimateTime": 0,
+    "SrcUpdateTime": "2025-07-19T10:09:40+08:00",
+    "UpdateTime": "2025-07-19T10:09:54+08:00"
+  }
+]

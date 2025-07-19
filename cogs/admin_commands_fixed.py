@@ -69,7 +69,7 @@ class AdminCommands(commands.Cog):
                 except Exception:
                     continue
 
-    @app_commands.command(name="clear_startup_channel", description="清除機器人啟動訊息頻道的設定（僅限管理員）")
+    @app_commands.command(name="清除啟動頻道", description="清除機器人啟動訊息頻道的設定（僅限管理員）")
     async def clear_startup_channel(self, interaction: discord.Interaction):
         """清除啟動訊息頻道的設定"""
         if not await self._check_admin(interaction):
@@ -91,7 +91,7 @@ class AdminCommands(commands.Cog):
             ephemeral=True
         )
 
-    @app_commands.command(name="status", description="顯示機器人的運行狀態")
+    @app_commands.command(name="狀態", description="顯示機器人的運行狀態")
     async def status(self, interaction: discord.Interaction):
         """顯示機器人運行狀態"""
         if not await self._check_admin(interaction):
