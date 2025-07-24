@@ -956,7 +956,7 @@ class ReservoirCommands(commands.Cog):
             logger.error(f"查詢水利防災監控影像時發生錯誤: {str(e)}")
             await interaction.followup.send(f"❌ 查詢監控影像時發生錯誤: {str(e)}")
 
-    @app_commands.command(name="水利監視器(暫時停用)", description="查詢水利防災監控影像(暫時停用)")
+    @app_commands.command(name="水利監視器_停用", description="查詢水利防災監控影像(暫時停用)")
     @app_commands.describe(county="選擇縣市")
     @app_commands.choices(county=[
         app_commands.Choice(name="基隆市", value="基隆市"),
@@ -986,7 +986,7 @@ class ReservoirCommands(commands.Cog):
         # 使用私有方法獲取監視器資料
         await self._get_water_cameras(interaction, county=county)
                         
-    @app_commands.command(name="國道監視器(暫時停用)", description="查詢國道監視器(暫時停用)")
+    @app_commands.command(name="國道監視器_停用", description="查詢國道監視器(暫時停用)")
     @app_commands.describe(
         highway="國道編號（例如：1, 3, 5）",
         location="地點關鍵字",
@@ -1224,7 +1224,7 @@ class ReservoirCommands(commands.Cog):
             logger.error(f"查詢國道監視器時發生錯誤: {str(e)}")
             await interaction.followup.send(f"❌ 查詢國道監視器時發生錯誤: {str(e)}")
 
-    @app_commands.command(name="一般道路監視器(暫時停用)", description="查詢一般道路監視器(暫時停用)")
+    @app_commands.command(name="一般道路監視器_停用", description="查詢一般道路監視器(暫時停用)")
     @app_commands.describe(
         county="選擇縣市",
         road="道路名稱"
