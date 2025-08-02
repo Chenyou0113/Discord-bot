@@ -33,9 +33,7 @@ def check_await_usage():
     # 1. 檢查 await 使用的同步方法
     sync_methods = [
         '_process_and_validate_image_url',
-        'format_water_image_info', 
-        'format_highway_camera_info',
-        'format_camera_info'
+        'format_water_image_info'
     ]
     
     print("\n1️⃣ 檢查錯誤的 await 同步方法調用...")
@@ -49,9 +47,6 @@ def check_await_usage():
     
     # 2. 檢查缺少 await 的異步方法調用
     async_methods = [
-        'get_water_disaster_images',
-        'get_highway_cameras',
-        'get_camera_data',
         'defer',
         'followup.send',
         'edit',

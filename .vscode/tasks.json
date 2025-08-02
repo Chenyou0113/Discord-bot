@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Discord Bot",
+			"type": "shell",
+			"command": "& \"C:\\Users\\xiaoy\\Desktop\\Discord bot\\venv\\Scripts\\python.exe\" bot.py",
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

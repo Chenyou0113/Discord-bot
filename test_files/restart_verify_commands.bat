@@ -113,9 +113,7 @@ echo 3. 測試 /water_level 等新指令
 echo.
 echo 📋 新增的指令應該包括:
 echo   - /water_level (河川水位查詢)
-echo   - /water_cameras (水利防災監視器)
-echo   - /national_highway_cameras (國道監視器)
-echo   - /general_road_cameras (一般道路監視器)
-echo   - /water_disaster_cameras (舊版相容)
+echo   - /水庫清單 (查詢水庫基本資訊)
+echo   - /水位資訊 (河川水位查詢)
 echo.
 pause
