@@ -19,11 +19,15 @@ if not exist "bot.py" (
     exit /b 1
 )
 
-REM Activate virtual environment if exists
-if exist "venv\Scripts\activate.bat" (
+REM Set Python executable path
+set PYTHON_EXE=python
+if exist "venv\Scripts\python.exe" (
     echo Activating virtual environment...
-    call venv\Scripts\activate.bat
+    set PYTHON_EXE=venv\Scripts\python.exe
     echo Virtual environment activated
+    echo.
+) else (
+    echo Warning: Virtual environment not found, using system Python
     echo.
 )
 
@@ -35,7 +39,7 @@ echo ================================
 echo.
 
 REM Start the bot
-python bot.py
+%PYTHON_EXE% bot.py
 
 REM Check exit code
 if %ERRORLEVEL% EQU 0 (

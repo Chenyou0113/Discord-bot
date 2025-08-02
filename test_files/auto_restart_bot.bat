@@ -6,16 +6,26 @@ echo ============================================================
 echo Discord Bot 自動重啟啟動器
 echo ============================================================
 
-REM 檢查 Python 是否安裝
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo ❌ Python 未安裝或未加入 PATH
-    echo 請安裝 Python 3.8+ 並確保已加入系統 PATH
-    pause
-    exit /b 1
+REM 切換到專案根目錄
+cd /d "%~dp0.."
+
+REM 檢查虛擬環境 Python
+if exist "venv\Scripts\python.exe" (
+    echo ✅ 找到虛擬環境 Python
+    set PYTHON_CMD=venv\Scripts\python.exe
+) else (
+    REM 檢查系統 Python
+    python --version >nul 2>&1
+    if errorlevel 1 (
+        echo ❌ Python 未安裝或未加入 PATH
+        echo 請安裝 Python 3.8+ 並確保已加入系統 PATH
+        pause
+        exit /b 1
+    )
+    set PYTHON_CMD=python
 )
 
-for /f "tokens=*" %%i in ('python --version 2^>^&1') do set PYTHON_VERSION=%%i
+for /f "tokens=*" %%i in ('%PYTHON_CMD% --version 2^>^&1') do set PYTHON_VERSION=%%i
 echo ✅ Python 版本: %PYTHON_VERSION%
 
 REM 檢查必要文件

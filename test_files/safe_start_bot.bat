@@ -3,6 +3,9 @@ echo Discord 氣象機器人 - 安全啟動腳本
 echo =====================================
 echo.
 
+REM 切換到專案根目錄
+cd /d "%~dp0.."
+
 echo 1. 檢查並停止現有的機器人進程...
 taskkill /F /IM python.exe >nul 2>&1
 if %errorlevel% equ 0 (

@@ -1,5 +1,5 @@
 @echo off
-cd /d "c:\Users\xiaoy\Desktop\Discord bot"
+cd /d "%~dp0"
 
 echo Syncing Discord Commands...
 echo.

@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-cd /d "c:\Users\xiaoy\Desktop\Discord bot"
+cd /d "%~dp0"
 
 echo Discord Bot Configuration Test
 echo ================================
