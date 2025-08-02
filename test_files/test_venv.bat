@@ -7,6 +7,9 @@ echo         虛擬環境診斷工具
 echo ========================================
 echo.
 
+REM 切換到專案根目錄
+cd /d "%~dp0.."
+
 echo [1] 檢查虛擬環境文件...
 if exist "venv\Scripts\python.exe" (
     echo ✅ 找到虛擬環境 Python
@@ -23,17 +26,17 @@ if exist "venv\Scripts\activate.bat" (
 )
 
 echo.
-echo [2] 啟用虛擬環境...
-call "venv\Scripts\activate.bat"
+echo [2] 直接測試虛擬環境 Python...
+"venv\Scripts\python.exe" --version
 if errorlevel 1 (
-    echo ❌ 虛擬環境啟用失敗
+    echo ❌ 虛擬環境 Python 測試失敗
     goto :error
 )
-echo ✅ 虛擬環境已啟用
+echo ✅ 虛擬環境 Python 測試成功
 
 echo.
 echo [3] 測試 Python 命令...
-python --version
+"venv\Scripts\python.exe" --version
 if errorlevel 1 (
     echo ❌ Python 命令失敗
     goto :error
@@ -42,11 +45,11 @@ echo ✅ Python 命令正常
 
 echo.
 echo [4] 檢查 Python 路徑...
-python -c "import sys; print('Python 路徑:', sys.executable)"
+"venv\Scripts\python.exe" -c "import sys; print('Python 路徑:', sys.executable)"
 
 echo.
 echo [5] 測試套件導入...
-python -c "import discord; print('✅ Discord.py 版本:', discord.__version__)"
+"venv\Scripts\python.exe" -c "import discord; print('✅ Discord.py 版本:', discord.__version__)"
 if errorlevel 1 (
     echo ❌ Discord.py 導入失敗
     echo 正在嘗試重新安裝...

@@ -72,7 +72,7 @@ echo 💡 按 Ctrl+C 可以停止監控器
 echo.
 
 REM 啟動自動重啟監控器
-python bot_restarter.py
+%PYTHON_CMD% bot_restarter.py
 
 echo.
 echo 📋 監控器已關閉

@@ -64,7 +64,13 @@ echo    • /radar, /radar_large, /rainfall_radar - 雷達圖查詢
 echo    • /weather_station - 氣象測站查詢
 echo.
 
-python bot.py
+if exist "venv\Scripts\python.exe" (
+    echo 使用虛擬環境 Python...
+    "venv\Scripts\python.exe" bot.py
+) else (
+    echo 使用系統 Python...
+    python bot.py
+)
 
 echo.
 echo 機器人已停止運行

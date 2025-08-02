@@ -4,7 +4,7 @@ chcp 65001 > nul
 echo 🔄 Discord 機器人重啟和指令驗證
 echo ========================================
 
-cd /d "C:\Users\xiaoy\Desktop\Discord bot"
+cd /d "%~dp0.."
 
 echo.
 echo 1️⃣ 停止現有機器人進程...
@@ -51,7 +51,11 @@ echo.
 echo 4️⃣ 啟動機器人...
 echo ⏳ 正在啟動，請稍候...
 
-start "Discord Bot" /min cmd /c "python bot.py"
+if exist "venv\Scripts\python.exe" (
+    start "Discord Bot" /min cmd /c "venv\Scripts\python.exe bot.py"
+) else (
+    start "Discord Bot" /min cmd /c "python bot.py"
+)
 
 echo.
 echo 5️⃣ 等待機器人初始化...

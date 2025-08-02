@@ -3,7 +3,7 @@ chcp 65001 > nul
 echo 🔧 Discord 機器人重啟檢查腳本
 echo ================================
 
-cd /d "C:\Users\xiaoy\Desktop\Discord bot"
+cd /d "%~dp0.."
 
 echo 1️⃣ 停止現有機器人進程...
 taskkill /f /im python.exe > nul 2>&1
@@ -20,11 +20,16 @@ echo ✅ 語法檢查通過
 
 echo 3️⃣ 啟動機器人...
 echo ⏳ 正在啟動，請稍候...
-start /min python bot.py
+if exist "venv\Scripts\python.exe" (
+    start /min "venv\Scripts\python.exe" bot.py
+) else (
+    start /min python bot.py
+)
 timeout /t 10 > nul
 
 echo 4️⃣ 檢查機器人狀態...
-python -c "
+if exist "venv\Scripts\python.exe" (
+    "venv\Scripts\python.exe" -c "
 import time
 import os
 try:
