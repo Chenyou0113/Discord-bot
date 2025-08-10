@@ -1,48 +1,48 @@
 @echo off
-chcp 65001 >nul
-title Discord Bot 配置助手
+chcp 65001 >nul 2>&1
+title Discord Bot Config Helper
 
 echo ========================================
-echo          Discord Bot 配置助手
+echo          Discord Bot Config Helper
 echo ========================================
 echo.
 
-echo 此助手將幫助您配置 Discord Bot Token 和 Google API Key
+echo This helper will assist you in configuring Discord Bot Token and Google API Key
 echo.
 
-echo [檢查] 正在檢查 .env 文件...
+echo [Check] Checking .env file...
 if not exist ".env" (
-    echo [錯誤] 找不到 .env 文件
+    echo [Error] .env file not found
     if exist ".env.example" (
-        echo [修復] 正在從範本創建 .env 文件...
-        copy ".env.example" ".env" >nul
-        echo [成功] 已創建 .env 文件
+        echo [Fix] Creating .env file from template...
+        copy ".env.example" ".env" >nul 2>&1
+        echo [Success] .env file created
     ) else (
-        echo [錯誤] 也找不到 .env.example 文件
+        echo [Error] .env.example file not found
         pause
         exit /b 1
     )
 )
 
-echo [成功] 找到 .env 文件
+echo [Success] Found .env file
 echo.
 
-echo [檢查] 正在檢查當前配置...
+echo [Check] Checking current configuration...
 findstr /C:"DISCORD_TOKEN=your_discord_bot_token_here" ".env" >nul 2>&1
 if %errorlevel% equ 0 (
-    echo [警告] Discord Token 尚未配置
+    echo [Warning] Discord Token not configured yet
     set DISCORD_NEEDS_CONFIG=1
 ) else (
-    echo [成功] Discord Token 已配置
+    echo [Success] Discord Token configured
     set DISCORD_NEEDS_CONFIG=0
 )
 
 findstr /C:"GOOGLE_API_KEY=your_google_api_key_here" ".env" >nul 2>&1
 if %errorlevel% equ 0 (
-    echo [警告] Google API Key 尚未配置
+    echo [Warning] Google API Key not configured yet
     set GOOGLE_NEEDS_CONFIG=1
 ) else (
-    echo [成功] Google API Key 已配置
+    echo [Success] Google API Key configured
     set GOOGLE_NEEDS_CONFIG=0
 )
 
@@ -50,64 +50,64 @@ echo.
 
 if %DISCORD_NEEDS_CONFIG% equ 1 (
     echo ========================================
-    echo          配置 Discord Token
+    echo          Configure Discord Token
     echo ========================================
     echo.
-    echo 如何獲取 Discord Bot Token:
-    echo 1. 前往 https://discord.com/developers/applications
-    echo 2. 選擇您的應用程式或創建新的
-    echo 3. 在左側選單點擊 'Bot'
-    echo 4. 在 'Token' 部分點擊 'Reset Token' 或 'Copy'
-    echo 5. 複製完整的 Token
+    echo How to get Discord Bot Token:
+    echo 1. Go to https://discord.com/developers/applications
+    echo 2. Select your application or create new one
+    echo 3. Click 'Bot' in left sidebar
+    echo 4. In 'Token' section click 'Reset Token' or 'Copy'
+    echo 5. Copy the complete Token
     echo.
-    echo 請手動編輯 .env 文件，將以下行：
+    echo Please manually edit .env file, replace this line:
     echo DISCORD_TOKEN=your_discord_bot_token_here
-    echo 替換為：
-    echo DISCORD_TOKEN=您的實際Token
+    echo With:
+    echo DISCORD_TOKEN=Your_Actual_Token
     echo.
-    echo 按任意鍵打開 .env 文件進行編輯...
-    pause >nul
+    echo Press any key to open .env file for editing...
+    pause >nul 2>&1
     notepad ".env"
     echo.
 )
 
 if %GOOGLE_NEEDS_CONFIG% equ 1 (
     echo ========================================
-    echo        配置 Google API Key
+    echo        Configure Google API Key
     echo ========================================
     echo.
-    echo 如何獲取 Google API Key:
-    echo 1. 前往 https://aistudio.google.com/app/apikey
-    echo 2. 點擊 'Create API Key'
-    echo 3. 選擇現有專案或創建新專案
-    echo 4. 複製生成的 API Key
+    echo How to get Google API Key:
+    echo 1. Go to https://aistudio.google.com/app/apikey
+    echo 2. Click 'Create API Key'
+    echo 3. Select existing project or create new one
+    echo 4. Copy the generated API Key
     echo.
-    echo 請在已打開的 .env 文件中，將以下行：
+    echo In the already opened .env file, replace this line:
     echo GOOGLE_API_KEY=your_google_api_key_here
-    echo 替換為：
-    echo GOOGLE_API_KEY=您的實際API_Key
+    echo With:
+    echo GOOGLE_API_KEY=Your_Actual_API_Key
     echo.
     if %DISCORD_NEEDS_CONFIG% equ 0 (
-        echo 按任意鍵打開 .env 文件進行編輯...
-        pause >nul
+        echo Press any key to open .env file for editing...
+        pause >nul 2>&1
         notepad ".env"
     )
     echo.
 )
 
 echo ========================================
-echo            配置完成檢查
+echo            Configuration Complete Check
 echo ========================================
 echo.
-echo 配置完成後，請：
-echo 1. 確保已保存 .env 文件
-echo 2. 確保所有 Token 都已正確填入
-echo 3. 執行 start_bot_simple.bat 啟動機器人
+echo After configuration, please:
+echo 1. Make sure .env file is saved
+echo 2. Make sure all Tokens are correctly filled in
+echo 3. Run start_bot_simple.bat to start the bot
 echo.
-echo 如果仍有問題，請檢查：
-echo - Discord Token 是否為完整的 Bot Token（包含兩個點）
-echo - Google API Key 是否有效
-echo - .env 文件是否正確保存
+echo If you still have problems, please check:
+echo - Discord Token should be complete Bot Token (with two dots)
+echo - Google API Key should be valid
+echo - .env file should be correctly saved
 echo.
 
 pause

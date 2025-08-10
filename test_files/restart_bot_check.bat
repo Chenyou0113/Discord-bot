@@ -6,11 +6,15 @@ echo ================================
 cd /d "%~dp0.."
 
 echo 1️⃣ 停止現有機器人進程...
-taskkill /f /im python.exe > nul 2>&1
-timeout /t 3 > nul
+taskkill /f /im python.exe 2>nul
+timeout /t 3 /nobreak >nul
 
 echo 2️⃣ 檢查 reservoir_commands.py 語法...
-python -m py_compile cogs\reservoir_commands.py
+if exist "venv\Scripts\python.exe" (
+    "venv\Scripts\python.exe" -m py_compile cogs\reservoir_commands.py
+) else (
+    python -m py_compile cogs\reservoir_commands.py
+)
 if %errorlevel% neq 0 (
     echo ❌ 語法錯誤，請檢查代碼
     pause
@@ -18,16 +22,25 @@ if %errorlevel% neq 0 (
 )
 echo ✅ 語法檢查通過
 
-echo 3️⃣ 啟動機器人...
+echo 3️⃣ 安裝依賴包...
+if exist "venv\Scripts\python.exe" (
+    echo 使用虛擬環境安裝 PyNaCl...
+    "venv\Scripts\python.exe" -m pip install pynacl
+) else (
+    echo 使用系統 Python 安裝 PyNaCl...
+    python -m pip install pynacl
+)
+
+echo 4️⃣ 啟動機器人...
 echo ⏳ 正在啟動，請稍候...
 if exist "venv\Scripts\python.exe" (
-    start /min "venv\Scripts\python.exe" bot.py
+    start /min "Discord Bot" "venv\Scripts\python.exe" bot.py
 ) else (
-    start /min python bot.py
+    start /min "Discord Bot" python bot.py
 )
-timeout /t 10 > nul
+timeout /t 10 /nobreak >nul
 
-echo 4️⃣ 檢查機器人狀態...
+echo 5️⃣ 檢查機器人狀態...
 if exist "venv\Scripts\python.exe" (
     "venv\Scripts\python.exe" -c "
 import time
