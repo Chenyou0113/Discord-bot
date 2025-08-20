@@ -13,9 +13,14 @@ class BasicCommands(commands.Cog):
         await interaction.response.send_message(self.GREETING)
 
     @app_commands.command(name="延遲測試", description="檢查機器人的延遲時間")
-    async def ping(self, interaction: discord.Interaction):
+    async def ping_chinese(self, interaction: discord.Interaction):
         """檢查機器人延遲"""
         await interaction.response.send_message(f'🏓 延遲時間: {round(self.bot.latency * 1000)}ms')
+        
+    @app_commands.command(name="ping", description="Check bot latency")
+    async def ping(self, interaction: discord.Interaction):
+        """Check bot latency (English version)"""
+        await interaction.response.send_message(f'Pong!\n延遲\n{round(self.bot.latency * 1000)}ms\n狀態\n 正常運行')
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(BasicCommands(bot))
