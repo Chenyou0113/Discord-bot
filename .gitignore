@@ -6,3 +6,5 @@ check_sync_status.py
 .env
 .env
 .env
+utils/gemini_pool.py
+.env

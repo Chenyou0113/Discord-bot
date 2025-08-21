@@ -116,7 +116,7 @@ class CustomBot(commands.Bot):
             proxy_auth=None,
             assume_unsync_clock=True
         )
-          # 初始化其他屬性
+        # 初始化其他屬性
         self._loaded_cogs = set()
         self.initial_extensions = [
             'cogs.admin_commands_fixed',
@@ -125,7 +125,7 @@ class CustomBot(commands.Bot):
             'cogs.level_system',
             'cogs.monitor_system',
             'cogs.voice_system',
-            'cogs.chat_commands',
+            'cogs.chat_system_fixed',
             'cogs.search_commands',
             'cogs.weather_commands',
             'cogs.air_quality_commands',
@@ -348,187 +348,83 @@ class CustomBot(commands.Bot):
             import traceback
             logger.error(f'錯誤詳情: {traceback.format_exc()}')
             
-    async def close(self):
-        """在機器人關閉時清理資源"""
-        if self.connector:
-            await self.connector.close()
-            logger.info('已關閉 aiohttp 連接器')
-        await super().close()
-    
     async def on_ready(self):
-        """當機器人準備就緒時執行"""
-        try:
-            # 設定機器人狀態為顯示伺服器數量
-            server_count = len(self.guilds)
-            activity = discord.Game(name=f"在 {server_count} 個伺服器中遊玩")
-            await self.change_presence(status=discord.Status.online, activity=activity)
+        """機器人準備就緒時執行"""
+        # 顯示機器人資訊
+        logger.info(f'機器人 {self.user} 已成功上線！')
+        logger.info(f'機器人正在 {len(self.guilds)} 個伺服器中運行')
+        
+        # 設置機器人狀態
+        await self.change_presence(
+            activity=discord.Game(f'在 {len(self.guilds)} 個伺服器中遊玩'),
+        )
+        logger.info(f'機器人狀態已設定為「正在玩 在 {len(self.guilds)} 個伺服器中遊玩」')
+        
+        # 顯示所有伺服器資訊
+        for guild in self.guilds:
+            member_count = guild.member_count if guild.member_count else 0
+            logger.info(f'  - {guild.name} (ID: {guild.id}, 成員數: {member_count})')
             
-            logger.info(f'機器人 {self.user} 已成功上線！')
-            logger.info(f'機器人正在 {server_count} 個伺服器中運行')
-            logger.info(f'機器人狀態已設定為「正在玩 在 {server_count} 個伺服器中遊玩」')
-            
-            # 顯示連接的伺服器列表
-            for guild in self.guilds:
-                logger.info(f'  - {guild.name} (ID: {guild.id}, 成員數: {guild.member_count})')
-                
-        except Exception as e:
-            logger.error(f'設定機器人狀態時發生錯誤: {str(e)}')
-    
-    async def update_status(self):
-        """更新機器人狀態顯示伺服器數量"""
-        try:
-            server_count = len(self.guilds)
-            
-            # 不同的狀態類型選項：
-            # 1. 正在玩 (Game)
-            activity = discord.Game(name=f"在 {server_count} 個伺服器中遊玩")
-            
-            # 2. 正在聽 (Listening) - 取消註釋來使用
-            # activity = discord.Activity(type=discord.ActivityType.listening, name=f"{server_count} 個伺服器的訊息")
-            
-            # 3. 正在觀看 (Watching) - 取消註釋來使用
-            # activity = discord.Activity(type=discord.ActivityType.watching, name=f"{server_count} 個伺服器")
-            
-            # 4. 自訂狀態 (Custom) - 取消註釋來使用
-            # activity = discord.CustomActivity(name=f"服務 {server_count} 個伺服器")
-            
-            await self.change_presence(status=discord.Status.online, activity=activity)
-            logger.info(f'機器人狀態已更新為「正在玩 在 {server_count} 個伺服器中遊玩」')
-        except Exception as e:
-            logger.error(f'更新機器人狀態時發生錯誤: {str(e)}')
-    
     async def on_guild_join(self, guild):
-        """當機器人加入新伺服器時"""
-        try:
-            logger.info(f'機器人已加入新伺服器: {guild.name} (ID: {guild.id}, 成員數: {guild.member_count})')
-            await self.update_status()  # 更新狀態
-        except Exception as e:
-            logger.error(f'處理加入伺服器事件時發生錯誤: {str(e)}')
-    
-    async def on_guild_remove(self, guild):
-        """當機器人離開伺服器時"""
-        try:
-            logger.info(f'機器人已離開伺服器: {guild.name} (ID: {guild.id})')
-            await self.update_status()  # 更新狀態
-        except Exception as e:
-            logger.error(f'處理離開伺服器事件時發生錯誤: {str(e)}')
-    
-    def _try_register_basic_commands(self):
-        """嘗試手動註冊基本命令"""
-        try:
-            logger.info('正在嘗試手動註冊基本命令...')
-            
-            # 檢查並重新載入所有cogs的命令
-            for cog_name, cog in self.cogs.items():
-                if hasattr(cog, '__cog_app_commands__'):
-                    for command in cog.__cog_app_commands__:
-                        if command not in self.tree._global_commands:
-                            self.tree.add_command(command)
-                            logger.info(f'已重新註冊命令: {command.name} (來自 {cog_name})')
-                
-            logger.info('基本命令手動註冊完成')
-            
-        except Exception as e:
-            logger.error(f'手動註冊基本命令時發生錯誤: {str(e)}')
-    
-    async def force_sync_commands(self, guild=None):
-        """強制同步命令的輔助方法"""
-        try:
-            logger.info('開始強制同步命令...')
-            
-            # 清空並重新同步
-            self.tree.clear_commands(guild=guild)
-            await asyncio.sleep(1)
-            
-            # 手動註冊基本命令
-            self._try_register_basic_commands()
-            await asyncio.sleep(1)
-            
-            # 執行同步
-            if guild:
-                result = await self.tree.sync(guild=guild)
-                logger.info(f'已同步 {len(result)} 個命令到伺服器 {guild.name}')
-            else:
-                result = await self.tree.sync()
-                logger.info(f'已同步 {len(result)} 個全局命令')
-                
-            return result
-            
-        except Exception as e:
-            logger.error(f'強制同步命令時發生錯誤: {str(e)}')
-            return []
-    
-    async def on_error(self, event, *args, **kwargs):
-        """處理錯誤事件"""
-        logger.error(f'在事件 {event} 中發生錯誤')
-        logger.error(f'參數: {args}')
-        logger.error(f'關鍵字參數: {kwargs}')
+        """機器人加入新伺服器時執行"""
+        logger.info(f'🎉 機器人已加入新伺服器：{guild.name} (ID: {guild.id})')
+        member_count = guild.member_count if guild.member_count else 0
+        logger.info(f'  伺服器資訊：成員數 {member_count}，擁有者 {guild.owner}')
         
-        import traceback
-        logger.error(f'錯誤詳情: {traceback.format_exc()}')
-    
-    async def on_command_error(self, ctx, error):
-        """處理命令錯誤"""
-        if isinstance(error, commands.CommandNotFound):
-            return  # 忽略未找到的命令
-        elif isinstance(error, commands.MissingPermissions):
-            await ctx.send("❌ 您沒有執行此命令的權限")
-        elif isinstance(error, commands.BotMissingPermissions):
-            await ctx.send("❌ 機器人沒有執行此命令所需的權限")
-        elif isinstance(error, commands.CommandOnCooldown):
-            await ctx.send(f"⏰ 命令冷卻中，請在 {error.retry_after:.2f} 秒後再試")
-        else:
-            logger.error(f'命令錯誤: {str(error)}')
-            await ctx.send("❌ 執行命令時發生錯誤")
-    
-    async def on_message(self, message):
-        """處理接收到的消息，並根據用戶語言回應"""
-        # 跳過機器人自己的消息
-        if message.author.bot:
-            return
-            
-        # 處理命令
-        await self.process_commands(message)
+        # 更新機器人狀態以反映新的伺服器數量
+        await self.change_presence(activity=discord.Game(f'在 {len(self.guilds)} 個伺服器中遊玩'))
+        logger.info(f'機器人狀態已更新為「正在玩 在 {len(self.guilds)} 個伺服器中遊玩」')
         
-        # 檢查是否為直接提及機器人（例如 @機器人）
-        if self.user.mentioned_in(message) and not message.mention_everyone:
+        # 嘗試發送歡迎訊息到系統頻道
+        if guild.system_channel:
+            embed = discord.Embed(
+                title='感謝邀請我加入您的伺服器！',
+                description='我是一個多功能機器人，提供天氣、地震、鐵路等資訊，以及其他實用功能！',
+                color=discord.Color.blue()
+            )
+            embed.add_field(name='使用方式', value='使用斜線指令 `/` 開始使用機器人功能！', inline=False)
+            embed.add_field(name='支援的功能', value='天氣查詢、地震資訊、台鐵時刻表、聊天、等級系統等', inline=False)
+            embed.set_footer(text='如有任何問題或建議，請聯絡機器人開發者。')
+            
             try:
-                # 獲取消息內容（去除提及部分）
-                content = message.content.replace(f'<@{self.user.id}>', '').strip()
-                if content:
-                    # 使用語言工具獲取適合的回應
-                    response = get_response_in_language(content, 'welcome')
-                    # 添加用戶名和回應
-                    await message.channel.send(f"{message.author.mention} {response}")
+                await guild.system_channel.send(embed=embed)
+                logger.info(f'  已在 {guild.name} 的系統頻道發送歡迎訊息')
             except Exception as e:
-                logger.error(f"處理消息時發生錯誤: {e}")
-                await message.channel.send(f"{message.author.mention} 抱歉，處理消息時發生錯誤。")
+                logger.error(f'  無法在 {guild.name} 發送歡迎訊息: {str(e)}')
 
-# 實例化機器人
-bot = CustomBot()
-
-# 主要執行函數
-async def main():
-    """主要執行函數"""
+# 實例化並運行機器人
+def main():
+    bot = CustomBot()
+    
+    # 添加全局錯誤處理
+    @bot.event
+    async def on_error(event, *args, **kwargs):
+        logger.error(f"Discord 事件錯誤: {event}", exc_info=True)
+    
+    # 添加指令樹錯誤處理
+    @bot.tree.error
+    async def on_app_command_error(interaction: discord.Interaction, error):
+        if isinstance(error, app_commands.CommandOnCooldown):
+            await interaction.response.send_message(f"⏳ 此指令正在冷卻中，請在 {error.retry_after:.2f} 秒後再試。", ephemeral=True)
+        elif isinstance(error, app_commands.MissingPermissions):
+            await interaction.response.send_message("⛔ 您沒有執行此指令的權限。", ephemeral=True)
+        else:
+            logger.error(f"應用指令錯誤: {str(error)}")
+            try:
+                await interaction.response.send_message(f"❌ 發生錯誤: {str(error)}", ephemeral=True)
+            except discord.errors.InteractionResponded:
+                try:
+                    await interaction.followup.send(f"❌ 發生錯誤: {str(error)}", ephemeral=True)
+                except Exception as e:
+                    logger.error(f"無法發送錯誤回覆: {str(e)}")
+    
+    # 運行機器人
     try:
-        # 啟動機器人
-        async with bot:
-            await bot.start(token)
-    except KeyboardInterrupt:
-        logger.info('收到鍵盤中斷，正在關閉機器人...')
+        bot.run(token)
+    except discord.errors.LoginFailure:
+        logger.error("機器人登入失敗，請檢查 TOKEN 是否正確。")
     except Exception as e:
-        logger.error(f'機器人執行時發生錯誤: {str(e)}')
-        import traceback
-        logger.error(f'錯誤詳情: {traceback.format_exc()}')
-    finally:
-        logger.info('機器人已關閉')
+        logger.error(f"機器人運行時發生錯誤: {str(e)}")
 
 if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info('程序被中斷')
-    except Exception as e:
-        logger.error(f'程序執行時發生錯誤: {str(e)}')
-        import traceback
-        logger.error(f'錯誤詳情: {traceback.format_exc()}')
+    main()

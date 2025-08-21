@@ -9,7 +9,11 @@ import time
 import os
 from dotenv import load_dotenv
 import sys
-from ..utils.gemini_pool import generate_content, create_chat, get_pool_stats, reset_api_pool, get_api_key_stats, reset_api_stats
+import sys, os
+
+# 確保可以導入 utils 模塊
+sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
+from utils.gemini_pool import generate_content, create_chat, get_pool_stats, reset_api_pool, get_api_key_stats, reset_api_stats
 
 load_dotenv()
 logger = logging.getLogger(__name__)
