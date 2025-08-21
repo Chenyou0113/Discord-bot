@@ -8,9 +8,11 @@ from discord.ext import commands
 import logging
 import asyncio
 import aiohttp
-from typing import Optional
+from typing import Optional, Dict, Tuple
 import google.generativeai as genai
 from dotenv import load_dotenv
+# 導入語言工具
+from utils.language_utils import detect_language, get_response_in_language
 
 # 設定日誌
 logging.basicConfig(
@@ -472,6 +474,29 @@ class CustomBot(commands.Bot):
         else:
             logger.error(f'命令錯誤: {str(error)}')
             await ctx.send("❌ 執行命令時發生錯誤")
+    
+    async def on_message(self, message):
+        """處理接收到的消息，並根據用戶語言回應"""
+        # 跳過機器人自己的消息
+        if message.author.bot:
+            return
+            
+        # 處理命令
+        await self.process_commands(message)
+        
+        # 檢查是否為直接提及機器人（例如 @機器人）
+        if self.user.mentioned_in(message) and not message.mention_everyone:
+            try:
+                # 獲取消息內容（去除提及部分）
+                content = message.content.replace(f'<@{self.user.id}>', '').strip()
+                if content:
+                    # 使用語言工具獲取適合的回應
+                    response = get_response_in_language(content, 'welcome')
+                    # 添加用戶名和回應
+                    await message.channel.send(f"{message.author.mention} {response}")
+            except Exception as e:
+                logger.error(f"處理消息時發生錯誤: {e}")
+                await message.channel.send(f"{message.author.mention} 抱歉，處理消息時發生錯誤。")
 
 # 實例化機器人
 bot = CustomBot()

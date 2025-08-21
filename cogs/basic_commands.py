@@ -1,39 +1,24 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import re
-import langid
 
 class BasicCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.GREETING = "你好！我是AI助手 🤖"
-        # 支援的語言和對應的回應
-        self.language_responses = {
-            'zh': '你好！我會用中文回答你的問題。',
-            'en': 'Hello! I will answer your question in English.',
-            'ja': 'こんにちは！日本語で質問に答えます。',
-            'ko': '안녕하세요! 한국어로 질문에 답변하겠습니다.',
-            'fr': 'Bonjour! Je répondrai à votre question en français.',
-            'de': 'Hallo! Ich werde Ihre Frage auf Deutsch beantworten.',
-            'es': '¡Hola! Responderé a tu pregunta en español.',
-            'default': '你好！我會嘗試用你的語言回答問題。'
-        }
-        
-    def detect_language(self, text):
-        """檢測文本的語言"""
-        # 預處理文本以移除網址、表情符號等
-        text = re.sub(r'http\S+', '', text)
-        text = re.sub(r'[^\w\s]', '', text)
-        
-        # 使用 langid 檢測語言
-        lang, _ = langid.classify(text)
-        return lang
 
     @app_commands.command(name="你好", description="跟機器人打招呼")
     async def hello(self, interaction: discord.Interaction):
-        """簡單的打招呼指令"""
-        await interaction.response.send_message(self.GREETING)
+        """簡單的打招呼指令，會使用用戶的語言回應"""
+        from utils.language_utils import get_response_in_language
+        
+        # 使用用戶的訊息內容或使用者名稱進行語言檢測
+        user_content = interaction.user.display_name
+        if hasattr(interaction, 'message') and hasattr(interaction.message, 'content'):
+            user_content = interaction.message.content
+            
+        response = get_response_in_language(user_content, 'welcome')
+        await interaction.response.send_message(response)
 
     @app_commands.command(name="延遲測試", description="檢查機器人的延遲時間")
     async def ping_chinese(self, interaction: discord.Interaction):
@@ -42,8 +27,17 @@ class BasicCommands(commands.Cog):
         
     @app_commands.command(name="ping", description="Check bot latency")
     async def ping(self, interaction: discord.Interaction):
-        """Check bot latency (English version)"""
-        await interaction.response.send_message(f'Pong!\n延遲\n{round(self.bot.latency * 1000)}ms\n狀態\n 正常運行')
+        """Check bot latency (with language detection)"""
+        from utils.language_utils import get_response_in_language
+        
+        # 使用用戶的訊息內容或使用者名稱進行語言檢測
+        user_content = interaction.user.display_name
+        if hasattr(interaction, 'message') and hasattr(interaction.message, 'content'):
+            user_content = interaction.message.content
+            
+        latency = round(self.bot.latency * 1000)
+        response = get_response_in_language(user_content, 'ping', latency)
+        await interaction.response.send_message(response)
         
     # 這個方法將被其他cog和機器人核心使用
     def get_response_in_language(self, message_content):
