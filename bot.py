@@ -8,11 +8,12 @@ from discord.ext import commands
 import logging
 import asyncio
 import aiohttp
-from typing import Optional, Dict, Tuple
-import google.generativeai as genai
+from typing import Optional, Dict, Tuple, Any, List
 from dotenv import load_dotenv
 # 導入語言工具
 from utils.language_utils import detect_language, get_response_in_language
+# 導入 Gemini API 連接池工具
+from utils.gemini_pool import generate_content, get_pool_stats
 
 # 設定日誌
 logging.basicConfig(
@@ -49,14 +50,19 @@ if not GOOGLE_API_KEY:
     logger.info('3. 確保 .env 檔案已正確保存')
     exit(1)
 
-# 初始化 Gemini
+# 初始化 Gemini API 連接池
+# 注意：實際的初始化發生在導入 utils.gemini_pool 模塊時
 try:
-    genai.configure(api_key=GOOGLE_API_KEY)
-    # 直接測試指定的模型
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
-    logger.info('成功初始化 Gemini API')
+    # 導入 utils.gemini_pool 模塊時會自動創建連接池實例
+    from utils.gemini_pool import get_pool_stats
+    
+    # 獲取連接池狀態以確認連接池已正確初始化
+    pool_stats = get_pool_stats()
+    pool_models = list(pool_stats.keys())
+    
+    logger.info(f'成功初始化 Gemini API 連接池，可用模型: {", ".join(pool_models)}')
 except Exception as e:
-    logger.error(f'初始化 Gemini API 時發生錯誤: {str(e)}')
+    logger.error(f'初始化 Gemini API 連接池時發生錯誤: {str(e)}')
     logger.info('請確認您的 API 金鑰是否有效')
     exit(1)
 

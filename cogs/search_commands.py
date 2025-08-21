@@ -5,12 +5,12 @@ import aiohttp
 import logging
 import json
 import asyncio
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 import os
 from dotenv import load_dotenv
 import urllib.parse
 from datetime import datetime, timedelta
-import google.generativeai as genai
+from utils.gemini_pool import generate_content
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -23,13 +23,9 @@ class SearchCommands(commands.Cog):
         # Google Custom Search API 設定
         self.google_api_key = os.getenv('GOOGLE_SEARCH_API_KEY')
         self.search_engine_id = os.getenv('GOOGLE_SEARCH_ENGINE_ID')
-          # Google Gemini AI 設定
-        self.gemini_api_key = os.getenv('GOOGLE_API_KEY')
-        if self.gemini_api_key:
-            genai.configure(api_key=self.gemini_api_key)
-            self.gemini_model = genai.GenerativeModel('gemini-1.5-flash')
-        else:
-            self.gemini_model = None
+          
+        # Google Gemini AI 設定 - 使用連接池
+        self.gemini_model_name = 'gemini-2.0-flash-exp'
           # 速率限制設定
         self.search_cooldowns = {}  # 用戶冷卻時間
         self.cooldown_time = 10  # 10秒冷卻時間
@@ -133,9 +129,6 @@ class SearchCommands(commands.Cog):
     
     async def _generate_search_summary(self, search_results: List[Dict], query: str) -> str:
         """使用 AI 生成搜尋結果的總結"""
-        if not self.gemini_model:
-            return "AI 總結功能暫時無法使用（API 未配置）"
-        
         # 準備搜尋結果文本
         results_text = f"搜尋查詢: {query}\n\n搜尋結果:\n"
         for i, item in enumerate(search_results[:5], 1):
@@ -159,8 +152,17 @@ class SearchCommands(commands.Cog):
 """
         
         try:
-            response = self.gemini_model.generate_content(prompt)
-            return response.text
+            # 使用 API 連接池生成內容
+            response_obj, success = await generate_content(
+                prompt=prompt,
+                model_name=self.gemini_model_name,
+                temperature=0.3  # 較低的溫度以獲得更一致的結果
+            )
+            
+            if not success or response_obj is None:
+                return "生成總結時發生錯誤，請稍後再試"
+                
+            return response_obj.text
         except Exception as e:
             logger.error(f"AI summary generation error: {e}")
             return f"生成總結時發生錯誤: {str(e)}"

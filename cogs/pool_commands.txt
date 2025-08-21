@@ -1,0 +1,117 @@
+    @app_commands.command(
+        name="連接池狀態",
+        description="查看 Gemini API 連接池狀態 (僅限管理員使用)"
+    )
+    async def pool_status(self, interaction: discord.Interaction):
+        """查看 API 連接池狀態和使用情況"""
+        # 檢查權限
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ 此指令僅限管理員使用！", ephemeral=True)
+            return
+            
+        # 獲取連接池狀態
+        pool_stats = get_pool_stats()
+        
+        # 建立狀態嵌入消息
+        embed = discord.Embed(
+            title="🌐 Gemini API 連接池狀態",
+            description=f"連接池中共有 {len(pool_stats)} 種模型",
+            color=discord.Color.blue()
+        )
+        
+        # 添加當前使用的模型
+        embed.add_field(
+            name="🤖 當前模型",
+            value=f"`{self.current_model_name}`",
+            inline=False
+        )
+        
+        # 添加每個模型的詳細狀態
+        for model_name, stats in pool_stats.items():
+            # 計算健康度百分比
+            health_percentage = 100 * stats['active_instances'] / stats['pool_size']
+            health_status = "✅ 良好" if health_percentage >= 80 else "⚠️ 注意" if health_percentage >= 50 else "❌ 危險"
+            
+            # 使用分配情況
+            usage_distribution = stats['usage_distribution']
+            usage_str = ", ".join([f"{count}" for count in usage_distribution])
+            
+            embed.add_field(
+                name=f"📊 {model_name}",
+                value=(
+                    f"連接池大小: **{stats['pool_size']}**\n"
+                    f"活躍連接: **{stats['active_instances']}**\n"
+                    f"錯誤連接: **{stats['error_instances']}**\n"
+                    f"總請求數: **{stats['total_usage']}**\n"
+                    f"健康狀態: {health_status}\n"
+                    f"使用分配: [{usage_str}]"
+                ),
+                inline=True
+            )
+        
+        # 添加重置連接池按鈕
+        # (由於 Discord.py 中按鈕需要額外的視圖類，這裡先用文字提示)
+        embed.set_footer(text="使用 /重置連接池 指令可以重置 API 連接池")
+        
+        # 發送回應
+        await interaction.response.send_message(embed=embed)
+    
+    @app_commands.command(
+        name="重置連接池",
+        description="重置 Gemini API 連接池 (僅限管理員使用)"
+    )
+    @app_commands.describe(
+        model_name="要重置的模型名稱 (留空則重置所有模型)"
+    )
+    async def reset_pool(
+        self,
+        interaction: discord.Interaction,
+        model_name: Optional[str] = None
+    ):
+        """重置 API 連接池"""
+        # 檢查權限
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ 此指令僅限管理員使用！", ephemeral=True)
+            return
+            
+        await interaction.response.defer()
+        
+        # 重置連接池
+        success = reset_api_pool(model_name)
+        
+        if success:
+            if model_name:
+                embed = discord.Embed(
+                    title="✅ 連接池重置成功",
+                    description=f"已成功重置 `{model_name}` 模型的連接池",
+                    color=discord.Color.green()
+                )
+            else:
+                embed = discord.Embed(
+                    title="✅ 連接池重置成功",
+                    description=f"已成功重置所有模型的連接池",
+                    color=discord.Color.green()
+                )
+                
+            # 獲取重置後的連接池狀態
+            pool_stats = get_pool_stats()
+            
+            for model, stats in pool_stats.items():
+                if model_name is None or model == model_name:
+                    embed.add_field(
+                        name=f"模型: {model}",
+                        value=(
+                            f"連接池大小: **{stats['pool_size']}**\n"
+                            f"活躍連接: **{stats['active_instances']}**\n"
+                            f"錯誤連接: **{stats['error_instances']}**"
+                        ),
+                        inline=True
+                    )
+        else:
+            embed = discord.Embed(
+                title="❌ 連接池重置失敗",
+                description="重置連接池時發生錯誤",
+                color=discord.Color.red()
+            )
+        
+        await interaction.followup.send(embed=embed)

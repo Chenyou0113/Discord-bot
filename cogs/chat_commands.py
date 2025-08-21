@@ -4,23 +4,15 @@ from discord.ext import commands
 import google.generativeai as genai
 import logging
 import asyncio
-from typing import Optional
+from typing import Optional, Dict, Any, Tuple
 import time
 import os
 from dotenv import load_dotenv
 import sys
+from ..utils.gemini_pool import generate_content, create_chat, get_pool_stats, reset_api_pool, get_api_key_stats, reset_api_stats
 
 load_dotenv()
 logger = logging.getLogger(__name__)
-
-# 配置 Gemini API
-API_KEY = os.getenv('GOOGLE_API_KEY')
-if not API_KEY:
-    logger.error('錯誤: 找不到 GOOGLE_API_KEY')
-    exit(1)
-
-# 初始化 Gemini
-genai.configure(api_key=API_KEY)
 
 class ChatCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -31,17 +23,15 @@ class ChatCommands(commands.Cog):
         # 使用固定的模型
         self.available_models = [
             'gemini-2.0-flash-exp',
-            'gemini-pro'
+            'gemini-pro',
+            'gemini-pro-vision'
         ]
             
-        # 初始化模型
-        try:
-            self.current_model_name = 'gemini-2.0-flash-exp'
-            self.model = genai.GenerativeModel(self.current_model_name)
-            logger.info(f"成功初始化聊天系統，使用模型: {self.current_model_name}")
-        except Exception as e:
-            logger.error(f"初始化聊天系統時發生錯誤: {str(e)}")
-            raise
+        # 使用 API 池 - 不需要在此處初始化 model
+        self.current_model_name = 'gemini-2.0-flash-exp'
+        self.model_instances: Dict[str, Dict[int, Any]] = {}  # 用戶ID -> {實例ID -> 聊天實例}
+        
+        logger.info(f"聊天系統已初始化，使用 API 連接池和模型: {self.current_model_name}")
             
         # 添加回應控制狀態
         self.responses_paused = False
@@ -193,10 +183,18 @@ class ChatCommands(commands.Cog):
             for msg in self.chat_history[user_id][-3:]:  # 只保留最近3條訊息
                 conversation += f"用戶: {msg}\n"
             
-                response = await asyncio.to_thread(
-                lambda: self.model.generate_content(conversation).text
+            # 使用 API 池生成回應
+            response_obj, success = await generate_content(
+                prompt=conversation,
+                model_name=self.current_model_name,
+                temperature=0.7
             )
-
+            
+            if not success or response_obj is None:
+                return "❌ 生成回應時發生錯誤，請稍後再試。"
+                
+            response = response_obj.text
+            
             # 添加回應到歷史
             self.chat_history[user_id].append(response)
             
@@ -464,13 +462,13 @@ class ChatCommands(commands.Cog):
             return
 
         try:
-            # 嘗試初始化新模型
-            new_model = genai.GenerativeModel(model_name)
-            
-            # 更新模型
-            self.model = new_model
+            # 使用連接池不需要在此初始化模型
+            # 只需更新模型名稱即可
             self.current_model_name = model_name
             self.chat_history.clear()  # 清除所有對話歷史
+            
+            # 重置相關模型的連接池
+            success = reset_api_pool(model_name)
             
             embed = discord.Embed(
                 title="✅ 模型更新成功",
@@ -482,6 +480,17 @@ class ChatCommands(commands.Cog):
                 value="所有用戶的對話歷史已被清除",
                 inline=False
             )
+            
+            # 顯示連接池狀態
+            pool_stats = get_pool_stats()
+            if model_name in pool_stats:
+                stats = pool_stats[model_name]
+                embed.add_field(
+                    name="連接池狀態",
+                    value=f"活躍連接: {stats['active_instances']}/{stats['pool_size']}",
+                    inline=True
+                )
+            
             await interaction.response.send_message(embed=embed)
             logger.info(f"已更換模型至: {model_name}")
                 
@@ -1097,6 +1106,220 @@ class ChatCommands(commands.Cog):
         
         # 發送偵錯結果
         await interaction.followup.send(result_msg, ephemeral=True)
+
+    @app_commands.command(
+        name="連接池狀態",
+        description="查看 Gemini API 連接池狀態 (僅限管理員使用)"
+    )
+    async def pool_status(self, interaction: discord.Interaction):
+        """查看 API 連接池狀態和使用情況"""
+        # 檢查權限
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ 此指令僅限管理員使用！", ephemeral=True)
+            return
+            
+        # 獲取連接池狀態
+        pool_stats = get_pool_stats()
+        
+        # 建立狀態嵌入消息
+        embed = discord.Embed(
+            title="🌐 Gemini API 連接池狀態",
+            description=f"連接池中共有 {len(pool_stats)} 種模型",
+            color=discord.Color.blue()
+        )
+        
+        # 添加當前使用的模型
+        embed.add_field(
+            name="🤖 當前模型",
+            value=f"`{self.current_model_name}`",
+            inline=False
+        )
+        
+        # 添加每個模型的詳細狀態
+        for model_name, stats in pool_stats.items():
+            # 計算健康度百分比
+            health_percentage = 100 * stats['active_instances'] / stats['pool_size']
+            health_status = "✅ 良好" if health_percentage >= 80 else "⚠️ 注意" if health_percentage >= 50 else "❌ 危險"
+            
+            # 使用分配情況
+            usage_distribution = stats['usage_distribution']
+            usage_str = ", ".join([f"{count}" for count in usage_distribution])
+            
+            embed.add_field(
+                name=f"📊 {model_name}",
+                value=(
+                    f"連接池大小: **{stats['pool_size']}**\n"
+                    f"活躍連接: **{stats['active_instances']}**\n"
+                    f"錯誤連接: **{stats['error_instances']}**\n"
+                    f"總請求數: **{stats['total_usage']}**\n"
+                    f"健康狀態: {health_status}\n"
+                    f"使用分配: [{usage_str}]"
+                ),
+                inline=True
+            )
+        
+        # 添加重置連接池按鈕
+        # (由於 Discord.py 中按鈕需要額外的視圖類，這裡先用文字提示)
+        embed.set_footer(text="使用 /重置連接池 指令可以重置 API 連接池")
+        
+        # 發送回應
+        await interaction.response.send_message(embed=embed)
+    
+    @app_commands.command(
+        name="重置連接池",
+        description="重置 Gemini API 連接池 (僅限管理員使用)"
+    )
+    @app_commands.describe(
+        model_name="要重置的模型名稱 (留空則重置所有模型)"
+    )
+    async def reset_pool(
+        self,
+        interaction: discord.Interaction,
+        model_name: Optional[str] = None
+    ):
+        """重置 API 連接池"""
+        # 檢查權限
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ 此指令僅限管理員使用！", ephemeral=True)
+            return
+            
+        await interaction.response.defer()
+        
+        # 重置連接池
+        success = reset_api_pool(model_name)
+        
+        if success:
+            if model_name:
+                embed = discord.Embed(
+                    title="✅ 連接池重置成功",
+                    description=f"已成功重置 `{model_name}` 模型的連接池",
+                    color=discord.Color.green()
+                )
+            else:
+                embed = discord.Embed(
+                    title="✅ 連接池重置成功",
+                    description=f"已成功重置所有模型的連接池",
+                    color=discord.Color.green()
+                )
+                
+            # 獲取重置後的連接池狀態
+            pool_stats = get_pool_stats()
+            
+            for model, stats in pool_stats.items():
+                if model_name is None or model == model_name:
+                    embed.add_field(
+                        name=f"模型: {model}",
+                        value=(
+                            f"連接池大小: **{stats['pool_size']}**\n"
+                            f"活躍連接: **{stats['active_instances']}**\n"
+                            f"錯誤連接: **{stats['error_instances']}**"
+                        ),
+                        inline=True
+                    )
+        else:
+            embed = discord.Embed(
+                title="❌ 連接池重置失敗",
+                description="重置連接池時發生錯誤",
+                color=discord.Color.red()
+            )
+        
+        await interaction.followup.send(embed=embed)
+    
+    @app_commands.command(
+        name="api密鑰統計",
+        description="查看 Gemini API 密鑰使用統計 (僅限管理員使用)"
+    )
+    async def api_key_stats(self, interaction: discord.Interaction):
+        """查看 API 密鑰使用統計"""
+        # 檢查權限
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ 此指令僅限管理員使用！", ephemeral=True)
+            return
+            
+        # 獲取 API 密鑰統計
+        key_stats = get_api_key_stats()
+        
+        # 建立統計嵌入消息
+        embed = discord.Embed(
+            title="🔑 Gemini API 密鑰統計",
+            description=(
+                f"共有 **{key_stats['total_keys']}** 個 API 密鑰\n"
+                f"總請求數: **{key_stats['total_requests']}**\n"
+                f"失敗請求: **{key_stats['failed_requests']}** "
+                f"({round(key_stats['failed_requests'] / max(1, key_stats['total_requests']) * 100, 2)}%)\n"
+                f"完全失敗: **{key_stats['complete_failures']}**\n"
+                f"平均執行時間: **{key_stats['average_execution_time']}**s\n"
+                f"最後輪換時間: {key_stats['last_rotation']}"
+            ),
+            color=discord.Color.gold()
+        )
+        
+        # 添加每個密鑰的詳細統計
+        for key_id, stats in key_stats["key_usage"].items():
+            # 計算健康狀況
+            error_rate = stats["error_rate"]
+            health_status = "✅ 良好" if error_rate < 5 else "⚠️ 注意" if error_rate < 20 else "❌ 危險"
+            
+            embed.add_field(
+                name=f"🔑 {key_id}",
+                value=(
+                    f"使用次數: **{stats['usage']}**\n"
+                    f"錯誤次數: **{stats['errors']}**\n"
+                    f"平均時間: **{stats['avg_time']}**s\n"
+                    f"錯誤率: **{stats['error_rate']}%**\n"
+                    f"狀態: {health_status}"
+                ),
+                inline=True
+            )
+        
+        # 添加重置統計按鈕
+        embed.set_footer(text="使用 /重置API統計 指令可以重置 API 統計數據")
+        
+        # 發送回應
+        await interaction.response.send_message(embed=embed)
+    
+    @app_commands.command(
+        name="重置api統計",
+        description="重置 Gemini API 密鑰統計數據 (僅限管理員使用)"
+    )
+    async def reset_api_key_stats(self, interaction: discord.Interaction):
+        """重置 API 密鑰統計數據"""
+        # 檢查權限
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("❌ 此指令僅限管理員使用！", ephemeral=True)
+            return
+            
+        await interaction.response.defer()
+        
+        # 重置 API 統計
+        success = reset_api_stats()
+        
+        if success:
+            embed = discord.Embed(
+                title="✅ API 統計重置成功",
+                description="已成功重置 API 密鑰統計數據",
+                color=discord.Color.green()
+            )
+            
+            # 獲取重置後的統計數據
+            key_stats = get_api_key_stats()
+            embed.add_field(
+                name="重置後統計",
+                value=(
+                    f"總請求數: **{key_stats['total_requests']}**\n"
+                    f"失敗請求: **{key_stats['failed_requests']}**\n"
+                    f"最後輪換時間: {key_stats['last_rotation']}"
+                ),
+                inline=False
+            )
+        else:
+            embed = discord.Embed(
+                title="❌ API 統計重置失敗",
+                description="重置 API 統計數據時發生錯誤",
+                color=discord.Color.red()
+            )
+        
+        await interaction.followup.send(embed=embed)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ChatCommands(bot))
