@@ -9,15 +9,9 @@ class BasicCommands(commands.Cog):
 
     @app_commands.command(name="你好", description="跟機器人打招呼")
     async def hello(self, interaction: discord.Interaction):
-        """簡單的打招呼指令，會使用用戶的語言回應"""
-        from utils.language_utils import get_response_in_language
-        
-        # 使用用戶的訊息內容或使用者名稱進行語言檢測
-        user_content = interaction.user.display_name
-        if hasattr(interaction, 'message') and hasattr(interaction.message, 'content'):
-            user_content = interaction.message.content
-            
-        response = get_response_in_language(user_content, 'welcome')
+        """簡單的打招呼指令，固定使用中文回應"""
+        # 由於這是中文指令「你好」，直接使用中文回應
+        response = "你好！我是AI助手 🤖\n很高興為你服務！"
         await interaction.response.send_message(response)
 
     @app_commands.command(name="延遲測試", description="檢查機器人的延遲時間")

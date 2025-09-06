@@ -632,6 +632,21 @@ class InfoCommands(commands.Cog):
                     # 記錄完整的資料結構，以便調試
                     logger.info(f"海嘯API返回的資料結構: {str(data.keys())}")
                     
+                    # 檢查是否有詳細資料
+                    if 'records' in data:
+                        records_keys = list(data['records'].keys()) if isinstance(data['records'], dict) else "not a dictionary"
+                        logger.info(f"海嘯API records結構: {records_keys}")
+                        
+                        if 'Tsunami' in data['records'] and isinstance(data['records']['Tsunami'], list):
+                            first_tsunami = data['records']['Tsunami'][0] if data['records']['Tsunami'] else {}
+                            logger.info(f"第一筆海嘯資料欄位: {list(first_tsunami.keys()) if first_tsunami else 'empty'}")
+                            
+                            # 特別檢查是否有圖片欄位
+                            if 'ReportImageURI' in first_tsunami:
+                                logger.info(f"找到海嘯圖片URL: {first_tsunami['ReportImageURI']}")
+                            elif 'Web' in first_tsunami:
+                                logger.info(f"找到海嘯網頁URL: {first_tsunami['Web']}")
+                    
                     # 更新快取
                     self.tsunami_cache = data
                     self.tsunami_cache_time = current_time
@@ -1054,8 +1069,12 @@ class InfoCommands(commands.Cog):
     async def format_tsunami_data(self, tsunami_data: Dict[str, Any]) -> Optional[discord.Embed]:
         """將海嘯資料格式化為Discord嵌入訊息"""
         try:
+            # 記錄資料結構以便診斷問題
+            logger.info(f"海嘯資料結構: {list(tsunami_data.keys())}")
+            
             # 確認必要的欄位是否存在
             if not all(key in tsunami_data for key in ['ReportContent', 'ReportType']):
+                logger.warning(f"海嘯資料缺少必要欄位，實際欄位: {list(tsunami_data.keys())}")
                 return None
                 
             # 取得海嘯資訊
@@ -1177,7 +1196,27 @@ class InfoCommands(commands.Cog):
                                 value=f"*尚有 {len(stations) - 5} 筆觀測站資料未顯示*",
                                 inline=False
                             )
-              # 添加頁尾資訊
+              # 添加海嘯報告圖片
+            report_image = tsunami_data.get('ReportImageURI', '')
+            # 如果沒有直接的圖片URL，嘗試從Web欄位構建URL
+            if not report_image and report_web:
+                # 假設Web是海嘯資料的URL，可能有相關的圖片
+                logger.info(f"嘗試從Web URL推導圖片: {report_web}")
+                # 檢查是否是氣象局的網頁
+                if 'cwb.gov.tw' in report_web:
+                    # 尋找可能的圖片路徑
+                    # 例如：從 https://www.cwa.gov.tw/V8/C/P/Tsunami/Map.html 
+                    # 推導 https://www.cwa.gov.tw/V8/C/P/Tsunami/Data/2023/map.png
+                    report_image = f"https://www.cwa.gov.tw/V8/C/P/Tsunami/Data/map.png"
+                    logger.info(f"推導出可能的圖片URL: {report_image}")
+            
+            if report_image:
+                embed.set_image(url=report_image)
+                logger.info(f"設置海嘯報告圖片: {report_image}")
+            else:
+                logger.warning("海嘯資料中未找到圖片URL")
+            
+            # 添加頁尾資訊
             footer_text = f"{report_type} 第{report_no}"
             if 'TsunamiNo' in tsunami_data:
                 footer_text += f" | 海嘯編號: {tsunami_data.get('TsunamiNo', '未知')}"

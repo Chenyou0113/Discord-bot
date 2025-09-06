@@ -793,4 +793,11 @@ class AdminCommands(commands.Cog):
             await interaction.followup.send(f"❌ 發送公告時發生錯誤: {str(e)}", ephemeral=True)
 
 async def setup(bot):
-    await bot.add_cog(AdminCommands(bot))
+    try:
+        logging.info("正在載入 AdminCommands cog...")
+        await bot.add_cog(AdminCommands(bot))
+        logging.info("AdminCommands cog 載入成功！")
+    except Exception as e:
+        logging.error(f"載入 AdminCommands cog 時發生錯誤: {str(e)}")
+        import traceback
+        logging.error(traceback.format_exc())

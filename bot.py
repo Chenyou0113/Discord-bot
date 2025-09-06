@@ -119,7 +119,7 @@ class CustomBot(commands.Bot):
         # 初始化其他屬性
         self._loaded_cogs = set()
         self.initial_extensions = [
-            'cogs.admin_commands_fixed',
+            'cogs.admin_commands_new',  # 使用新創建的管理員指令模組
             'cogs.basic_commands',
             'cogs.info_commands_fixed_v4_clean',
             'cogs.level_system',
@@ -268,11 +268,35 @@ class CustomBot(commands.Bot):
                         logger.info(f'    🔄 模組 {extension} 已在快取中，重新載入')
                         importlib.reload(sys.modules[extension])
                     
-                    # 3.3 載入擴展
-                    await self.load_extension(extension)
-                    self._loaded_cogs.add(extension)
-                    successful_loads += 1
-                    logger.info(f'    ✅ 成功載入 {extension}')
+                    # 3.3 載入擴展 (添加超級詳細錯誤日誌)
+                    try:
+                        logger.info(f'    開始載入 {extension}...')
+                        # 手動導入模組以獲取更詳細的錯誤信息
+                        module_name = extension
+                        logger.info(f'    嘗試導入模組 {module_name}...')
+                        
+                        # 先檢查模組是否存在
+                        import importlib.util
+                        module_path = module_name.replace('.', '/')
+                        file_path = f"{module_path}.py"
+                        if not os.path.exists(file_path):
+                            logger.error(f'    ❌ 模組文件不存在: {file_path}')
+                            failed_loads.append(extension)
+                            continue
+                        
+                        logger.info(f'    確認模組文件存在: {file_path}')
+                        
+                        # 嘗試使用標準方法載入
+                        await self.load_extension(extension)
+                        self._loaded_cogs.add(extension)
+                        successful_loads += 1
+                        logger.info(f'    ✅ 成功載入 {extension}')
+                    except Exception as load_error:
+                        logger.error(f'    ❌ 載入擴展 {extension} 時發生錯誤: {str(load_error)}')
+                        import traceback
+                        logger.error(f'    詳細錯誤信息: {traceback.format_exc()}')
+                        failed_loads.append(extension)
+                        continue
                     
                     # 3.4 載入間隔
                     await asyncio.sleep(0.4)
@@ -286,10 +310,14 @@ class CustomBot(commands.Bot):
                         logger.info(f'    ✅ 重新載入 {extension} 成功')
                     except Exception as reload_error:
                         logger.error(f'    ❌ 重新載入 {extension} 失敗: {str(reload_error)}')
+                        import traceback
+                        logger.error(f'    重新載入錯誤詳情: {traceback.format_exc()}')
                         failed_loads.append(extension)
                 
                 except Exception as e:
                     logger.error(f'    ❌ 載入 {extension} 失敗: {str(e)}')
+                    import traceback
+                    logger.error(f'    錯誤詳情: {traceback.format_exc()}')
                     failed_loads.append(extension)
             
             # 階段4: 載入結果驗證

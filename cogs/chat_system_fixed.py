@@ -48,6 +48,57 @@ class ChatSystemCommands(commands.Cog):
         self.quota_reset_time = 0
         self.request_times = []
         self.max_requests_per_minute = 8  # 保守設置，避免達到API限制
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """處理訊息事件，包括機器人被提及時的回應"""
+        # 忽略機器人自己的訊息
+        if message.author == self.bot.user:
+            return
+        
+        # 檢查機器人是否被提及
+        if self.bot.user in message.mentions:
+            # 檢查是否暫停回應
+            if self.responses_paused:
+                return
+                
+            try:
+                # 移除提及標籤，獲取純粹的訊息內容
+                content = message.content
+                for mention in message.mentions:
+                    content = content.replace(f'<@{mention.id}>', '').replace(f'<@!{mention.id}>', '')
+                content = content.strip()
+                
+                # 如果沒有內容，提供預設回應
+                if not content:
+                    await message.channel.send(f"{message.author.mention} 你好！有什麼我可以幫助你的嗎？你可以使用 `/聊天` 指令與我對話，或直接標記我並說出你的問題！")
+                    return
+                
+                # 使用聊天功能回應
+                user_id = message.author.id
+                
+                # 獲取或創建聊天會話
+                if user_id not in self.chat_history:
+                    self.chat_history[user_id] = create_chat()
+                
+                # 生成回應
+                response = await generate_content(content, chat=self.chat_history[user_id])
+                
+                if response:
+                    # 如果回應太長，分割發送
+                    if len(response) > 2000:
+                        chunks = [response[i:i+1900] for i in range(0, len(response), 1900)]
+                        await message.channel.send(f"{message.author.mention} {chunks[0]}")
+                        for chunk in chunks[1:]:
+                            await message.channel.send(chunk)
+                    else:
+                        await message.channel.send(f"{message.author.mention} {response}")
+                else:
+                    await message.channel.send(f"{message.author.mention} 抱歉，我無法處理你的請求，請稍後再試。")
+                    
+            except Exception as e:
+                logger.error(f"處理提及訊息時發生錯誤: {str(e)}")
+                await message.channel.send(f"{message.author.mention} 抱歉，處理你的訊息時發生錯誤。請稍後再試或使用 `/聊天` 指令。")
         self.cooldown_users = {}  # 用戶冷卻時間追蹤
         
         # 開發者權限設置
