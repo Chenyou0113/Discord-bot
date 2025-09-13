@@ -8,3 +8,4 @@ check_sync_status.py
 .env
 utils/gemini_pool.py
 .env
+.env
