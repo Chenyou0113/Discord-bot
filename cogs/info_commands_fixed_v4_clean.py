@@ -243,7 +243,7 @@ TRA_STATIONS = {
         {"name": "豐田", "id": "2530"},
         {"name": "壽豐", "id": "2540"},
         {"name": "平和", "id": "2550"},
-        {"name": "志學", "id": "2560"},
+        {"name": "志學", "id": "6240"},
         {"name": "吉安", "id": "2570"},
         {"name": "花蓮", "id": "2580"},
         {"name": "北埔", "id": "2590"},
@@ -1976,11 +1976,11 @@ class InfoCommands(commands.Cog):
                 logger.error("無法取得TDX access token")
                 return None
             
-            # 設定API端點 - 更新為用戶指定的數量
+            # 設定API端點 - 使用新的簡化端點
             api_endpoints = {
-                'TRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TRTC?%24top=117&%24format=JSON',
-                'KRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KRTC?%24top=77&%24format=JSON', 
-                'KLRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KLRT?%24top=33&%24format=JSON'
+                'TRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TRTC?%24format=JSON',
+                'KRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KRTC?%24format=JSON', 
+                'KLRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KLRT?%24format=JSON'
             }
             
             url = api_endpoints.get(metro_system)
@@ -3098,27 +3098,119 @@ class TRALiveboardView(View):
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
                 }
                 
-                url = "https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/LiveBoard?%24format=JSON"
+                # 修改API端點為新的v3版本
+                url = f"https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/StationLiveBoard?%24format=JSON&%24filter=StationID%20eq%20%27{self.station_id}%27"
+                
+                logger.info(f"正在查詢台鐵電子看板資料 - 車站: {self.station_name} (ID: {self.station_id})")
+                logger.info(f"API URL: {url}")
                 
                 async with session.get(url, headers=headers) as response:
+                    logger.info(f"API 回應狀態: {response.status}")
+                    
                     if response.status == 200:
                         data = await response.json()
-                        # 篩選出指定車站的資料
-                        if isinstance(data, list):
-                            # 過濾出符合車站ID的資料
-                            station_trains = [train for train in data if train.get('StationID') == self.station_id]
-                            self.trains = station_trains
+                        logger.info(f"取得原始資料結構: {type(data)}")
+                        
+                        # v3 API返回的是包含StationLiveBoards的物件，而不是直接的陣列
+                        trains_data = []
+                        if isinstance(data, dict) and 'StationLiveBoards' in data:
+                            trains_data = data['StationLiveBoards']
+                            logger.info(f"從StationLiveBoards取得資料: {len(trains_data)} 筆")
+                        elif isinstance(data, list):
+                            trains_data = data
+                            logger.info(f"直接列表資料: {len(trains_data)} 筆")
+                        
+                        if trains_data:
+                            # 進一步篩選和處理資料
+                            valid_trains = []
+                            current_time = datetime.datetime.now()
+                            
+                            for train in trains_data:
+                                # 檢查必要欄位 - v3 API 使用不同的欄位名稱
+                                if 'TrainNo' in train and ('ScheduleArrivalTime' in train or 'ScheduleDepartureTime' in train):
+                                    # 過濾已過時的班車 (超過30分鐘前的)
+                                    arrival_time_str = train.get('ScheduleArrivalTime', '')
+                                    departure_time_str = train.get('ScheduleDepartureTime', '')
+                                    
+                                    # 優先使用到站時間，如果沒有則使用離站時間
+                                    time_to_check = arrival_time_str or departure_time_str
+                                    
+                                    if time_to_check:
+                                        try:
+                                            today = current_time.date()
+                                            check_datetime = datetime.datetime.combine(today, datetime.datetime.strptime(time_to_check, '%H:%M:%S').time())
+                                            
+                                            # 如果班車時間已過，可能是明天的
+                                            if check_datetime < current_time - datetime.timedelta(minutes=30):
+                                                check_datetime += datetime.timedelta(days=1)
+                                            
+                                            # 只顯示未來24小時內的班車
+                                            if check_datetime <= current_time + datetime.timedelta(hours=24):
+                                                valid_trains.append(train)
+                                        except:
+                                            # 時間解析失敗，仍然保留
+                                            valid_trains.append(train)
+                            
+                            # 按照時間排序 (v3 API使用ScheduleArrivalTime)
+                            valid_trains.sort(key=lambda x: x.get('ScheduleArrivalTime', '') or x.get('ScheduleDepartureTime', ''))
+                            self.trains = valid_trains
+                            logger.info(f"篩選後有效班車: {len(valid_trains)} 筆")
+                            
                         else:
                             self.trains = []
+                            logger.warning("API 未返回有效的列車資料")
+                            
                         return self.format_liveboard_data()
+                        
+                    elif response.status == 404:
+                        # 嘗試使用不帶篩選的通用API端點
+                        logger.info("嘗試使用不帶篩選的通用v3 API端點")
+                        general_url = "https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/StationLiveBoard?%24format=JSON"
+                        
+                        async with session.get(general_url, headers=headers) as general_response:
+                            if general_response.status == 200:
+                                all_data = await general_response.json()
+                                logger.info(f"通用API取得資料結構: {type(all_data)}")
+                                
+                                # v3 API的資料結構處理
+                                all_trains = []
+                                if isinstance(all_data, dict) and 'StationLiveBoards' in all_data:
+                                    all_trains = all_data['StationLiveBoards']
+                                    logger.info(f"從StationLiveBoards取得總資料: {len(all_trains)} 筆")
+                                elif isinstance(all_data, list):
+                                    all_trains = all_data
+                                    logger.info(f"直接列表總資料: {len(all_trains)} 筆")
+                                
+                                if all_trains:
+                                    # 篩選指定車站的資料
+                                    station_trains = [train for train in all_trains if train.get('StationID') == self.station_id]
+                                    logger.info(f"車站 {self.station_id} 的班車: {len(station_trains)} 筆")
+                                    
+                                    if not station_trains:
+                                        # 嘗試使用車站名稱篩選
+                                        station_trains = [train for train in all_trains 
+                                                        if train.get('StationName', {}).get('Zh_tw', '') == self.station_name]
+                                        logger.info(f"使用車站名稱篩選後: {len(station_trains)} 筆")
+                                    
+                                    self.trains = station_trains
+                                    return self.format_liveboard_data()
+                                
+                            embed = discord.Embed(
+                                title="❌ 錯誤",
+                                description=f"無法獲取 {self.station_name} 的台鐵到站資訊 (狀態碼: {general_response.status})",
+                                color=0xFF0000
+                            )
+                            return embed
                     else:
                         embed = discord.Embed(
                             title="❌ 錯誤",
-                            description="無法獲取台鐵到站資訊",
+                            description=f"無法獲取台鐵到站資訊 (狀態碼: {response.status})",
                             color=0xFF0000
                         )
                         return embed
+                        
         except Exception as e:
+            logger.error(f"取得台鐵電子看板資料時發生錯誤: {str(e)}")
             embed = discord.Embed(
                 title="❌ 錯誤",
                 description=f"獲取台鐵到站資訊時發生錯誤：{str(e)}",
@@ -3136,7 +3228,7 @@ class TRALiveboardView(View):
         )
         
         if not self.trains:
-            embed.description = "目前沒有列車資訊"
+            embed.description = f"🔍 目前沒有 **{self.station_name}** 的列車資訊\n\n可能原因：\n• 該車站目前無排班\n• 車站ID或名稱不正確\n• API資料尚未更新\n\n請稍後再試或聯絡管理員"
             embed.set_footer(text="資料來源：TDX運輸資料流通服務")
             return embed
         
@@ -3149,24 +3241,38 @@ class TRALiveboardView(View):
         
         for train in page_trains:
             train_no = train.get('TrainNo', 'N/A')
-            train_type = train.get('TrainTypeName', {}).get('Zh_tw', 'N/A')
+            train_type = train.get('TrainTypeName', {})
+            if isinstance(train_type, dict):
+                train_type_name = train_type.get('Zh_tw', 'N/A')
+            else:
+                train_type_name = str(train_type) if train_type else 'N/A'
+                
             direction = train.get('Direction', 0)
             direction_str = "順行(南下)" if direction == 0 else "逆行(北上)"
             
-            # 到站時間
-            scheduled_arrival = train.get('ScheduledArrivalTime', '')
-            scheduled_departure = train.get('ScheduledDepartureTime', '')
+            # 到站時間 - v3 API使用不同的欄位名稱
+            scheduled_arrival = train.get('ScheduleArrivalTime', '')  # v3 API
+            scheduled_departure = train.get('ScheduleDepartureTime', '')  # v3 API
             delay_time = train.get('DelayTime', 0)
             
             # 終點站
-            end_station = train.get('EndingStationName', {}).get('Zh_tw', 'N/A')
+            end_station = train.get('EndingStationName', {})
+            if isinstance(end_station, dict):
+                end_station_name = end_station.get('Zh_tw', 'N/A')
+            else:
+                end_station_name = str(end_station) if end_station else 'N/A'
             
             # 車廂資訊
-            car_class = train.get('TrainClassificationName', {}).get('Zh_tw', '')
+            car_class = train.get('TrainClassificationName', {})
+            if isinstance(car_class, dict):
+                car_class_name = car_class.get('Zh_tw', '')
+            else:
+                car_class_name = str(car_class) if car_class else ''
             
             # 計算進站剩餘時間
             time_until_arrival = ""
             arrival_status = ""
+            time_info = ""
             
             if scheduled_arrival:
                 try:
@@ -3175,7 +3281,7 @@ class TRALiveboardView(View):
                     arrival_datetime = datetime.datetime.combine(today, datetime.datetime.strptime(scheduled_arrival, '%H:%M:%S').time())
                     
                     # 如果排定時間已過，可能是明天的班車
-                    if arrival_datetime < current_time:
+                    if arrival_datetime < current_time - datetime.timedelta(minutes=30):
                         arrival_datetime += datetime.timedelta(days=1)
                     
                     # 考慮誤點時間
@@ -3210,33 +3316,34 @@ class TRALiveboardView(View):
                     # 顯示排定時間
                     arrival_time = datetime.datetime.strptime(scheduled_arrival, '%H:%M:%S').strftime('%H:%M')
                     if delay_time > 0:
-                        time_info = f"預定: {arrival_time} (誤點{delay_time}分)"
+                        time_info = f"預定到站: {arrival_time} (誤點{delay_time}分)"
                     else:
-                        time_info = f"預定: {arrival_time}"
+                        time_info = f"預定到站: {arrival_time}"
                         
                 except Exception as e:
-                    time_info = f"預定: {scheduled_arrival}"
+                    logger.error(f"解析時間時發生錯誤: {str(e)}")
+                    time_info = f"預定到站: {scheduled_arrival}"
             
-            if scheduled_departure:
+            if scheduled_departure and not time_info.startswith("預定到站"):
                 try:
                     departure_time = datetime.datetime.strptime(scheduled_departure, '%H:%M:%S').strftime('%H:%M')
-                    if time_info:
-                        time_info += f" | 開車: {departure_time}"
-                    else:
-                        time_info = f"開車: {departure_time}"
+                    time_info = f"預定發車: {departure_time}"
                 except:
-                    if time_info:
-                        time_info += f" | 開車: {scheduled_departure}"
-                    else:
-                        time_info = f"開車: {scheduled_departure}"
+                    time_info = f"預定發車: {scheduled_departure}"
+            elif scheduled_departure:
+                try:
+                    departure_time = datetime.datetime.strptime(scheduled_departure, '%H:%M:%S').strftime('%H:%M')
+                    time_info += f" | 發車: {departure_time}"
+                except:
+                    time_info += f" | 發車: {scheduled_departure}"
             
             # 組裝列車詳細資訊
-            train_detail = f"**{train_no}車次** ({train_type})\n"
-            train_detail += f"🎯 終點: {end_station}\n"
+            train_detail = f"**{train_no}車次** ({train_type_name})\n"
+            train_detail += f"🎯 終點: {end_station_name}\n"
             train_detail += f"📍 方向: {direction_str}\n"
             
-            if car_class:
-                train_detail += f"🚃 車種: {car_class}\n"
+            if car_class_name:
+                train_detail += f"🚃 車種: {car_class_name}\n"
             
             # 優先顯示進站狀態
             if arrival_status:
@@ -3252,8 +3359,10 @@ class TRALiveboardView(View):
         
         if train_info:
             embed.description = "\n\n".join(train_info)
+        else:
+            embed.description = "目前沒有列車資訊"
         
-        embed.set_footer(text=f"資料來源：TDX運輸資料流通服務 | 第 {self.current_page + 1}/{total_pages} 頁")
+        embed.set_footer(text=f"資料來源：TDX運輸資料流通服務 | 第 {self.current_page + 1}/{total_pages} 頁 | 車站ID: {self.station_id}")
         
         # 更新按鈕狀態
         self.update_buttons(total_pages)
