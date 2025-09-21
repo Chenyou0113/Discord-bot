@@ -2096,8 +2096,16 @@ class InfoCommands(commands.Cog):
         
         return None
 
-    def format_metro_liveboard_by_line(self, liveboard_data: List[Dict[str, Any]], metro_system: str, system_name: str, selected_line: str = None) -> Optional[discord.Embed]:
-        """將捷運車站即時電子看板資料按路線分類格式化為Discord嵌入訊息"""
+    def format_metro_liveboard_by_direction(self, liveboard_data: List[Dict[str, Any]], metro_system: str, system_name: str, selected_line: str = None, direction_filter: str = None) -> Optional[discord.Embed]:
+        """將捷運車站即時電子看板資料按方向分類格式化為Discord嵌入訊息
+        
+        Args:
+            liveboard_data: 即時電子看板資料
+            metro_system: 捷運系統代碼
+            system_name: 捷運系統名稱
+            selected_line: 選擇的路線
+            direction_filter: 方向過濾 ('up': 上行, 'down': 下行, None: 全部)
+        """
         try:
             if not liveboard_data:
                 embed = discord.Embed(
@@ -2116,38 +2124,83 @@ class InfoCommands(commands.Cog):
                 'KLRT': 0x00A651   # 高雄輕軌綠
             }
             
-            # 台北捷運路線顏色
-            trtc_line_colors = {
-                'BR': 0x8B4513,    # 文湖線 - 棕色
-                'R': 0xFF0000,     # 淡水信義線 - 紅色
-                'G': 0x00FF00,     # 松山新店線 - 綠色
-                'O': 0xFF8C00,     # 中和新蘆線 - 橘色
-                'BL': 0x0000FF,    # 板南線 - 藍色
-                'Y': 0xFFD700,     # 環狀線 - 黃色
-                'LG': 0x32CD32,    # 安坑線 - 淺綠色
-                'V': 0x8A2BE2      # 淡海輕軌 - 紫色
+            # 定義各路線的終點站，用於判斷方向
+            line_terminals = {
+                # 台北捷運
+                'R': ['淡水', '象山'],  # 淡水信義線
+                'G': ['松山', '新店'],  # 松山新店線
+                'O': ['南勢角', '迴龍'],  # 中和新蘆線
+                'BL': ['頂埔', '南港展覽館'],  # 板南線
+                'BR': ['動物園', '南港展覽館'],  # 文湖線
+                'Y': ['大坪林', '新北產業園區'],  # 環狀線
+                # 高雄捷運
+                'RO': ['小港', '南岡山'],  # 紅線
+                'OR': ['西子灣', '大寮'],  # 橘線
+                # 高雄輕軌
+                'C': ['籬仔內', '哈瑪星']  # 環狀輕軌
             }
             
             color = colors.get(metro_system, 0x3498DB)
             
-            # 按路線分組
+            # 按路線、車站和方向分組資料
             lines_data = {}
-            for station_data in liveboard_data:
-                line_id = station_data.get('LineID', '未知路線')
+            for train_data in liveboard_data:
+                line_id = train_data.get('LineID', '未知路線')
+                station_id = train_data.get('StationID', '未知車站')
+                
+                # 取得目的地名稱來判斷方向
+                destination = train_data.get('DestinationStationName', {})
+                if isinstance(destination, dict):
+                    dest_name = destination.get('Zh_tw', '未知目的地')
+                else:
+                    dest_name = str(destination)
+                
+                # 判斷方向
+                direction = 'unknown'
+                if line_id in line_terminals:
+                    terminals = line_terminals[line_id]
+                    if len(terminals) >= 2:
+                        if dest_name in terminals[1:]:  # 往後面的終點站為上行
+                            direction = 'up'
+                        elif dest_name in terminals[:1]:  # 往前面的終點站為下行
+                            direction = 'down'
+                
+                # 如果有方向過濾，跳過不符合的資料
+                if direction_filter and direction != direction_filter:
+                    continue
+                
                 if line_id not in lines_data:
-                    lines_data[line_id] = []
-                lines_data[line_id].append(station_data)
+                    lines_data[line_id] = {}
+                
+                if station_id not in lines_data[line_id]:
+                    lines_data[line_id][station_id] = {
+                        'StationName': train_data.get('StationName', {}),
+                        'up_trains': [],
+                        'down_trains': []
+                    }
+                
+                # 根據方向添加列車資訊
+                if direction == 'up':
+                    lines_data[line_id][station_id]['up_trains'].append(train_data)
+                elif direction == 'down':
+                    lines_data[line_id][station_id]['down_trains'].append(train_data)
+                else:
+                    # 方向不明的資料放在上行
+                    lines_data[line_id][station_id]['up_trains'].append(train_data)
             
             # 如果指定了路線，只顯示該路線
             if selected_line and selected_line in lines_data:
                 lines_data = {selected_line: lines_data[selected_line]}
-                # 使用路線特定顏色
-                if metro_system == 'TRTC' and selected_line in trtc_line_colors:
-                    color = trtc_line_colors[selected_line]
+            
+            direction_text = ""
+            if direction_filter == 'up':
+                direction_text = " (⬆️ 上行方向)"
+            elif direction_filter == 'down':
+                direction_text = " (⬇️ 下行方向)"
             
             embed = discord.Embed(
                 title="🚇 車站即時電子看板",
-                description=f"📍 **{system_name}** {'全路線' if not selected_line else f'{selected_line}線'} 車站即時到離站資訊",
+                description=f"📍 **{system_name}**{direction_text} {'全路線' if not selected_line else f'{selected_line}線'} 車站即時到離站資訊",
                 color=color
             )
             
@@ -2155,10 +2208,8 @@ class InfoCommands(commands.Cog):
             line_names = {
                 # 台北捷運
                 'BR': '🤎 文湖線',
-                'R': '❤️ 淡水信義線', 
-                'G': '💚 松山新店線',
-                'O': '🧡 中和新蘆線',
                 'BL': '💙 板南線',
+                'G': '💚 松山新店線',
                 'Y': '💛 環狀線',
                 'LG': '💚 安坑線',
                 'V': '💜 淡海輕軌',
@@ -2166,55 +2217,96 @@ class InfoCommands(commands.Cog):
                 'RO': '❤️ 紅線',
                 'OR': '🧡 橘線',
                 # 高雄輕軌
-                'C': '💚 環狀輕軌'
+                'C': '💚 環狀輕軌',
+                # 根據系統判斷路線名稱
+                'R': '❤️ 紅線' if metro_system == 'KRTC' else '❤️ 淡水信義線',
+                'O': '🧡 橘線' if metro_system == 'KRTC' else '🧡 中和新蘆線'
             }
             
             total_stations = 0
-            for line_id, stations in lines_data.items():
-                if not stations:
+            for line_id, stations_dict in lines_data.items():
+                if not stations_dict:
                     continue
                     
                 line_name = line_names.get(line_id, line_id)
-                total_stations += len(stations)
+                total_stations += len(stations_dict)
                 
                 # 限制每條路線顯示的車站數量
-                display_stations = stations[:8] if not selected_line else stations[:15]
+                station_items = list(stations_dict.items())
+                display_station_items = station_items[:8] if not selected_line else station_items[:15]
                 
                 stations_text = []
-                for station_data in display_stations:
+                for station_id, station_info in display_station_items:
                     try:
                         # 取得車站資訊
-                        station_name = station_data.get('StationName', {})
+                        station_name = station_info.get('StationName', {})
                         if isinstance(station_name, dict):
                             station_name_zh = station_name.get('Zh_tw', '未知車站')
                         else:
                             station_name_zh = str(station_name)
                         
-                        # 取得列車資訊
-                        trains_info = []
-                        live_boards = station_data.get('LiveBoards', [])
+                        # 處理該車站的上行和下行列車
+                        up_trains = station_info.get('up_trains', [])
+                        down_trains = station_info.get('down_trains', [])
                         
-                        if live_boards:
-                            for board in live_boards[:2]:  # 最多顯示2班列車
-                                destination = board.get('DestinationStationName', {})
-                                if isinstance(destination, dict):
-                                    dest_name = destination.get('Zh_tw', '未知目的地')
-                                else:
-                                    dest_name = str(destination)
+                        station_lines = []
+                        
+                        # 處理上行列車 (如果沒有方向過濾或過濾為上行)
+                        if not direction_filter or direction_filter == 'up':
+                            if up_trains:
+                                up_train_texts = []
+                                # 去除重複列車資料
+                                unique_trains = []
+                                seen_trains = set()
                                 
-                                # 取得到站時間
-                                enter_time = board.get('EnterTime', '')
-                                # 取得到站時間
-                                enter_time = board.get('EnterTime', '')
-                                if enter_time:
-                                    trains_info.append(f"往{dest_name} ({enter_time})")
-                                else:
-                                    trains_info.append(f"往{dest_name}")
+                                for train_data in up_trains:
+                                    dest = train_data.get('DestinationStationName', {})
+                                    dest_name = dest.get('Zh_tw', '') if isinstance(dest, dict) else str(dest)
+                                    estimate_time = train_data.get('EstimateTime', 0)
+                                    
+                                    train_key = f"{dest_name}_{estimate_time}"
+                                    if train_key not in seen_trains:
+                                        seen_trains.add(train_key)
+                                        unique_trains.append(train_data)
+                                
+                                for train_data in unique_trains[:2]:  # 最多顯示2班列車
+                                    train_text = self._format_train_info(train_data)
+                                    if train_text:
+                                        up_train_texts.append(train_text)
+                                
+                                if up_train_texts:
+                                    station_lines.append(f"⬆️ **上行**: {' | '.join(up_train_texts)}")
+                        
+                        # 處理下行列車 (如果沒有方向過濾或過濾為下行)
+                        if not direction_filter or direction_filter == 'down':
+                            if down_trains:
+                                down_train_texts = []
+                                # 去除重複列車資料
+                                unique_trains = []
+                                seen_trains = set()
+                                
+                                for train_data in down_trains:
+                                    dest = train_data.get('DestinationStationName', {})
+                                    dest_name = dest.get('Zh_tw', '') if isinstance(dest, dict) else str(dest)
+                                    estimate_time = train_data.get('EstimateTime', 0)
+                                    
+                                    train_key = f"{dest_name}_{estimate_time}"
+                                    if train_key not in seen_trains:
+                                        seen_trains.add(train_key)
+                                        unique_trains.append(train_data)
+                                
+                                for train_data in unique_trains[:2]:  # 最多顯示2班列車
+                                    train_text = self._format_train_info(train_data)
+                                    if train_text:
+                                        down_train_texts.append(train_text)
+                                
+                                if down_train_texts:
+                                    station_lines.append(f"⬇️ **下行**: {' | '.join(down_train_texts)}")
                         
                         # 組合車站資訊
-                        if trains_info:
-                            train_text = ' | '.join(trains_info[:2])  # 最多顯示2班列車
-                            stations_text.append(f"🚉 **{station_name_zh}**: {train_text}")
+                        if station_lines:
+                            station_display = '\n    '.join(station_lines)
+                            stations_text.append(f"🚉 **{station_name_zh}**\n    {station_display}")
                         else:
                             stations_text.append(f"🚉 **{station_name_zh}**: 暫無列車資訊")
                             
@@ -2260,8 +2352,284 @@ class InfoCommands(commands.Cog):
                         embed.add_field(name=f"🚇 {line_name}", value=field_text, inline=False)
                 
                 # 如果還有更多車站沒顯示
-                if len(stations) > len(display_stations):
-                    remaining = len(stations) - len(display_stations)
+                if len(stations_dict) > len(display_station_items):
+                    remaining = len(stations_dict) - len(display_station_items)
+                    embed.add_field(
+                        name="📊 更多車站",
+                        value=f"{line_name}還有 {remaining} 個車站未顯示",
+                        inline=True
+                    )
+            
+            # 設定頁腳
+            embed.set_footer(text="資料來源: 交通部TDX平台 | 即時更新")
+            
+            return embed
+            
+        except Exception as e:
+            logger.error(f"格式化捷運電子看板資料時發生錯誤: {str(e)}")
+            return None
+    
+    def _format_train_info(self, train_data: Dict[str, Any]) -> str:
+        """格式化單一列車資訊"""
+        try:
+            # 取得列車資訊
+            destination = train_data.get('DestinationStationName', {})
+            if isinstance(destination, dict):
+                dest_name = destination.get('Zh_tw', '未知目的地')
+            else:
+                dest_name = str(destination)
+            
+            # 取得預估到站時間（秒）
+            estimate_time = train_data.get('EstimateTime', 0)
+            
+            # 計算剩餘時間顯示
+            time_info = ""
+            status_emoji = "🚇"
+            
+            if estimate_time == 0:
+                time_info = "**進站中**"
+                status_emoji = "🚆"
+            elif estimate_time <= 60:  # 1分鐘內
+                time_info = f"**即將進站** ({estimate_time}秒)"
+                status_emoji = "🔥"
+            elif estimate_time <= 180:  # 3分鐘內
+                minutes = estimate_time // 60
+                seconds = estimate_time % 60
+                time_info = f"**{minutes}分{seconds}秒**"
+                status_emoji = "🟡"
+            elif estimate_time <= 600:  # 10分鐘內
+                minutes = estimate_time // 60
+                time_info = f"**{minutes}分鐘**"
+                status_emoji = "🟢"
+            else:
+                minutes = estimate_time // 60
+                time_info = f"**{minutes}分鐘**"
+                status_emoji = "⏱️"
+            
+            # 組合列車資訊
+            return f"{status_emoji} 往**{dest_name}** - {time_info}"
+            
+        except Exception as e:
+            logger.warning(f"格式化列車資訊時發生錯誤: {str(e)}")
+            return ""
+
+    def format_metro_liveboard_by_line(self, liveboard_data: List[Dict[str, Any]], metro_system: str, system_name: str, selected_line: str = None) -> Optional[discord.Embed]:
+        """將捷運車站即時電子看板資料按路線分類格式化為Discord嵌入訊息"""
+        try:
+            if not liveboard_data:
+                embed = discord.Embed(
+                    title="🚇 車站即時電子看板",
+                    description="目前沒有即時電子看板資料",
+                    color=0x95A5A6
+                )
+                embed.add_field(name="系統", value=system_name, inline=True)
+                embed.set_footer(text="資料來源: 交通部TDX平台")
+                return embed
+            
+            # 捷運系統顏色設定
+            colors = {
+                'TRTC': 0x0070BD,  # 台北捷運藍
+                'KRTC': 0xFF6B35,  # 高雄捷運橘紅  
+                'KLRT': 0x00A651   # 高雄輕軌綠
+            }
+            
+            # 台北捷運路線顏色
+            trtc_line_colors = {
+                'BR': 0x8B4513,    # 文湖線 - 棕色
+                'R': 0xFF0000,     # 淡水信義線 - 紅色
+                'G': 0x00FF00,     # 松山新店線 - 綠色
+                'O': 0xFF8C00,     # 中和新蘆線 - 橘色
+                'BL': 0x0000FF,    # 板南線 - 藍色
+                'Y': 0xFFD700,     # 環狀線 - 黃色
+                'LG': 0x32CD32,    # 安坑線 - 淺綠色
+                'V': 0x8A2BE2      # 淡海輕軌 - 紫色
+            }
+            
+            color = colors.get(metro_system, 0x3498DB)
+            
+            # 按路線和車站分組重新整理資料
+            lines_data = {}
+            for train_data in liveboard_data:
+                line_id = train_data.get('LineID', '未知路線')
+                station_id = train_data.get('StationID', '未知車站')
+                
+                if line_id not in lines_data:
+                    lines_data[line_id] = {}
+                
+                if station_id not in lines_data[line_id]:
+                    lines_data[line_id][station_id] = {
+                        'StationName': train_data.get('StationName', {}),
+                        'trains': []
+                    }
+                
+                # 添加列車資訊
+                lines_data[line_id][station_id]['trains'].append(train_data)
+            
+            # 如果指定了路線，只顯示該路線
+            if selected_line and selected_line in lines_data:
+                lines_data = {selected_line: lines_data[selected_line]}
+                # 使用路線特定顏色
+                if metro_system == 'TRTC' and selected_line in trtc_line_colors:
+                    color = trtc_line_colors[selected_line]
+            
+            embed = discord.Embed(
+                title="🚇 車站即時電子看板",
+                description=f"📍 **{system_name}** {'全路線' if not selected_line else f'{selected_line}線'} 車站即時到離站資訊",
+                color=color
+            )
+            
+            # 路線名稱對照
+            line_names = {
+                # 台北捷運
+                'BR': '🤎 文湖線',
+                'BL': '💙 板南線',
+                'G': '💚 松山新店線',
+                'Y': '💛 環狀線',
+                'LG': '💚 安坑線',
+                'V': '💜 淡海輕軌',
+                # 高雄捷運
+                'RO': '❤️ 紅線',
+                'OR': '🧡 橘線',
+                # 高雄輕軌
+                'C': '💚 環狀輕軌',
+                # 根據系統判斷路線名稱
+                'R': '❤️ 紅線' if metro_system == 'KRTC' else '❤️ 淡水信義線',
+                'O': '🧡 橘線' if metro_system == 'KRTC' else '🧡 中和新蘆線'
+            }
+            
+            total_stations = 0
+            for line_id, stations_dict in lines_data.items():
+                if not stations_dict:
+                    continue
+                    
+                line_name = line_names.get(line_id, line_id)
+                total_stations += len(stations_dict)
+                
+                # 限制每條路線顯示的車站數量
+                station_items = list(stations_dict.items())
+                display_station_items = station_items[:8] if not selected_line else station_items[:15]
+                
+                stations_text = []
+                for station_id, station_info in display_station_items:
+                    try:
+                        # 取得車站資訊
+                        station_name = station_info.get('StationName', {})
+                        if isinstance(station_name, dict):
+                            station_name_zh = station_name.get('Zh_tw', '未知車站')
+                        else:
+                            station_name_zh = str(station_name)
+                        
+                        # 處理該車站的所有列車
+                        trains = station_info.get('trains', [])
+                        train_texts = []
+                        
+                        # 去除重複列車資料
+                        unique_trains = []
+                        seen_trains = set()
+                        
+                        for train_data in trains:
+                            # 建立唯一識別符（目的地 + 到站時間）
+                            dest = train_data.get('DestinationStationName', {})
+                            dest_name = dest.get('Zh_tw', '') if isinstance(dest, dict) else str(dest)
+                            estimate_time = train_data.get('EstimateTime', 0)
+                            
+                            train_key = f"{dest_name}_{estimate_time}"
+                            if train_key not in seen_trains:
+                                seen_trains.add(train_key)
+                                unique_trains.append(train_data)
+                        
+                        for train_data in unique_trains[:2]:  # 最多顯示2班列車
+                            # 取得列車資訊
+                            destination = train_data.get('DestinationStationName', {})
+                            if isinstance(destination, dict):
+                                dest_name = destination.get('Zh_tw', '未知目的地')
+                            else:
+                                dest_name = str(destination)
+                            
+                            # 取得預估到站時間（秒）
+                            estimate_time = train_data.get('EstimateTime', 0)
+                            
+                            # 計算剩餘時間顯示
+                            time_info = ""
+                            status_emoji = "🚇"
+                            
+                            if estimate_time == 0:
+                                time_info = "**進站中**"
+                                status_emoji = "🚆"
+                            elif estimate_time <= 60:  # 1分鐘內
+                                time_info = f"**即將進站** ({estimate_time}秒)"
+                                status_emoji = "🔥"
+                            elif estimate_time <= 180:  # 3分鐘內
+                                minutes = estimate_time // 60
+                                seconds = estimate_time % 60
+                                time_info = f"**{minutes}分{seconds}秒**"
+                                status_emoji = "🟡"
+                            elif estimate_time <= 600:  # 10分鐘內
+                                minutes = estimate_time // 60
+                                time_info = f"**{minutes}分鐘**"
+                                status_emoji = "🟢"
+                            else:
+                                minutes = estimate_time // 60
+                                time_info = f"**{minutes}分鐘**"
+                                status_emoji = "⏱️"
+                            
+                            # 組合列車資訊
+                            train_info = f"{status_emoji} 往**{dest_name}** - {time_info}"
+                            train_texts.append(train_info)
+                        
+                            train_texts.append(train_info)
+                        
+                        # 組合車站資訊
+                        if train_texts:
+                            train_display = '\n    '.join(train_texts)
+                            stations_text.append(f"🚉 **{station_name_zh}**\n    {train_display}")
+                        else:
+                            stations_text.append(f"🚉 **{station_name_zh}**: 暫無列車資訊")
+                            
+                    except Exception as e:
+                        logger.warning(f"處理車站 {station_name_zh} 資料時發生錯誤: {str(e)}")
+                        continue
+                
+                # 如果該路線有車站資料，添加到embed
+                if stations_text:
+                    # 分割成多個字段以避免字數限制
+                    field_text = '\n'.join(stations_text)
+                    
+                    # Discord字段值限制1024字符
+                    if len(field_text) > 1000:
+                        # 分割為多個字段
+                        chunks = []
+                        current_chunk = []
+                        current_length = 0
+                        
+                        for station_line in stations_text:
+                            if current_length + len(station_line) + 1 > 1000:
+                                if current_chunk:
+                                    chunks.append('\n'.join(current_chunk))
+                                    current_chunk = [station_line]
+                                    current_length = len(station_line)
+                                else:
+                                    # 單行太長，截斷
+                                    chunks.append(station_line[:1000])
+                                    current_chunk = []
+                                    current_length = 0
+                            else:
+                                current_chunk.append(station_line)
+                                current_length += len(station_line) + 1
+                        
+                        if current_chunk:
+                            chunks.append('\n'.join(current_chunk))
+                        
+                        # 添加分割後的字段
+                        for i, chunk in enumerate(chunks):
+                            field_name = f"🚇 {line_name}" + (f" ({i+1})" if len(chunks) > 1 else "")
+                            embed.add_field(name=field_name, value=chunk, inline=False)
+                    else:
+                        embed.add_field(name=f"🚇 {line_name}", value=field_text, inline=False)
+                
+                # 如果還有更多車站沒顯示
+                if len(stations_dict) > len(display_station_items):
+                    remaining = len(stations_dict) - len(display_station_items)
                     embed.add_field(
                         name="📊 更多車站",
                         value=f"{line_name}還有 {remaining} 個車站未顯示",
@@ -2335,6 +2703,54 @@ class InfoCommands(commands.Cog):
             
         except Exception as e:
             logger.error(f"即時電子看板指令執行時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+
+    @app_commands.command(name='metro_direction', description='查詢捷運車站上行/下行方向即時到離站電子看板')
+    @app_commands.describe(metro_system='選擇捷運系統')
+    @app_commands.choices(metro_system=[
+        app_commands.Choice(name='台北捷運', value='TRTC'),
+        app_commands.Choice(name='高雄捷運', value='KRTC'),
+        app_commands.Choice(name='高雄輕軌', value='KLRT')
+    ])
+    async def metro_direction(self, interaction: discord.Interaction, metro_system: app_commands.Choice[str]):
+        """查詢捷運車站按方向分類的即時電子看板"""
+        await interaction.response.defer()
+        
+        try:
+            logger.info(f"使用者 {interaction.user} 查詢捷運方向電子看板: {metro_system.name}")
+            
+            # 獲取即時電子看板資料
+            liveboard_data = await self.fetch_metro_liveboard(metro_system.value)
+            
+            if not liveboard_data:
+                embed = discord.Embed(
+                    title="🚇 車站即時電子看板 (方向分類)",
+                    description="❌ 目前無法取得即時電子看板資料，請稍後再試。",
+                    color=0xFF0000
+                )
+                embed.add_field(name="系統", value=metro_system.name, inline=True)
+                embed.add_field(name="狀態", value="資料取得失敗", inline=True)
+                embed.set_footer(text="資料來源: 交通部TDX平台")
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 使用按方向分類的視圖
+            view = MetroLiveboardByDirectionView(
+                cog=self,
+                user_id=interaction.user.id,
+                liveboard_data=liveboard_data,
+                metro_system=metro_system.value,
+                system_name=metro_system.name
+            )
+            
+            # 創建第一頁的嵌入訊息 (預設顯示全部方向)
+            embed = view.create_direction_embed()
+            
+            message = await interaction.followup.send(embed=embed, view=view)
+            view.message = message
+            
+        except Exception as e:
+            logger.error(f"即時電子看板方向指令執行時發生錯誤: {str(e)}")
             await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
 
     @app_commands.command(name='tra_liveboard', description='查詢台鐵車站即時電子看板')
@@ -2615,6 +3031,216 @@ class InfoCommands(commands.Cog):
         embed.set_footer(text=f"觀測時間: {obs_time} | 資料來源: 中央氣象署")
         return embed
 
+# 捷運即時電子看板方向視圖類
+class MetroLiveboardByDirectionView(View):
+    """捷運即時電子看板按方向分類視圖"""
+    def __init__(self, cog, user_id: int, liveboard_data: List[Dict[str, Any]], metro_system: str, system_name: str):
+        super().__init__(timeout=300)  # 5分鐘超時
+        self.cog = cog
+        self.user_id = user_id
+        self.liveboard_data = liveboard_data
+        self.metro_system = metro_system
+        self.system_name = system_name
+        self.current_direction = None  # None: 全部, 'up': 上行, 'down': 下行
+        self.message = None
+        
+        # 按路線分組資料
+        self.lines_data = {}
+        for station_data in liveboard_data:
+            line_id = station_data.get('LineID', '未知路線')
+            if line_id not in self.lines_data:
+                self.lines_data[line_id] = []
+            self.lines_data[line_id].append(station_data)
+        
+        self.available_lines = list(self.lines_data.keys())
+        self.current_line_index = 0
+        self.selected_line = self.available_lines[0] if self.available_lines else None
+        
+        self._update_buttons()
+    
+    def _update_buttons(self):
+        """更新按鈕狀態"""
+        self.clear_items()
+        
+        # 方向切換按鈕
+        all_button = discord.ui.Button(
+            label="🚇 全部方向",
+            style=discord.ButtonStyle.primary if self.current_direction is None else discord.ButtonStyle.secondary,
+            custom_id="direction_all"
+        )
+        all_button.callback = self.show_all_directions
+        self.add_item(all_button)
+        
+        up_button = discord.ui.Button(
+            label="⬆️ 上行",
+            style=discord.ButtonStyle.primary if self.current_direction == 'up' else discord.ButtonStyle.secondary,
+            custom_id="direction_up"
+        )
+        up_button.callback = self.show_up_direction
+        self.add_item(up_button)
+        
+        down_button = discord.ui.Button(
+            label="⬇️ 下行",
+            style=discord.ButtonStyle.primary if self.current_direction == 'down' else discord.ButtonStyle.secondary,
+            custom_id="direction_down"
+        )
+        down_button.callback = self.show_down_direction
+        self.add_item(down_button)
+        
+        # 路線切換按鈕（如果有多條路線）
+        if len(self.available_lines) > 1:
+            # 上一條路線
+            prev_line_button = discord.ui.Button(
+                label="◀️ 上一線",
+                style=discord.ButtonStyle.secondary,
+                disabled=self.current_line_index == 0
+            )
+            prev_line_button.callback = self.previous_line
+            self.add_item(prev_line_button)
+            
+            # 下一條路線
+            next_line_button = discord.ui.Button(
+                label="下一線 ▶️",
+                style=discord.ButtonStyle.secondary,
+                disabled=self.current_line_index >= len(self.available_lines) - 1
+            )
+            next_line_button.callback = self.next_line
+            self.add_item(next_line_button)
+        
+        # 刷新按鈕
+        refresh_button = discord.ui.Button(
+            label="🔄 刷新",
+            style=discord.ButtonStyle.success
+        )
+        refresh_button.callback = self.refresh_data
+        self.add_item(refresh_button)
+    
+    async def show_all_directions(self, interaction: discord.Interaction):
+        """顯示全部方向"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        self.current_direction = None
+        self._update_buttons()
+        embed = self.create_direction_embed()
+        await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
+    
+    async def show_up_direction(self, interaction: discord.Interaction):
+        """顯示上行方向"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        self.current_direction = 'up'
+        self._update_buttons()
+        embed = self.create_direction_embed()
+        await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
+    
+    async def show_down_direction(self, interaction: discord.Interaction):
+        """顯示下行方向"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        self.current_direction = 'down'
+        self._update_buttons()
+        embed = self.create_direction_embed()
+        await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
+    
+    async def previous_line(self, interaction: discord.Interaction):
+        """切換到上一條路線"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        if self.current_line_index > 0:
+            self.current_line_index -= 1
+            self.selected_line = self.available_lines[self.current_line_index]
+            self._update_buttons()
+            embed = self.create_direction_embed()
+            await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
+    
+    async def next_line(self, interaction: discord.Interaction):
+        """切換到下一條路線"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        if self.current_line_index < len(self.available_lines) - 1:
+            self.current_line_index += 1
+            self.selected_line = self.available_lines[self.current_line_index]
+            self._update_buttons()
+            embed = self.create_direction_embed()
+            await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
+    
+    async def refresh_data(self, interaction: discord.Interaction):
+        """刷新資料"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        try:
+            # 重新獲取資料
+            new_data = await self.cog.fetch_metro_liveboard(self.metro_system)
+            if new_data:
+                self.liveboard_data = new_data
+                
+                # 重新按路線分組
+                self.lines_data = {}
+                for station_data in new_data:
+                    line_id = station_data.get('LineID', '未知路線')
+                    if line_id not in self.lines_data:
+                        self.lines_data[line_id] = []
+                    self.lines_data[line_id].append(station_data)
+                
+                self.available_lines = list(self.lines_data.keys())
+                
+                # 調整當前路線索引
+                if self.current_line_index >= len(self.available_lines):
+                    self.current_line_index = max(0, len(self.available_lines) - 1)
+                
+                if self.available_lines:
+                    self.selected_line = self.available_lines[self.current_line_index]
+                
+                self._update_buttons()
+                embed = self.create_direction_embed()
+                embed.description += "\n🔄 **資料已刷新**"
+                await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
+            else:
+                await interaction.followup.send("❌ 刷新資料失敗，請稍後再試", ephemeral=True)
+        except Exception as e:
+            logger.error(f"刷新捷運電子看板資料時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 刷新資料時發生錯誤", ephemeral=True)
+    
+    def create_direction_embed(self) -> discord.Embed:
+        """創建方向分類的嵌入訊息"""
+        return self.cog.format_metro_liveboard_by_direction(
+            self.liveboard_data, 
+            self.metro_system, 
+            self.system_name, 
+            self.selected_line,
+            self.current_direction
+        )
+    
+    async def on_timeout(self):
+        """視圖超時時禁用所有按鈕"""
+        for item in self.children:
+            item.disabled = True
+        
+        try:
+            # 嘗試編輯訊息以禁用按鈕
+            await self.message.edit(view=self)
+        except:
+            pass
+
 # 捷運即時電子看板翻頁視圖類
 class MetroLiveboardByLineView(View):
     """捷運即時電子看板按路線分類視圖"""
@@ -2642,10 +3268,8 @@ class MetroLiveboardByLineView(View):
         self.line_names = {
             # 台北捷運
             'BR': '🤎 文湖線',
-            'R': '❤️ 淡水信義線', 
-            'G': '💚 松山新店線',
-            'O': '🧡 中和新蘆線',
             'BL': '💙 板南線',
+            'G': '💚 松山新店線',
             'Y': '💛 環狀線',
             'LG': '💚 安坑線',
             'V': '💜 淡海輕軌',
@@ -2653,7 +3277,10 @@ class MetroLiveboardByLineView(View):
             'RO': '❤️ 紅線',
             'OR': '🧡 橘線',
             # 高雄輕軌
-            'C': '💚 環狀輕軌'
+            'C': '💚 環狀輕軌',
+            # 根據系統判斷路線名稱
+            'R': '❤️ 紅線' if self.metro_system == 'KRTC' else '❤️ 淡水信義線',
+            'O': '🧡 橘線' if self.metro_system == 'KRTC' else '🧡 中和新蘆線'
         }
         
         self._update_buttons()
