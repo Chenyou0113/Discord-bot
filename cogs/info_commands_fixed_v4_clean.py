@@ -29,229 +29,260 @@ TRA_STATIONS = {
     "基隆市": [
         {"name": "基隆", "id": "0900"},
         {"name": "三坑", "id": "0910"},
-        {"name": "八堵", "id": "0920"}
-    ],
-    "臺北市": [
+        {"name": "八堵", "id": "0920"},
         {"name": "七堵", "id": "0930"},
         {"name": "百福", "id": "0940"},
+        {"name": "海科館", "id": "7361"},
+        {"name": "暖暖", "id": "7390"},
+    ],
+    "臺北市": [
+        {"name": "南港", "id": "0980"},
+        {"name": "松山", "id": "0990"},
+        {"name": "臺北", "id": "1000"},
+        {"name": "臺北-環島", "id": "1001"},
+        {"name": "萬華", "id": "1010"},
+    ],
+    "新北市": [
         {"name": "五堵", "id": "0950"},
         {"name": "汐止", "id": "0960"},
         {"name": "汐科", "id": "0970"},
-        {"name": "南港", "id": "1000"},
-        {"name": "松山", "id": "1010"},
-        {"name": "臺北", "id": "1020"},
-        {"name": "萬華", "id": "1030"}
-    ],
-    "新北市": [
-        {"name": "板橋", "id": "1040"},
-        {"name": "浮洲", "id": "1050"},
-        {"name": "樹林", "id": "1060"},
-        {"name": "南樹林", "id": "1070"},
-        {"name": "山佳", "id": "1080"},
-        {"name": "鶯歌", "id": "1090"},
-        {"name": "福隆", "id": "0140"},
-        {"name": "貢寮", "id": "0150"},
-        {"name": "雙溪", "id": "0160"},
-        {"name": "牡丹", "id": "0170"},
-        {"name": "三貂嶺", "id": "0180"},
-        {"name": "大華", "id": "0190"},
-        {"name": "十分", "id": "0200"},
-        {"name": "望古", "id": "0210"},
-        {"name": "嶺腳", "id": "0220"},
-        {"name": "平溪", "id": "0230"},
-        {"name": "菁桐", "id": "0240"}
+        {"name": "板橋", "id": "1020"},
+        {"name": "浮洲", "id": "1030"},
+        {"name": "樹林", "id": "1040"},
+        {"name": "南樹林", "id": "1050"},
+        {"name": "山佳", "id": "1060"},
+        {"name": "鶯歌", "id": "1070"},
+        {"name": "鳳鳴", "id": "1075"},
+        {"name": "福隆", "id": "7290"},
+        {"name": "貢寮", "id": "7300"},
+        {"name": "雙溪", "id": "7310"},
+        {"name": "牡丹", "id": "7320"},
+        {"name": "三貂嶺", "id": "7330"},
+        {"name": "大華", "id": "7331"},
+        {"name": "十分", "id": "7332"},
+        {"name": "望古", "id": "7333"},
+        {"name": "嶺腳", "id": "7334"},
+        {"name": "平溪", "id": "7335"},
+        {"name": "菁桐", "id": "7336"},
+        {"name": "猴硐", "id": "7350"},
+        {"name": "瑞芳", "id": "7360"},
+        {"name": "八斗子", "id": "7362"},
+        {"name": "四腳亭", "id": "7380"},
     ],
     "桃園市": [
-        {"name": "桃園", "id": "1100"},
-        {"name": "內壢", "id": "1110"},
-        {"name": "中壢", "id": "1120"},
-        {"name": "埔心", "id": "1130"},
-        {"name": "楊梅", "id": "1140"},
-        {"name": "富岡", "id": "1150"}
-    ],
-    "新竹縣": [
-        {"name": "新富", "id": "1160"},
-        {"name": "北湖", "id": "1170"},
-        {"name": "湖口", "id": "1180"},
-        {"name": "新豐", "id": "1190"},
-        {"name": "竹北", "id": "1200"}
+        {"name": "桃園", "id": "1080"},
+        {"name": "內壢", "id": "1090"},
+        {"name": "中壢", "id": "1100"},
+        {"name": "埔心", "id": "1110"},
+        {"name": "楊梅", "id": "1120"},
+        {"name": "富岡", "id": "1130"},
+        {"name": "新富", "id": "1140"},
     ],
     "新竹市": [
-        {"name": "北新竹", "id": "1210"},
-        {"name": "新竹", "id": "1220"},
-        {"name": "三姓橋", "id": "1230"},
-        {"name": "香山", "id": "1240"}
+        {"name": "北新竹", "id": "1190"},
+        {"name": "千甲", "id": "1191"},
+        {"name": "新莊", "id": "1192"},
+        {"name": "新竹", "id": "1210"},
+        {"name": "三姓橋", "id": "1220"},
+        {"name": "香山", "id": "1230"},
+    ],
+    "新竹縣": [
+        {"name": "北湖", "id": "1150"},
+        {"name": "湖口", "id": "1160"},
+        {"name": "新豐", "id": "1170"},
+        {"name": "竹北", "id": "1180"},
+        {"name": "竹中", "id": "1193"},
+        {"name": "六家", "id": "1194"},
+        {"name": "上員", "id": "1201"},
+        {"name": "榮華", "id": "1202"},
+        {"name": "竹東", "id": "1203"},
+        {"name": "橫山", "id": "1204"},
+        {"name": "九讚頭", "id": "1205"},
+        {"name": "合興", "id": "1206"},
+        {"name": "富貴", "id": "1207"},
+        {"name": "內灣", "id": "1208"},
     ],
     "苗栗縣": [
-        {"name": "崎頂", "id": "1250"},
-        {"name": "竹南", "id": "1260"},
-        {"name": "談文", "id": "1270"},
-        {"name": "大山", "id": "1280"},
-        {"name": "後龍", "id": "1290"},
-        {"name": "龍港", "id": "1300"},
-        {"name": "白沙屯", "id": "1310"},
-        {"name": "新埔", "id": "1320"},
-        {"name": "通霄", "id": "1330"},
-        {"name": "苑裡", "id": "1340"},
-        {"name": "造橋", "id": "1351"},
-        {"name": "豐富", "id": "1361"},
-        {"name": "苗栗", "id": "1371"},
-        {"name": "南勢", "id": "1381"},
-        {"name": "銅鑼", "id": "1391"},
-        {"name": "三義", "id": "1401"}
+        {"name": "崎頂", "id": "1240"},
+        {"name": "竹南", "id": "1250"},
+        {"name": "談文", "id": "2110"},
+        {"name": "大山", "id": "2120"},
+        {"name": "後龍", "id": "2130"},
+        {"name": "龍港", "id": "2140"},
+        {"name": "白沙屯", "id": "2150"},
+        {"name": "新埔", "id": "2160"},
+        {"name": "通霄", "id": "2170"},
+        {"name": "苑裡", "id": "2180"},
+        {"name": "造橋", "id": "3140"},
+        {"name": "豐富", "id": "3150"},
+        {"name": "苗栗", "id": "3160"},
+        {"name": "南勢", "id": "3170"},
+        {"name": "銅鑼", "id": "3180"},
+        {"name": "三義", "id": "3190"},
     ],
     "臺中市": [
-        {"name": "日南", "id": "1350"},
-        {"name": "大甲", "id": "1360"},
-        {"name": "臺中港", "id": "1370"},
-        {"name": "清水", "id": "1380"},
-        {"name": "沙鹿", "id": "1390"},
-        {"name": "龍井", "id": "1400"},
-        {"name": "大肚", "id": "1410"},
-        {"name": "追分", "id": "1420"},
-        {"name": "泰安", "id": "1411"},
-        {"name": "后里", "id": "1421"},
-        {"name": "豐原", "id": "1431"},
-        {"name": "栗林", "id": "1441"},
-        {"name": "潭子", "id": "1451"},
-        {"name": "頭家厝", "id": "1461"},
-        {"name": "松竹", "id": "1471"},
-        {"name": "太原", "id": "1481"},
-        {"name": "精武", "id": "1491"},
-        {"name": "臺中", "id": "1500"},
-        {"name": "五權", "id": "1510"},
-        {"name": "大慶", "id": "1520"},
-        {"name": "烏日", "id": "1530"},
-        {"name": "新烏日", "id": "1540"}
+        {"name": "日南", "id": "2190"},
+        {"name": "大甲", "id": "2200"},
+        {"name": "臺中港", "id": "2210"},
+        {"name": "清水", "id": "2220"},
+        {"name": "沙鹿", "id": "2230"},
+        {"name": "龍井", "id": "2240"},
+        {"name": "大肚", "id": "2250"},
+        {"name": "追分", "id": "2260"},
+        {"name": "泰安", "id": "3210"},
+        {"name": "后里", "id": "3220"},
+        {"name": "豐原", "id": "3230"},
+        {"name": "栗林", "id": "3240"},
+        {"name": "潭子", "id": "3250"},
+        {"name": "頭家厝", "id": "3260"},
+        {"name": "松竹", "id": "3270"},
+        {"name": "太原", "id": "3280"},
+        {"name": "精武", "id": "3290"},
+        {"name": "臺中", "id": "3300"},
+        {"name": "五權", "id": "3310"},
+        {"name": "大慶", "id": "3320"},
+        {"name": "烏日", "id": "3330"},
+        {"name": "新烏日", "id": "3340"},
+        {"name": "成功", "id": "3350"},
     ],
     "彰化縣": [
-        {"name": "成功", "id": "1430"},
-        {"name": "彰化", "id": "1550"},
-        {"name": "花壇", "id": "1560"},
-        {"name": "大村", "id": "1570"},
-        {"name": "員林", "id": "1580"},
-        {"name": "永靖", "id": "1590"},
-        {"name": "社頭", "id": "1600"},
-        {"name": "田中", "id": "1610"},
-        {"name": "二水", "id": "1620"}
+        {"name": "彰化", "id": "3360"},
+        {"name": "花壇", "id": "3370"},
+        {"name": "大村", "id": "3380"},
+        {"name": "員林", "id": "3390"},
+        {"name": "永靖", "id": "3400"},
+        {"name": "社頭", "id": "3410"},
+        {"name": "田中", "id": "3420"},
+        {"name": "二水", "id": "3430"},
+        {"name": "源泉", "id": "3431"},
+    ],
+    "南投縣": [
+        {"name": "濁水", "id": "3432"},
+        {"name": "龍泉", "id": "3433"},
+        {"name": "集集", "id": "3434"},
+        {"name": "水里", "id": "3435"},
+        {"name": "車埕", "id": "3436"},
     ],
     "雲林縣": [
-        {"name": "林內", "id": "1630"},
-        {"name": "石榴", "id": "1640"},
-        {"name": "斗六", "id": "1650"},
-        {"name": "斗南", "id": "1660"},
-        {"name": "石龜", "id": "1670"}
-    ],
-    "嘉義縣": [
-        {"name": "大林", "id": "1680"},
-        {"name": "民雄", "id": "1690"},
-        {"name": "水上", "id": "1700"},
-        {"name": "南靖", "id": "1710"}
+        {"name": "林內", "id": "3450"},
+        {"name": "石榴", "id": "3460"},
+        {"name": "斗六", "id": "3470"},
+        {"name": "斗南", "id": "3480"},
+        {"name": "石龜", "id": "3490"},
     ],
     "嘉義市": [
-        {"name": "嘉義", "id": "1720"}
+        {"name": "嘉北", "id": "4070"},
+        {"name": "嘉義", "id": "4080"},
+    ],
+    "嘉義縣": [
+        {"name": "大林", "id": "4050"},
+        {"name": "民雄", "id": "4060"},
+        {"name": "水上", "id": "4090"},
+        {"name": "南靖", "id": "4100"},
     ],
     "臺南市": [
-        {"name": "後壁", "id": "1730"},
-        {"name": "新營", "id": "1740"},
-        {"name": "柳營", "id": "1750"},
-        {"name": "林鳳營", "id": "1760"},
-        {"name": "隆田", "id": "1770"},
-        {"name": "拔林", "id": "1780"},
-        {"name": "善化", "id": "1790"},
-        {"name": "南科", "id": "1800"},
-        {"name": "新市", "id": "1810"},
-        {"name": "永康", "id": "1820"},
-        {"name": "大橋", "id": "1830"},
-        {"name": "臺南", "id": "1840"},
-        {"name": "保安", "id": "1850"},
-        {"name": "仁德", "id": "1860"},
-        {"name": "中洲", "id": "1870"},
-        {"name": "長榮大學", "id": "1880"},
-        {"name": "沙崙", "id": "1890"}
+        {"name": "後壁", "id": "4110"},
+        {"name": "新營", "id": "4120"},
+        {"name": "柳營", "id": "4130"},
+        {"name": "林鳳營", "id": "4140"},
+        {"name": "隆田", "id": "4150"},
+        {"name": "拔林", "id": "4160"},
+        {"name": "善化", "id": "4170"},
+        {"name": "南科", "id": "4180"},
+        {"name": "新市", "id": "4190"},
+        {"name": "永康", "id": "4200"},
+        {"name": "大橋", "id": "4210"},
+        {"name": "臺南", "id": "4220"},
+        {"name": "保安", "id": "4250"},
+        {"name": "仁德", "id": "4260"},
+        {"name": "中洲", "id": "4270"},
+        {"name": "長榮大學", "id": "4271"},
+        {"name": "沙崙", "id": "4272"},
     ],
     "高雄市": [
-        {"name": "大湖", "id": "1900"},
-        {"name": "路竹", "id": "1910"},
-        {"name": "岡山", "id": "1920"},
-        {"name": "橋頭", "id": "1930"},
-        {"name": "楠梓", "id": "1940"},
-        {"name": "新左營", "id": "1950"},
-        {"name": "左營", "id": "1960"},
-        {"name": "內惟", "id": "1970"},
-        {"name": "美術館", "id": "1980"},
-        {"name": "鼓山", "id": "1990"},
-        {"name": "三塊厝", "id": "2000"},
-        {"name": "高雄", "id": "2010"},
-        {"name": "民族", "id": "2020"},
-        {"name": "科工館", "id": "2030"},
-        {"name": "正義", "id": "2040"},
-        {"name": "鳳山", "id": "2050"},
-        {"name": "後庄", "id": "2060"},
-        {"name": "九曲堂", "id": "2070"}
+        {"name": "大湖", "id": "4290"},
+        {"name": "路竹", "id": "4300"},
+        {"name": "岡山", "id": "4310"},
+        {"name": "橋頭", "id": "4320"},
+        {"name": "楠梓", "id": "4330"},
+        {"name": "新左營", "id": "4340"},
+        {"name": "左營", "id": "4350"},
+        {"name": "內惟", "id": "4360"},
+        {"name": "美術館", "id": "4370"},
+        {"name": "鼓山", "id": "4380"},
+        {"name": "三塊厝", "id": "4390"},
+        {"name": "高雄", "id": "4400"},
+        {"name": "民族", "id": "4410"},
+        {"name": "科工館", "id": "4420"},
+        {"name": "正義", "id": "4430"},
+        {"name": "鳳山", "id": "4440"},
+        {"name": "後庄", "id": "4450"},
+        {"name": "九曲堂", "id": "4460"},
     ],
     "屏東縣": [
-        {"name": "六塊厝", "id": "2080"},
-        {"name": "屏東", "id": "2090"},
-        {"name": "歸來", "id": "2100"},
-        {"name": "麟洛", "id": "2110"},
-        {"name": "西勢", "id": "2120"},
-        {"name": "竹田", "id": "2130"},
-        {"name": "潮州", "id": "2140"},
-        {"name": "崁頂", "id": "2150"},
-        {"name": "南州", "id": "2160"},
-        {"name": "鎮安", "id": "2170"},
-        {"name": "林邊", "id": "2180"},
-        {"name": "佳冬", "id": "2190"},
-        {"name": "東海", "id": "2200"},
-        {"name": "枋寮", "id": "2210"},
-        {"name": "加祿", "id": "2220"},
-        {"name": "內獅", "id": "2230"},
-        {"name": "枋山", "id": "2240"}
+        {"name": "六塊厝", "id": "4470"},
+        {"name": "屏東", "id": "5000"},
+        {"name": "歸來", "id": "5010"},
+        {"name": "麟洛", "id": "5020"},
+        {"name": "西勢", "id": "5030"},
+        {"name": "竹田", "id": "5040"},
+        {"name": "潮州", "id": "5050"},
+        {"name": "崁頂", "id": "5060"},
+        {"name": "南州", "id": "5070"},
+        {"name": "鎮安", "id": "5080"},
+        {"name": "林邊", "id": "5090"},
+        {"name": "佳冬", "id": "5100"},
+        {"name": "東海", "id": "5110"},
+        {"name": "枋寮", "id": "5120"},
+        {"name": "加祿", "id": "5130"},
+        {"name": "內獅", "id": "5140"},
+        {"name": "枋山", "id": "5160"},
+        {"name": "枋野", "id": "5170"},
+        {"name": "南方小站", "id": "5998"},
+        {"name": "潮州基地", "id": "5999"},
     ],
     "臺東縣": [
-        {"name": "古莊", "id": "2250"},
-        {"name": "大武", "id": "2260"},
-        {"name": "瀧溪", "id": "2270"},
-        {"name": "金崙", "id": "2280"},
-        {"name": "太麻里", "id": "2290"},
-        {"name": "知本", "id": "2300"},
-        {"name": "康樂", "id": "2310"},
-        {"name": "臺東", "id": "2320"},
-        {"name": "山里", "id": "2330"},
-        {"name": "鹿野", "id": "2340"},
-        {"name": "瑞源", "id": "2350"},
-        {"name": "瑞和", "id": "2360"},
-        {"name": "關山", "id": "2370"},
-        {"name": "海端", "id": "2380"},
-        {"name": "池上", "id": "2390"},
-        {"name": "富里", "id": "2400"}
+        {"name": "大武", "id": "5190"},
+        {"name": "瀧溪", "id": "5200"},
+        {"name": "金崙", "id": "5210"},
+        {"name": "太麻里", "id": "5220"},
+        {"name": "知本", "id": "5230"},
+        {"name": "康樂", "id": "5240"},
+        {"name": "臺東", "id": "6000"},
+        {"name": "山里", "id": "6010"},
+        {"name": "鹿野", "id": "6020"},
+        {"name": "瑞源", "id": "6030"},
+        {"name": "瑞和", "id": "6040"},
+        {"name": "關山", "id": "6050"},
+        {"name": "海端", "id": "6060"},
+        {"name": "池上", "id": "6070"},
     ],
     "花蓮縣": [
-        {"name": "東竹", "id": "2410"},
-        {"name": "東里", "id": "2420"},
-        {"name": "玉里", "id": "2430"},
-        {"name": "三民", "id": "2440"},
-        {"name": "瑞穗", "id": "2450"},
-        {"name": "富源", "id": "2460"},
-        {"name": "大富", "id": "2470"},
-        {"name": "光復", "id": "2480"},
-        {"name": "萬榮", "id": "2490"},
-        {"name": "鳳林", "id": "2500"},
-        {"name": "南平", "id": "2510"},
-        {"name": "林榮新光", "id": "2520"},
-        {"name": "豐田", "id": "2530"},
-        {"name": "壽豐", "id": "2540"},
-        {"name": "平和", "id": "2550"},
+        {"name": "富里", "id": "6080"},
+        {"name": "東竹", "id": "6090"},
+        {"name": "東里", "id": "6100"},
+        {"name": "玉里", "id": "6110"},
+        {"name": "三民", "id": "6120"},
+        {"name": "瑞穗", "id": "6130"},
+        {"name": "富源", "id": "6140"},
+        {"name": "大富", "id": "6150"},
+        {"name": "光復", "id": "6160"},
+        {"name": "萬榮", "id": "6170"},
+        {"name": "鳳林", "id": "6180"},
+        {"name": "南平", "id": "6190"},
+        {"name": "林榮新光", "id": "6200"},
+        {"name": "豐田", "id": "6210"},
+        {"name": "壽豐", "id": "6220"},
+        {"name": "平和", "id": "6230"},
         {"name": "志學", "id": "6240"},
-        {"name": "吉安", "id": "2570"},
-        {"name": "花蓮", "id": "2580"},
-        {"name": "北埔", "id": "2590"},
-        {"name": "景美", "id": "2600"},
-        {"name": "新城", "id": "2610"},
-        {"name": "崇德", "id": "2620"},
-        {"name": "和仁", "id": "2630"},
-        {"name": "和平", "id": "2640"}
+        {"name": "吉安", "id": "6250"},
+        {"name": "花蓮", "id": "7000"},
+        {"name": "北埔", "id": "7010"},
+        {"name": "景美", "id": "7020"},
+        {"name": "新城", "id": "7030"},
+        {"name": "崇德", "id": "7040"},
+        {"name": "和仁", "id": "7050"},
+        {"name": "和平", "id": "7060"},
     ],
     "宜蘭縣": [
         {"name": "漢本", "id": "7070"},
@@ -275,7 +306,7 @@ TRA_STATIONS = {
         {"name": "龜山", "id": "7250"},
         {"name": "大溪", "id": "7260"},
         {"name": "大里", "id": "7270"},
-        {"name": "石城", "id": "7280"}
+        {"name": "石城", "id": "7280"},
     ]
 }
 
@@ -821,7 +852,7 @@ class InfoCommands(commands.Cog):
             logger.error(f"格式化地震資料時發生錯誤: {str(e)}")
             return None
             
-    @app_commands.command(name="地震資訊", description="查詢最新地震資訊")
+    @app_commands.command(name="earthquake", description="查詢最新地震資訊")
     @app_commands.describe(earthquake_type="選擇地震資料類型")
     @app_commands.choices(earthquake_type=[
         app_commands.Choice(name="一般地震", value="normal"),
@@ -1006,7 +1037,7 @@ class InfoCommands(commands.Cog):
             logger.error(f"增強地震資料時發生錯誤: {str(e)}")
             return eq_data  # 返回原始資料
 
-    @app_commands.command(name="設定地震頻道", description="設定地震通知頻道 (需管理員權限)")
+    @app_commands.command(name="set_earthquake_channel", description="設定地震通知頻道 (需管理員權限)")
     @app_commands.describe(channel="要設定為地震通知頻道的文字頻道")
     async def set_earthquake_channel(self, interaction: discord.Interaction, channel: discord.TextChannel = None):
         """設定地震通知頻道"""
@@ -1229,7 +1260,7 @@ class InfoCommands(commands.Cog):
             logger.error(f"格式化海嘯資料時發生錯誤: {str(e)}")
             return None
 
-    @app_commands.command(name="海嘯資訊", description="查詢最新海嘯資訊")
+    @app_commands.command(name="tsunami", description="查詢最新海嘯資訊")
     async def tsunami(self, interaction: discord.Interaction):
         """查詢最新海嘯資訊"""
         await interaction.response.defer()
@@ -1803,7 +1834,7 @@ class InfoCommands(commands.Cog):
             logger.error(f"格式化{rail_type.upper()}事故資料時發生錯誤: {str(e)}")
             return None
 
-    @app_commands.command(name="鐵路事故", description="查詢台鐵或高鐵事故資訊")
+    @app_commands.command(name="railway_incident", description="查詢台鐵或高鐵事故資訊")
     @app_commands.describe(鐵路類型="選擇要查詢的鐵路類型")
     @app_commands.choices(鐵路類型=[
         app_commands.Choice(name="台鐵", value="tra"),
@@ -1916,7 +1947,7 @@ class InfoCommands(commands.Cog):
             logger.error(f"鐵路事故指令執行時發生錯誤: {str(e)}")
             await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
 
-    @app_commands.command(name='捷運狀態', description='查詢各捷運系統運行狀態')
+    @app_commands.command(name='metro_status', description='查詢各捷運系統運行狀態')
     @app_commands.describe(metro_system='選擇捷運系統')
     @app_commands.choices(metro_system=[
         app_commands.Choice(name='台北捷運', value='TRTC'),
@@ -1976,7 +2007,7 @@ class InfoCommands(commands.Cog):
                 logger.error("無法取得TDX access token")
                 return None
             
-            # 設定API端點 - 使用新的簡化端點
+            # 設定API端點 - 完全移除$top限制以取得所有可用資料
             api_endpoints = {
                 'TRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TRTC?%24format=JSON',
                 'KRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KRTC?%24format=JSON', 
@@ -2008,8 +2039,33 @@ class InfoCommands(commands.Cog):
                         data = await response.json()
                         logger.info(f"成功取得{metro_system}車站電子看板資料，共{len(data)}筆")
                         
-                        # 調試：記錄第一筆資料的結構
+                        # 詳細統計分析
                         if data and len(data) > 0:
+                            # 統計各路線資料
+                            line_stats = {}
+                            stations_with_data = 0
+                            stations_without_data = 0
+                            
+                            for station in data:
+                                line_id = station.get('LineID', '未知路線')
+                                if line_id not in line_stats:
+                                    line_stats[line_id] = 0
+                                line_stats[line_id] += 1
+                                
+                                # 檢查是否有實際的列車資料
+                                live_boards = station.get('LiveBoards', [])
+                                if live_boards:
+                                    stations_with_data += 1
+                                else:
+                                    stations_without_data += 1
+                            
+                            logger.info(f"{metro_system} 資料統計:")
+                            logger.info(f"  總車站數: {len(data)}")
+                            logger.info(f"  有列車資料的車站: {stations_with_data}")
+                            logger.info(f"  無列車資料的車站: {stations_without_data}")
+                            logger.info(f"  各路線分布: {line_stats}")
+                            
+                            # 調試：記錄第一筆資料的結構
                             first_station = data[0]
                             logger.debug(f"第一筆車站資料結構: {list(first_station.keys())}")
                             
@@ -2021,6 +2077,8 @@ class InfoCommands(commands.Cog):
                                 logger.debug(f"LiveBoard內容範例: {first_board}")
                             else:
                                 logger.debug("該車站沒有LiveBoard資料")
+                        else:
+                            logger.warning(f"{metro_system} 沒有收到任何車站資料")
                         
                         return data
                     else:
@@ -2038,8 +2096,8 @@ class InfoCommands(commands.Cog):
         
         return None
 
-    def format_metro_liveboard(self, liveboard_data: List[Dict[str, Any]], metro_system: str, system_name: str) -> Optional[discord.Embed]:
-        """將捷運車站即時電子看板資料格式化為Discord嵌入訊息"""
+    def format_metro_liveboard_by_line(self, liveboard_data: List[Dict[str, Any]], metro_system: str, system_name: str, selected_line: str = None) -> Optional[discord.Embed]:
+        """將捷運車站即時電子看板資料按路線分類格式化為Discord嵌入訊息"""
         try:
             if not liveboard_data:
                 embed = discord.Embed(
@@ -2058,75 +2116,168 @@ class InfoCommands(commands.Cog):
                 'KLRT': 0x00A651   # 高雄輕軌綠
             }
             
+            # 台北捷運路線顏色
+            trtc_line_colors = {
+                'BR': 0x8B4513,    # 文湖線 - 棕色
+                'R': 0xFF0000,     # 淡水信義線 - 紅色
+                'G': 0x00FF00,     # 松山新店線 - 綠色
+                'O': 0xFF8C00,     # 中和新蘆線 - 橘色
+                'BL': 0x0000FF,    # 板南線 - 藍色
+                'Y': 0xFFD700,     # 環狀線 - 黃色
+                'LG': 0x32CD32,    # 安坑線 - 淺綠色
+                'V': 0x8A2BE2      # 淡海輕軌 - 紫色
+            }
+            
             color = colors.get(metro_system, 0x3498DB)
+            
+            # 按路線分組
+            lines_data = {}
+            for station_data in liveboard_data:
+                line_id = station_data.get('LineID', '未知路線')
+                if line_id not in lines_data:
+                    lines_data[line_id] = []
+                lines_data[line_id].append(station_data)
+            
+            # 如果指定了路線，只顯示該路線
+            if selected_line and selected_line in lines_data:
+                lines_data = {selected_line: lines_data[selected_line]}
+                # 使用路線特定顏色
+                if metro_system == 'TRTC' and selected_line in trtc_line_colors:
+                    color = trtc_line_colors[selected_line]
             
             embed = discord.Embed(
                 title="🚇 車站即時電子看板",
-                description=f"📍 **{system_name}** 車站即時到離站資訊",
+                description=f"📍 **{system_name}** {'全路線' if not selected_line else f'{selected_line}線'} 車站即時到離站資訊",
                 color=color
             )
             
-            # 處理資料（限制顯示前10筆以避免訊息過長）
-            display_count = min(10, len(liveboard_data))
+            # 路線名稱對照
+            line_names = {
+                # 台北捷運
+                'BR': '🤎 文湖線',
+                'R': '❤️ 淡水信義線', 
+                'G': '💚 松山新店線',
+                'O': '🧡 中和新蘆線',
+                'BL': '💙 板南線',
+                'Y': '💛 環狀線',
+                'LG': '💚 安坑線',
+                'V': '💜 淡海輕軌',
+                # 高雄捷運
+                'RO': '❤️ 紅線',
+                'OR': '🧡 橘線',
+                # 高雄輕軌
+                'C': '💚 環狀輕軌'
+            }
             
-            for i, station_data in enumerate(liveboard_data[:display_count]):
-                try:
-                    # 取得車站資訊
-                    station_name = station_data.get('StationName', {})
-                    if isinstance(station_name, dict):
-                        station_name_zh = station_name.get('Zh_tw', '未知車站')
-                    else:
-                        station_name_zh = str(station_name)
-                    
-                    # 取得路線資訊
-                    line_info = station_data.get('LineID', '未知路線')
-                    
-                    # 取得列車資訊
-                    trains_info = []
-                    live_boards = station_data.get('LiveBoards', [])
-                    
-                    if live_boards:
-                        for board in live_boards[:3]:  # 最多顯示3班列車
-                            direction = board.get('Direction', '未知')
-                            destination = board.get('DestinationStationName', {})
-                            if isinstance(destination, dict):
-                                dest_name = destination.get('Zh_tw', '未知目的地')
-                            else:
-                                dest_name = str(destination)
-                            
-                            # 取得到站時間
-                            enter_time = board.get('EnterTime', '')
-                            if enter_time:
-                                trains_info.append(f"➤ 往{dest_name} ({enter_time})")
-                            else:
-                                trains_info.append(f"➤ 往{dest_name}")
-                    
-                    # 組合顯示資訊
-                    if trains_info:
-                        train_text = '\n'.join(trains_info)
-                    else:
-                        train_text = "暫無列車資訊"
-                    
-                    # 添加到embed (限制字數以避免過長)
-                    field_name = f"🚉 {station_name_zh}"
-                    if line_info != '未知路線':
-                        field_name += f" ({line_info})"
-                    
-                    embed.add_field(
-                        name=field_name,
-                        value=train_text[:100] + ("..." if len(train_text) > 100 else ""),
-                        inline=False
-                    )
-                    
-                except Exception as field_error:
-                    logger.warning(f"處理車站資料時發生錯誤: {str(field_error)}")
+            total_stations = 0
+            for line_id, stations in lines_data.items():
+                if not stations:
                     continue
+                    
+                line_name = line_names.get(line_id, line_id)
+                total_stations += len(stations)
+                
+                # 限制每條路線顯示的車站數量
+                display_stations = stations[:8] if not selected_line else stations[:15]
+                
+                stations_text = []
+                for station_data in display_stations:
+                    try:
+                        # 取得車站資訊
+                        station_name = station_data.get('StationName', {})
+                        if isinstance(station_name, dict):
+                            station_name_zh = station_name.get('Zh_tw', '未知車站')
+                        else:
+                            station_name_zh = str(station_name)
+                        
+                        # 取得列車資訊
+                        trains_info = []
+                        live_boards = station_data.get('LiveBoards', [])
+                        
+                        if live_boards:
+                            for board in live_boards[:2]:  # 最多顯示2班列車
+                                destination = board.get('DestinationStationName', {})
+                                if isinstance(destination, dict):
+                                    dest_name = destination.get('Zh_tw', '未知目的地')
+                                else:
+                                    dest_name = str(destination)
+                                
+                                # 取得到站時間
+                                enter_time = board.get('EnterTime', '')
+                                # 取得到站時間
+                                enter_time = board.get('EnterTime', '')
+                                if enter_time:
+                                    trains_info.append(f"往{dest_name} ({enter_time})")
+                                else:
+                                    trains_info.append(f"往{dest_name}")
+                        
+                        # 組合車站資訊
+                        if trains_info:
+                            train_text = ' | '.join(trains_info[:2])  # 最多顯示2班列車
+                            stations_text.append(f"🚉 **{station_name_zh}**: {train_text}")
+                        else:
+                            stations_text.append(f"🚉 **{station_name_zh}**: 暫無列車資訊")
+                            
+                    except Exception as e:
+                        logger.warning(f"處理車站 {station_name_zh} 資料時發生錯誤: {str(e)}")
+                        continue
+                
+                # 如果該路線有車站資料，添加到embed
+                if stations_text:
+                    # 分割成多個字段以避免字數限制
+                    field_text = '\n'.join(stations_text)
+                    
+                    # Discord字段值限制1024字符
+                    if len(field_text) > 1000:
+                        # 分割為多個字段
+                        chunks = []
+                        current_chunk = []
+                        current_length = 0
+                        
+                        for station_line in stations_text:
+                            if current_length + len(station_line) + 1 > 1000:
+                                if current_chunk:
+                                    chunks.append('\n'.join(current_chunk))
+                                    current_chunk = [station_line]
+                                    current_length = len(station_line)
+                                else:
+                                    # 單行太長，截斷
+                                    chunks.append(station_line[:1000])
+                                    current_chunk = []
+                                    current_length = 0
+                            else:
+                                current_chunk.append(station_line)
+                                current_length += len(station_line) + 1
+                        
+                        if current_chunk:
+                            chunks.append('\n'.join(current_chunk))
+                        
+                        # 添加分割後的字段
+                        for i, chunk in enumerate(chunks):
+                            field_name = f"🚇 {line_name}" + (f" ({i+1})" if len(chunks) > 1 else "")
+                            embed.add_field(name=field_name, value=chunk, inline=False)
+                    else:
+                        embed.add_field(name=f"🚇 {line_name}", value=field_text, inline=False)
+                
+                # 如果還有更多車站沒顯示
+                if len(stations) > len(display_stations):
+                    remaining = len(stations) - len(display_stations)
+                    embed.add_field(
+                        name="📊 更多車站",
+                        value=f"{line_name}還有 {remaining} 個車站未顯示",
+                        inline=True
+                    )
             
-            # 如果有更多資料，顯示提示
-            if len(liveboard_data) > display_count:
+            # 總覽資訊
+            if not selected_line and len(lines_data) > 1:
+                lines_summary = []
+                for line_id, stations in lines_data.items():
+                    line_name = line_names.get(line_id, line_id)
+                    lines_summary.append(f"{line_name}: {len(stations)}站")
+                
                 embed.add_field(
-                    name="📊 資料統計",
-                    value=f"顯示前 {display_count} 個車站，共 {len(liveboard_data)} 筆資料",
+                    name="📈 路線總覽",
+                    value=' | '.join(lines_summary),
                     inline=False
                 )
             
@@ -2139,7 +2290,7 @@ class InfoCommands(commands.Cog):
             logger.error(f"格式化捷運電子看板資料時發生錯誤: {str(e)}")
             return None
 
-    @app_commands.command(name='即時電子看板', description='查詢捷運車站即時到離站電子看板')
+    @app_commands.command(name='metro_liveboard', description='查詢捷運車站即時到離站電子看板')
     @app_commands.describe(metro_system='選擇捷運系統')
     @app_commands.choices(metro_system=[
         app_commands.Choice(name='台北捷運', value='TRTC'),
@@ -2168,8 +2319,8 @@ class InfoCommands(commands.Cog):
                 await interaction.followup.send(embed=embed)
                 return
             
-            # 使用翻頁視圖
-            view = MetroLiveboardView(
+            # 使用按路線分類的視圖
+            view = MetroLiveboardByLineView(
                 cog=self,
                 user_id=interaction.user.id,
                 liveboard_data=liveboard_data,
@@ -2177,8 +2328,8 @@ class InfoCommands(commands.Cog):
                 system_name=metro_system.name
             )
             
-            # 創建第一頁的嵌入訊息
-            embed = view.create_page_embed()
+            # 創建第一頁的嵌入訊息 (預設顯示第一條路線)
+            embed = view.create_line_embed()
             
             await interaction.followup.send(embed=embed, view=view)
             
@@ -2186,7 +2337,7 @@ class InfoCommands(commands.Cog):
             logger.error(f"即時電子看板指令執行時發生錯誤: {str(e)}")
             await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
 
-    @app_commands.command(name='台鐵電子看板', description='查詢台鐵車站即時電子看板')
+    @app_commands.command(name='tra_liveboard', description='查詢台鐵車站即時電子看板')
     @app_commands.describe(
         county='選擇縣市',
         station_name='選擇車站'
@@ -2261,7 +2412,7 @@ class InfoCommands(commands.Cog):
             logger.error(f"台鐵電子看板指令執行時發生錯誤: {str(e)}")
             await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
 
-    @app_commands.command(name='台鐵誤點查詢', description='查詢台鐵列車誤點資訊')
+    @app_commands.command(name='tra_delay', description='查詢台鐵列車誤點資訊')
     @app_commands.describe(county='選擇縣市 (可選，不選擇則查詢全台)')
     @app_commands.choices(county=[
         app_commands.Choice(name=county, value=county) for county in TW_LOCATIONS
@@ -2465,8 +2616,8 @@ class InfoCommands(commands.Cog):
         return embed
 
 # 捷運即時電子看板翻頁視圖類
-class MetroLiveboardView(View):
-    """捷運即時電子看板翻頁視圖"""
+class MetroLiveboardByLineView(View):
+    """捷運即時電子看板按路線分類視圖"""
     def __init__(self, cog, user_id: int, liveboard_data: List[Dict[str, Any]], metro_system: str, system_name: str):
         super().__init__(timeout=300)  # 5分鐘超時
         self.cog = cog
@@ -2474,9 +2625,36 @@ class MetroLiveboardView(View):
         self.liveboard_data = liveboard_data
         self.metro_system = metro_system
         self.system_name = system_name
-        self.current_page = 0
-        self.stations_per_page = 10  # 每頁顯示10個車站
-        self.total_pages = max(1, (len(liveboard_data) + self.stations_per_page - 1) // self.stations_per_page)
+        
+        # 按路線分組資料
+        self.lines_data = {}
+        for station_data in liveboard_data:
+            line_id = station_data.get('LineID', '未知路線')
+            if line_id not in self.lines_data:
+                self.lines_data[line_id] = []
+            self.lines_data[line_id].append(station_data)
+        
+        self.available_lines = list(self.lines_data.keys())
+        self.current_line_index = 0  # 當前顯示的路線索引
+        self.selected_line = self.available_lines[0] if self.available_lines else None
+        
+        # 路線名稱對照
+        self.line_names = {
+            # 台北捷運
+            'BR': '🤎 文湖線',
+            'R': '❤️ 淡水信義線', 
+            'G': '💚 松山新店線',
+            'O': '🧡 中和新蘆線',
+            'BL': '💙 板南線',
+            'Y': '💛 環狀線',
+            'LG': '💚 安坑線',
+            'V': '💜 淡海輕軌',
+            # 高雄捷運
+            'RO': '❤️ 紅線',
+            'OR': '🧡 橘線',
+            # 高雄輕軌
+            'C': '💚 環狀輕軌'
+        }
         
         self._update_buttons()
     
@@ -2484,33 +2662,41 @@ class MetroLiveboardView(View):
         """更新按鈕狀態"""
         self.clear_items()
         
-        # 只有在多頁時才顯示翻頁按鈕
-        if self.total_pages > 1:
-            # 上一頁按鈕
-            prev_button = discord.ui.Button(
-                label="◀️ 上一頁",
+        if len(self.available_lines) > 1:
+            # 上一條路線按鈕
+            prev_line_button = discord.ui.Button(
+                label="◀️ 上一路線",
                 style=discord.ButtonStyle.primary,
-                disabled=self.current_page == 0
+                disabled=self.current_line_index == 0
             )
-            prev_button.callback = self.previous_page
-            self.add_item(prev_button)
+            prev_line_button.callback = self.previous_line
+            self.add_item(prev_line_button)
             
-            # 頁面資訊按鈕
-            page_button = discord.ui.Button(
-                label=f"{self.current_page + 1}/{self.total_pages}",
+            # 路線資訊按鈕
+            current_line_name = self.line_names.get(self.selected_line, self.selected_line)
+            line_button = discord.ui.Button(
+                label=f"{current_line_name} ({self.current_line_index + 1}/{len(self.available_lines)})",
                 style=discord.ButtonStyle.secondary,
                 disabled=True
             )
-            self.add_item(page_button)
+            self.add_item(line_button)
             
-            # 下一頁按鈕
-            next_button = discord.ui.Button(
-                label="下一頁 ▶️",
+            # 下一條路線按鈕
+            next_line_button = discord.ui.Button(
+                label="下一路線 ▶️",
                 style=discord.ButtonStyle.primary,
-                disabled=self.current_page >= self.total_pages - 1
+                disabled=self.current_line_index >= len(self.available_lines) - 1
             )
-            next_button.callback = self.next_page
-            self.add_item(next_button)
+            next_line_button.callback = self.next_line
+            self.add_item(next_line_button)
+        
+        # 全部路線總覽按鈕
+        overview_button = discord.ui.Button(
+            label="📋 全路線總覽",
+            style=discord.ButtonStyle.secondary
+        )
+        overview_button.callback = self.show_overview
+        self.add_item(overview_button)
         
         # 刷新按鈕
         refresh_button = discord.ui.Button(
@@ -2520,33 +2706,44 @@ class MetroLiveboardView(View):
         refresh_button.callback = self.refresh_data
         self.add_item(refresh_button)
     
-    async def previous_page(self, interaction: discord.Interaction):
-        """上一頁"""
+    async def previous_line(self, interaction: discord.Interaction):
+        """切換到上一條路線"""
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
             return
         
-        if self.current_page > 0:
-            self.current_page -= 1
+        if self.current_line_index > 0:
+            self.current_line_index -= 1
+            self.selected_line = self.available_lines[self.current_line_index]
             self._update_buttons()
-            embed = self.create_page_embed()
+            embed = self.create_line_embed()
             await interaction.response.edit_message(embed=embed, view=self)
         else:
             await interaction.response.defer()
     
-    async def next_page(self, interaction: discord.Interaction):
-        """下一頁"""
+    async def next_line(self, interaction: discord.Interaction):
+        """切換到下一條路線"""
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
             return
         
-        if self.current_page < self.total_pages - 1:
-            self.current_page += 1
+        if self.current_line_index < len(self.available_lines) - 1:
+            self.current_line_index += 1
+            self.selected_line = self.available_lines[self.current_line_index]
             self._update_buttons()
-            embed = self.create_page_embed()
+            embed = self.create_line_embed()
             await interaction.response.edit_message(embed=embed, view=self)
         else:
             await interaction.response.defer()
+    
+    async def show_overview(self, interaction: discord.Interaction):
+        """顯示全路線總覽"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        embed = self.create_overview_embed()
+        await interaction.response.edit_message(embed=embed, view=self)
     
     async def refresh_data(self, interaction: discord.Interaction):
         """刷新資料"""
@@ -2561,14 +2758,26 @@ class MetroLiveboardView(View):
             new_data = await self.cog.fetch_metro_liveboard(self.metro_system)
             if new_data:
                 self.liveboard_data = new_data
-                self.total_pages = max(1, (len(new_data) + self.stations_per_page - 1) // self.stations_per_page)
                 
-                # 如果當前頁超出範圍，調整到最後一頁
-                if self.current_page >= self.total_pages:
-                    self.current_page = max(0, self.total_pages - 1)
+                # 重新按路線分組
+                self.lines_data = {}
+                for station_data in new_data:
+                    line_id = station_data.get('LineID', '未知路線')
+                    if line_id not in self.lines_data:
+                        self.lines_data[line_id] = []
+                    self.lines_data[line_id].append(station_data)
+                
+                self.available_lines = list(self.lines_data.keys())
+                
+                # 調整當前路線索引
+                if self.current_line_index >= len(self.available_lines):
+                    self.current_line_index = max(0, len(self.available_lines) - 1)
+                
+                if self.available_lines:
+                    self.selected_line = self.available_lines[self.current_line_index]
                 
                 self._update_buttons()
-                embed = self.create_page_embed()
+                embed = self.create_line_embed()
                 embed.description += "\n🔄 **資料已刷新**"
                 await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
             else:
@@ -2577,179 +2786,35 @@ class MetroLiveboardView(View):
             logger.error(f"刷新捷運電子看板資料時發生錯誤: {str(e)}")
             await interaction.followup.send("❌ 刷新資料時發生錯誤", ephemeral=True)
     
-    def create_page_embed(self) -> discord.Embed:
-        """創建當前頁面的嵌入訊息"""
-        # 捷運系統顏色設定
-        colors = {
-            'TRTC': 0x0070BD,  # 台北捷運藍
-            'KRTC': 0xFF6B35,  # 高雄捷運橘紅  
-            'KLRT': 0x00A651   # 高雄輕軌綠
-        }
-        
-        color = colors.get(self.metro_system, 0x3498DB)
-        
-        embed = discord.Embed(
-            title="🚇 車站即時電子看板",
-            description=f"📍 **{self.system_name}** 車站即時到離站資訊",
-            color=color
+    def create_line_embed(self) -> discord.Embed:
+        """創建單一路線的嵌入訊息"""
+        return self.cog.format_metro_liveboard_by_line(
+            self.liveboard_data, 
+            self.metro_system, 
+            self.system_name, 
+            self.selected_line
         )
-        
-        if not self.liveboard_data:
-            embed.description = "目前沒有即時電子看板資料"
-            embed.set_footer(text="資料來源: 交通部TDX平台")
-            return embed
-        
-        # 計算當前頁面的資料範圍
-        start_idx = self.current_page * self.stations_per_page
-        end_idx = min(start_idx + self.stations_per_page, len(self.liveboard_data))
-        current_page_data = self.liveboard_data[start_idx:end_idx]
-        
-        # 處理當前頁面的車站資料
-        for station_data in current_page_data:
-            try:
-                # 取得車站資訊
-                station_name = station_data.get('StationName', {})
-                if isinstance(station_name, dict):
-                    station_name_zh = station_name.get('Zh_tw', '未知車站')
-                else:
-                    station_name_zh = str(station_name)
-                
-                # 取得路線資訊
-                line_info = station_data.get('LineID', '未知路線')
-                
-                # 🔧 修正：TDX LiveBoard API的資料結構
-                # 每個車站記錄本身就是一個列車資訊，不是包含LiveBoards陣列
-                trains_info = []
-                
-                try:
-                    # 取得目的地資訊
-                    destination = station_data.get('DestinationStationName', {})
-                    if isinstance(destination, dict):
-                        dest_name = destination.get('Zh_tw', destination.get('En', ''))
-                    else:
-                        dest_name = str(destination) if destination else ''
-                    
-                    # 取得班次標示
-                    trip_head_sign = station_data.get('TripHeadSign', '')
-                    
-                    # 取得預估時間
-                    estimate_time = station_data.get('EstimateTime', 0)
-                    
-                    # 取得服務狀態
-                    service_status = station_data.get('ServiceStatus', 0)
-                    
-                    # 取得更新時間
-                    update_time = station_data.get('UpdateTime', '')
-                    src_update_time = station_data.get('SrcUpdateTime', '')
-                    
-                    # 組合列車資訊
-                    if dest_name or trip_head_sign:
-                        train_info_parts = []
-                        
-                        # 使用班次標示或目的地
-                        if trip_head_sign:
-                            train_info_parts.append(trip_head_sign)
-                        elif dest_name:
-                            train_info_parts.append(f"往{dest_name}")
-                        
-                        # 處理預估時間
-                        if estimate_time > 0:
-                            if estimate_time < 60:
-                                train_info_parts.append(f"({estimate_time}秒)")
-                            elif estimate_time < 120:  # 2分鐘內顯示分秒
-                                minutes = estimate_time // 60
-                                seconds = estimate_time % 60
-                                train_info_parts.append(f"({minutes}分{seconds}秒)")
-                            else:  # 超過2分鐘只顯示分鐘
-                                minutes = estimate_time // 60
-                                seconds = estimate_time % 60
-                                if seconds > 0:
-                                    train_info_parts.append(f"({minutes}分{seconds}秒)")
-                                else:
-                                    train_info_parts.append(f"({minutes}分鐘)")
-                        elif estimate_time == 0:
-                            # 檢查服務狀態
-                            if service_status == 0:
-                                train_info_parts.append("(即將進站)")
-                            elif service_status == 1:
-                                train_info_parts.append("(正在進站)")
-                            else:
-                                train_info_parts.append("(準備中)")
-                        
-                        # 添加服務狀態說明
-                        status_text = ""
-                        if service_status == 0:
-                            status_text = "🟢"  # 正常
-                        elif service_status == 1:
-                            status_text = "🟡"  # 進站中
-                        elif service_status == 2:
-                            status_text = "🟠"  # 離站
-                        else:
-                            status_text = "⚪"  # 其他狀態
-                        
-                        if train_info_parts:
-                            trains_info.append(f"{status_text} {' '.join(train_info_parts)}")
-                    
-                    # 如果沒有具體的列車資訊，檢查是否有更新時間
-                    if not trains_info and (update_time or src_update_time):
-                        trains_info.append("📡 資料已更新但無即將到站列車")
-                        
-                except Exception as train_error:
-                    logger.warning(f"處理車站 {station_name_zh} 列車資料時發生錯誤: {str(train_error)}")
-                
-                # 組合顯示資訊
-                if trains_info:
-                    train_text = '\n'.join(trains_info)
-                else:
-                    # 根據時間提供更友善的提示
-                    import datetime
-                    current_hour = datetime.datetime.now().hour
-                    if 1 <= current_hour <= 5:
-                        train_text = "🌙 深夜時段，捷運暫停營運"
-                    elif 0 <= current_hour <= 6 or 23 <= current_hour <= 23:
-                        train_text = "⏰ 非營運時間或班次較少"
-                    else:
-                        train_text = "📭 暫無即將到站列車"
-                
-                # 添加到embed (限制字數以避免過長)
-                field_name = f"🚉 {station_name_zh}"
-                if line_info != '未知路線':
-                    field_name += f" ({line_info})"
-                
-                embed.add_field(
-                    name=field_name,
-                    value=train_text[:100] + ("..." if len(train_text) > 100 else ""),
-                    inline=False
-                )
-                
-            except Exception as field_error:
-                logger.warning(f"處理車站資料時發生錯誤: {str(field_error)}")
-                continue
-        
-        # 添加頁面資訊
-        if self.total_pages > 1:
-            embed.add_field(
-                name="📊 頁面資訊",
-                value=f"第 {self.current_page + 1} 頁，共 {self.total_pages} 頁 | 總共 {len(self.liveboard_data)} 個車站",
-                inline=False
-            )
-        else:
-            embed.add_field(
-                name="📊 資料統計",
-                value=f"共 {len(self.liveboard_data)} 個車站",
-                inline=False
-            )
-        
-        # 設定頁腳
-        embed.set_footer(text="資料來源: 交通部TDX平台 | 即時更新")
-        
-        return embed
+    
+    def create_overview_embed(self) -> discord.Embed:
+        """創建全路線總覽的嵌入訊息"""
+        return self.cog.format_metro_liveboard_by_line(
+            self.liveboard_data, 
+            self.metro_system, 
+            self.system_name, 
+            None  # 顯示所有路線
+        )
     
     async def on_timeout(self):
-        """處理超時"""
-        # 禁用所有按鈕
+        """視圖超時時禁用所有按鈕"""
         for item in self.children:
             item.disabled = True
+        
+        try:
+            # 嘗試編輯訊息以禁用按鈕
+            await self.message.edit(view=self)
+        except:
+            pass
+
 
 # 氣象測站資料翻頁視圖類
 class WeatherStationView(View):

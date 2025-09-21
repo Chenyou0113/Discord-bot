@@ -15,7 +15,7 @@ class AdminCommands(commands.Cog):
         self.bot = bot
         logger.info("AdminCommands cog 已初始化")
 
-    @app_commands.command(name="開發者工具", description="開發者工具（僅限管理員）")
+    @app_commands.command(name="dev_tools", description="開發者工具（僅限管理員）")
     async def dev_tools(self, interaction: discord.Interaction):
         """簡化版的開發者工具指令"""
         # 從環境變數讀取開發者ID

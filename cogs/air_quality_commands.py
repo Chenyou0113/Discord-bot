@@ -340,7 +340,7 @@ class AirQualityCommands(commands.Cog):
         """計算總頁數"""
         return (total_items + per_page - 1) // per_page
     
-    @app_commands.command(name="空氣品質", description="查詢空氣品質資訊")
+    @app_commands.command(name="air_quality", description="查詢空氣品質資訊")
     @app_commands.describe(
         query="搜尋關鍵字（測站名稱、縣市等）",
         page="頁數（預設為第1頁）"
@@ -384,7 +384,7 @@ class AirQualityCommands(commands.Cog):
             logger.error(f"查詢空氣品質時發生錯誤: {e}")
             await interaction.followup.send("❌ 查詢過程中發生錯誤，請稍後再試。")
     
-    @app_commands.command(name="縣市空氣品質", description="按縣市查詢空氣品質")
+    @app_commands.command(name="air_quality_county", description="按縣市查詢空氣品質")
     @app_commands.describe(
         county="選擇縣市",
         page="頁數（預設為第1頁）"
@@ -452,7 +452,7 @@ class AirQualityCommands(commands.Cog):
             logger.error(f"查詢縣市空氣品質時發生錯誤: {e}")
             await interaction.followup.send("❌ 查詢過程中發生錯誤，請稍後再試。")
     
-    @app_commands.command(name="空氣品質測站", description="查詢特定測站的詳細空氣品質資訊")
+    @app_commands.command(name="air_station", description="查詢特定測站的詳細空氣品質資訊")
     @app_commands.describe(
         site_name="測站名稱"
     )

@@ -112,7 +112,7 @@ class ChatSystemCommands(commands.Cog):
         logger.info(f"ChatSystemCommands cog 已準備就緒!")
 
     @app_commands.command(
-        name="聊天",
+        name="chat_old",
         description="與 AI 聊天 (使用 Google Gemini)"
     )
     async def chat(self, interaction: discord.Interaction, 問題: str):
@@ -212,7 +212,7 @@ class ChatSystemCommands(commands.Cog):
                 pass
     
     @app_commands.command(
-        name="清除聊天",
+        name="clear_chat_old",
         description="清除與 AI 的聊天記錄"
     )
     async def clear_chat(self, interaction: discord.Interaction):
@@ -226,7 +226,7 @@ class ChatSystemCommands(commands.Cog):
             await interaction.response.send_message("ℹ️ 您沒有聊天記錄需要清除。", ephemeral=True)
     
     @app_commands.command(
-        name="切換模型",
+        name="switch_model_old",
         description="切換 AI 聊天使用的模型"
     )
     @app_commands.choices(模型=[
@@ -257,7 +257,7 @@ class ChatSystemCommands(commands.Cog):
         await interaction.response.send_message(f"✅ 已將聊天模型從 `{old_model}` 切換為 `{model_name}`，並清空所有聊天歷史。", ephemeral=True)
     
     @app_commands.command(
-        name="聊天狀態",
+        name="chat_status_old",
         description="檢查 AI 聊天系統狀態"
     )
     async def chat_status(self, interaction: discord.Interaction):
@@ -338,7 +338,7 @@ class ChatSystemCommands(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
     
     @app_commands.command(
-        name="重置聊天api",
+        name="reset_chat_api_old",
         description="重置 AI 聊天 API 連接池 (僅限開發者)"
     )
     async def reset_api(self, interaction: discord.Interaction):

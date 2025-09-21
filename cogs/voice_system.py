@@ -51,7 +51,7 @@ class VoiceSystem(commands.Cog):
         # 清理空的臨時語音房
         await self.cleanup_empty_channels()
 
-    @app_commands.command(name="設定語音", description="設置自動語音房系統")
+    @app_commands.command(name="setup_voice", description="設置自動語音房系統")
     @app_commands.checks.has_permissions(administrator=True)
     async def setup_voice(self, interaction: discord.Interaction):
         """設置自動語音房系統"""

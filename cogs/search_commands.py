@@ -223,7 +223,7 @@ class SearchCommands(commands.Cog):
         embed.set_footer(text="💡 使用 /search_summarize 獲取 AI 總結")
         return embed
     
-    @app_commands.command(name="搜尋", description="使用 Google 搜尋網路內容")
+    @app_commands.command(name="search", description="使用 Google 搜尋網路內容")
     @app_commands.describe(
         query="要搜尋的關鍵字",
         results="結果數量 (1-10，預設 5)",
@@ -314,7 +314,7 @@ class SearchCommands(commands.Cog):
             )
             await interaction.followup.send(embed=embed)
     
-    @app_commands.command(name="搜尋總結", description="對搜尋結果進行 AI 總結")
+    @app_commands.command(name="search_summary", description="對搜尋結果進行 AI 總結")
     @app_commands.describe(query="要搜尋並總結的關鍵字")
     async def search_summarize(self, interaction: discord.Interaction, query: str):
         """搜尋並提供 AI 總結"""
@@ -421,7 +421,7 @@ class SearchCommands(commands.Cog):
             )
             await interaction.followup.send(embed=embed)
     
-    @app_commands.command(name="搜尋設定", description="查看或修改搜尋設定 (管理員限定)")
+    @app_commands.command(name="search_settings", description="查看或修改搜尋設定 (管理員限定)")
     @app_commands.describe(
         max_daily="設定每日搜尋限制",
         cooldown="設定冷卻時間 (秒)"
@@ -491,7 +491,7 @@ class SearchCommands(commands.Cog):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
     
-    @app_commands.command(name="搜尋統計", description="查看搜尋統計")
+    @app_commands.command(name="search_stats", description="查看搜尋統計")
     async def search_stats(self, interaction: discord.Interaction):
         """顯示搜尋統計資訊"""
         user_id = interaction.user.id
@@ -653,7 +653,7 @@ class SearchCommands(commands.Cog):
             except:
                 pass
 
-    @app_commands.command(name="自動搜尋", description="管理自動搜尋功能設定 (管理員限定)")
+    @app_commands.command(name="auto_search", description="管理自動搜尋功能設定 (管理員限定)")
     @app_commands.describe(
         enable="是否啟用自動搜尋功能",
         keywords="設定觸發關鍵字（用逗號分隔）"

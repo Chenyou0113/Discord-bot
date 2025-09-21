@@ -694,7 +694,7 @@ class RadarCommands(commands.Cog):
         
         return embed
     
-    @app_commands.command(name="雷達圖", description="查詢台灣雷達圖整合 (無地形)")
+    @app_commands.command(name="radar", description="查詢台灣雷達圖整合 (無地形)")
     async def radar(self, interaction: discord.Interaction):
         """查詢雷達圖"""
         await interaction.response.defer()
@@ -726,7 +726,7 @@ class RadarCommands(commands.Cog):
             logger.error(f"查詢雷達圖時發生錯誤: {e}")
             await interaction.followup.send("❌ 查詢過程中發生錯誤，請稍後再試。")
     
-    @app_commands.command(name="雷達圖說明", description="雷達圖功能說明")
+    @app_commands.command(name="radar_info", description="雷達圖功能說明")
     async def radar_info(self, interaction: discord.Interaction):
         """雷達圖功能說明"""
         await interaction.response.defer()
@@ -739,7 +739,7 @@ class RadarCommands(commands.Cog):
             logger.error(f"顯示雷達圖說明時發生錯誤: {e}")
             await interaction.followup.send("❌ 顯示說明時發生錯誤，請稍後再試。")
     
-    @app_commands.command(name="大範圍雷達圖", description="查詢台灣大範圍雷達圖整合 (無地形)")
+    @app_commands.command(name="large_radar", description="查詢台灣大範圍雷達圖整合 (無地形)")
     async def radar_large(self, interaction: discord.Interaction):
         """查詢大範圍雷達圖"""
         await interaction.response.defer()
@@ -771,7 +771,7 @@ class RadarCommands(commands.Cog):
             logger.error(f"查詢大範圍雷達圖時發生錯誤: {e}")
             await interaction.followup.send("❌ 查詢過程中發生錯誤，請稍後再試。")
     
-    @app_commands.command(name="降雨雷達圖", description="查詢降雨雷達圖 (樹林/南屯/林園)")
+    @app_commands.command(name="rainfall_radar", description="查詢降雨雷達圖 (樹林/南屯/林園)")
     @app_commands.describe(station="選擇雷達站：樹林(新北)、南屯(台中)、林園(高雄)")
     @app_commands.choices(station=[
         app_commands.Choice(name="🏢 新北樹林", value="樹林"),

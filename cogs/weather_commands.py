@@ -457,7 +457,7 @@ class WeatherCommands(commands.Cog):
         
         return embed
 
-    @app_commands.command(name="氣象測站", description="查詢中央氣象署無人氣象測站基本資料")
+    @app_commands.command(name="weather_stations", description="查詢中央氣象署無人氣象測站基本資料")
     @app_commands.describe(
         query="搜尋關鍵字（測站名稱、編號、縣市或位置）",
         page="頁數（預設為第1頁）",
@@ -546,7 +546,7 @@ class WeatherCommands(commands.Cog):
             )
             await interaction.followup.send(embed=embed)
     
-    @app_commands.command(name="縣市氣象測站", description="按縣市查詢無人氣象測站")
+    @app_commands.command(name="county_weather_stations", description="按縣市查詢無人氣象測站")
     @app_commands.describe(
         county="縣市名稱（如：台北市、新北市）",
         status="測站狀態篩選",
@@ -630,7 +630,7 @@ class WeatherCommands(commands.Cog):
             )
             await interaction.followup.send(embed=embed)
     
-    @app_commands.command(name="測站詳細資訊", description="查詢特定測站的詳細資訊")
+    @app_commands.command(name="station_details", description="查詢特定測站的詳細資訊")
     @app_commands.describe(station_id="測站編號（如：C0A940）")
     async def weather_station_info(self, interaction: discord.Interaction, station_id: str):
         """查詢特定測站的詳細資訊"""
@@ -693,7 +693,7 @@ class WeatherCommands(commands.Cog):
             )
             await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name="天氣", description="查詢台灣天氣觀測資訊")
+    @app_commands.command(name="weather", description="查詢台灣天氣觀測資訊")
     @app_commands.describe(location="要查詢的地點名稱（如：板橋、淡水、桃園）")
     async def weather(self, interaction: discord.Interaction, location: str = ""):
         """查詢天氣觀測資訊"""

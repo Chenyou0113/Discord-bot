@@ -143,7 +143,7 @@ class ReservoirCommands(commands.Cog):
     
     # === 指令方法 ===
     
-    @app_commands.command(name="水位資訊", description="查詢全台河川水位即時資料（依測站編號）")
+    @app_commands.command(name="water_level", description="查詢全台河川水位即時資料（依測站編號）")
     @app_commands.describe(
         city="縣市名稱（目前暫不支援，正在開發中）",
         river="河川名稱（目前暫不支援，正在開發中）",
@@ -394,7 +394,7 @@ class ReservoirCommands(commands.Cog):
             logger.error(f"查詢河川水位時發生錯誤: {str(e)}")
             await interaction.followup.send(f"❌ 查詢水位資料時發生錯誤: {str(e)}")
 
-    @app_commands.command(name="水庫清單", description="顯示台灣主要水庫列表")
+    @app_commands.command(name="reservoir_list", description="顯示台灣主要水庫列表")
     async def reservoir_list(self, interaction: discord.Interaction):
         """顯示水庫清單"""
         await interaction.response.defer()

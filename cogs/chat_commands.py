@@ -329,7 +329,7 @@ class ChatCommands(commands.Cog):
                     logger.error(f"回覆標記訊息時發生錯誤: {str(e)}")
                     await message.reply("❌ 抱歉，處理您的訊息時發生錯誤。請稍後再試或使用 `/chat` 指令開始新對話。")
 
-    @app_commands.command(name="清除對話", description="清除與 AI 助手的對話歷史")
+    @app_commands.command(name="clear_chat", description="清除與 AI 助手的對話歷史")
     async def clear_chat(self, interaction: discord.Interaction):
         """清除對話歷史"""
         user_id = str(interaction.user.id)
@@ -349,7 +349,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @app_commands.command(
-        name="目前模型",
+        name="current_model",
         description="查看目前使用的 AI 模型"
     )
     async def current_model(self, interaction: discord.Interaction):
@@ -364,7 +364,7 @@ class ChatCommands(commands.Cog):
         developer_id = os.getenv('BOT_DEVELOPER_ID')
         if developer_id and str(interaction.user.id) == developer_id:
             embed.add_field(
-                name="可用模型",
+                name="available_models",
                 value="\n".join([f"・{model}" for model in self.available_models]),
                 inline=False
             )
@@ -377,7 +377,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(
-        name="聊天",
+        name="chat",
         description="與 AI 助手對話"
     )
     @app_commands.describe(
@@ -426,7 +426,7 @@ class ChatCommands(commands.Cog):
                     await interaction.followup.send("❌ 抱歉，我現在似乎無法正常回應。請稍後再試或使用 `/clear_chat` 重新開始對話。", ephemeral=True)
 
     @app_commands.command(
-        name="設定模型",
+        name="set_model",
         description="更換 AI 模型 (僅限管理員使用)"
     )
     @app_commands.describe(
@@ -457,7 +457,7 @@ class ChatCommands(commands.Cog):
                 )
                 
             embed.add_field(
-                name="使用方法",
+                name="usage_info",
                 value=f"請複製上方任一模型名稱，並執行指令：\n`/set_model 模型名稱`",
                 inline=False
             )
@@ -480,7 +480,7 @@ class ChatCommands(commands.Cog):
                 color=discord.Color.green()
             )
             embed.add_field(
-                name="注意",
+                name="notice",
                 value="所有用戶的對話歷史已被清除",
                 inline=False
             )
@@ -490,7 +490,7 @@ class ChatCommands(commands.Cog):
             if model_name in pool_stats:
                 stats = pool_stats[model_name]
                 embed.add_field(
-                    name="連接池狀態",
+                    name="pool_status",
                     value=f"活躍連接: {stats['active_instances']}/{stats['pool_size']}",
                     inline=True
                 )
@@ -507,7 +507,7 @@ class ChatCommands(commands.Cog):
             )
             
     @app_commands.command(
-        name="切換回應",
+        name="toggle_response",
         description="暫停或恢復機器人的回應 (僅限管理員使用)"
     )
     async def toggle_responses(self, interaction: discord.Interaction):
@@ -632,7 +632,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed)
         
     @app_commands.command(
-        name="設定速率限制",
+        name="set_rate_limit",
         description="設置 API 請求速率限制 (僅限管理員使用)"
     )
     @app_commands.describe(
@@ -707,7 +707,7 @@ class ChatCommands(commands.Cog):
                                 timestamp=discord.utils.utcnow()
                             )
                             system_embed.add_field(
-                                name="變更詳情",
+                                name="change_details",
                                 value=f"每分鐘最大請求數: {old_limit} → {requests_per_minute}",
                                 inline=False
                             )
@@ -716,7 +716,7 @@ class ChatCommands(commands.Cog):
             logger.error(f"發送系統通知時發生錯誤: {str(e)}")
             
     @app_commands.command(
-        name="重置配額",
+        name="reset_quota",
         description="手動重置 API 配額限制狀態 (僅限管理員使用)"
     )
     async def reset_quota(self, interaction: discord.Interaction):
@@ -758,7 +758,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed)
         
     @app_commands.command(
-        name="開發者模式",
+        name="dev_mode",
         description="開啟或關閉開發者模式 (僅限開發者使用)"
     )
     @app_commands.describe(
@@ -844,7 +844,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         
     @app_commands.command(
-        name="新增開發者",
+        name="add_dev",
         description="添加開發者 (僅限現有開發者使用)"
     )
     @app_commands.describe(
@@ -891,7 +891,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed)
         
     @app_commands.command(
-        name="移除開發者",
+        name="remove_dev",
         description="移除開發者身份 (僅限現有開發者使用)"
     )
     @app_commands.describe(
@@ -937,7 +937,7 @@ class ChatCommands(commands.Cog):
                 
         if user:
             embed.add_field(
-                name="用戶資訊",
+                name="user_info",
                 value=f"用戶名: {user.name}\n提及: {user.mention}",
                 inline=False
             )
@@ -950,7 +950,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed)
         
     @app_commands.command(
-        name="開發者清單",
+        name="dev_list",
         description="列出所有開發者 (僅限開發者和管理員使用)"
     )
     async def list_developers(self, interaction: discord.Interaction):
@@ -1010,7 +1010,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         
     @app_commands.command(
-        name="開發者除錯",
+        name="dev_debug",
         description="執行開發者偵錯動作 (僅限開發者使用)"
     )
     @app_commands.describe(
@@ -1112,7 +1112,7 @@ class ChatCommands(commands.Cog):
         await interaction.followup.send(result_msg, ephemeral=True)
 
     @app_commands.command(
-        name="連接池狀態",
+        name="connection_status",
         description="查看 Gemini API 連接池狀態 (僅限管理員使用)"
     )
     async def pool_status(self, interaction: discord.Interaction):
@@ -1170,7 +1170,7 @@ class ChatCommands(commands.Cog):
         await interaction.response.send_message(embed=embed)
     
     @app_commands.command(
-        name="重置連接池",
+        name="reset_pool",
         description="重置 Gemini API 連接池 (僅限管理員使用)"
     )
     @app_commands.describe(
@@ -1308,7 +1308,7 @@ class ChatCommands(commands.Cog):
             # 獲取重置後的統計數據
             key_stats = get_api_key_stats()
             embed.add_field(
-                name="重置後統計",
+                name="reset_stats",
                 value=(
                     f"總請求數: **{key_stats['total_requests']}**\n"
                     f"失敗請求: **{key_stats['failed_requests']}**\n"
