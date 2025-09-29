@@ -2382,29 +2382,24 @@ class InfoCommands(commands.Cog):
             # 取得預估到站時間（秒）
             estimate_time = train_data.get('EstimateTime', 0)
             
-            # 計算剩餘時間顯示
-            time_info = ""
-            status_emoji = "🚇"
-            
+            # 計算剩餘時間顯示 - 簡化版本
             if estimate_time == 0:
                 time_info = "**進站中**"
                 status_emoji = "🚆"
             elif estimate_time <= 60:  # 1分鐘內
-                time_info = f"**即將進站** ({estimate_time}秒)"
+                time_info = "**即將進站**"
                 status_emoji = "🔥"
-            elif estimate_time <= 180:  # 3分鐘內
+            elif estimate_time <= 300:  # 5分鐘內
                 minutes = estimate_time // 60
-                seconds = estimate_time % 60
-                time_info = f"**{minutes}分{seconds}秒**"
+                time_info = f"**{minutes}分**"
                 status_emoji = "🟡"
-            elif estimate_time <= 600:  # 10分鐘內
-                minutes = estimate_time // 60
-                time_info = f"**{minutes}分鐘**"
-                status_emoji = "🟢"
             else:
                 minutes = estimate_time // 60
-                time_info = f"**{minutes}分鐘**"
-                status_emoji = "⏱️"
+                if minutes > 10:
+                    time_info = "**10分+**"  # 超過10分鐘就顯示10分+
+                else:
+                    time_info = f"**{minutes}分**"
+                status_emoji = "🟢"
             
             # 組合列車資訊
             return f"{status_emoji} 往**{dest_name}** - {time_info}"
@@ -3340,6 +3335,309 @@ class MetroSystemSelectionView(View):
         except:
             pass
 
+# 捷運車站選擇下拉選單
+class MetroStationSelect(discord.ui.Select):
+    """捷運車站選擇下拉選單"""
+    
+    def __init__(self, cog, user_id: int, stations_data: List[Dict[str, Any]], metro_system: str, system_name: str, line_id: str):
+        self.cog = cog
+        self.user_id = user_id
+        self.stations_data = stations_data
+        self.metro_system = metro_system
+        self.system_name = system_name
+        self.line_id = line_id
+        
+        # 建立車站選項
+        options = []
+        station_names = set()  # 用於去重
+        
+        for station_data in stations_data[:23]:  # Discord限制最多25個選項，保留一些空間
+            station_name_info = station_data.get('StationName', {})
+            if isinstance(station_name_info, dict):
+                station_name = station_name_info.get('Zh_tw', '未知車站')
+            else:
+                station_name = str(station_name_info)
+            
+            station_id = station_data.get('StationID', '')
+            
+            # 避免重複的車站名稱
+            if station_name not in station_names and station_name != '未知車站':
+                station_names.add(station_name)
+                
+                # 取得第一班列車資訊作為預覽 - 簡化版本
+                preview_info = ""
+                if 'up_trains' in station_data and station_data['up_trains']:
+                    first_train = station_data['up_trains'][0]
+                    dest = first_train.get('DestinationStationName', {})
+                    dest_name = dest.get('Zh_tw', '') if isinstance(dest, dict) else str(dest)
+                    estimate = first_train.get('EstimateTime', 0)
+                    if estimate == 0:
+                        preview_info = f"往{dest_name} - 進站中"
+                    elif estimate < 60:
+                        preview_info = f"往{dest_name} - 即將進站"
+                    elif estimate <= 300:  # 5分鐘內
+                        preview_info = f"往{dest_name} - {estimate//60}分"
+                    else:
+                        preview_info = f"往{dest_name} - 5分+"
+                elif 'down_trains' in station_data and station_data['down_trains']:
+                    first_train = station_data['down_trains'][0]
+                    dest = first_train.get('DestinationStationName', {})
+                    dest_name = dest.get('Zh_tw', '') if isinstance(dest, dict) else str(dest)
+                    estimate = first_train.get('EstimateTime', 0)
+                    if estimate == 0:
+                        preview_info = f"往{dest_name} - 進站中"
+                    elif estimate < 60:
+                        preview_info = f"往{dest_name} - 即將進站"
+                    elif estimate <= 300:  # 5分鐘內
+                        preview_info = f"往{dest_name} - {estimate//60}分"
+                    else:
+                        preview_info = f"往{dest_name} - 5分+"
+                else:
+                    preview_info = "暫無列車資訊"
+                
+                options.append(
+                    discord.SelectOption(
+                        label=station_name,
+                        value=station_id,
+                        description=preview_info[:100],  # Discord限制描述長度
+                        emoji="🚇"
+                    )
+                )
+        
+        # 如果沒有有效選項，添加一個預設選項
+        if not options:
+            options.append(
+                discord.SelectOption(
+                    label="暫無車站資料",
+                    value="no_data",
+                    description="該路線目前沒有可用的車站資訊",
+                    emoji="⚠️"
+                )
+            )
+        
+        super().__init__(
+            placeholder="🚇 選擇車站查看詳細資訊...",
+            options=options[:25],  # Discord最多25個選項
+            min_values=1,
+            max_values=1
+        )
+    
+    async def callback(self, interaction: discord.Interaction):
+        """處理車站選擇"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此選單", ephemeral=True)
+            return
+        
+        if self.values[0] == "no_data":
+            await interaction.response.send_message("⚠️ 該路線目前沒有可用的車站資訊", ephemeral=True)
+            return
+        
+        selected_station_id = self.values[0]
+        
+        # 找到選中的車站資料
+        selected_station = None
+        for station_data in self.stations_data:
+            if station_data.get('StationID') == selected_station_id:
+                selected_station = station_data
+                break
+        
+        if not selected_station:
+            await interaction.response.send_message("❌ 找不到該車站的詳細資訊", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        try:
+            # 創建單一車站詳細資訊視圖
+            view = MetroSingleStationView(
+                cog=self.cog,
+                user_id=self.user_id,
+                station_data=selected_station,
+                metro_system=self.metro_system,
+                system_name=self.system_name,
+                line_id=self.line_id
+            )
+            
+            embed = view.create_station_embed()
+            await interaction.followup.edit_message(interaction.message.id, embed=embed, view=view)
+            
+        except Exception as e:
+            logger.error(f"顯示車站詳細資訊時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 載入車站資訊時發生錯誤", ephemeral=True)
+
+# 單一車站詳細資訊視圖
+class MetroSingleStationView(View):
+    """單一捷運車站詳細資訊視圖"""
+    
+    def __init__(self, cog, user_id: int, station_data: Dict[str, Any], metro_system: str, system_name: str, line_id: str):
+        super().__init__(timeout=300)
+        self.cog = cog
+        self.user_id = user_id
+        self.station_data = station_data
+        self.metro_system = metro_system
+        self.system_name = system_name
+        self.line_id = line_id
+        
+        self._add_buttons()
+    
+    def _add_buttons(self):
+        """添加控制按鈕"""
+        # 返回路線按鈕
+        back_button = discord.ui.Button(
+            label="◀️ 返回路線",
+            style=discord.ButtonStyle.secondary
+        )
+        back_button.callback = self.back_to_line
+        self.add_item(back_button)
+        
+        # 刷新按鈕
+        refresh_button = discord.ui.Button(
+            label="🔄 刷新",
+            style=discord.ButtonStyle.success
+        )
+        refresh_button.callback = self.refresh_station
+        self.add_item(refresh_button)
+    
+    async def back_to_line(self, interaction: discord.Interaction):
+        """返回路線視圖"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        try:
+            # 重新獲取路線資料
+            liveboard_data = await self.cog.fetch_metro_liveboard(self.metro_system)
+            if liveboard_data:
+                view = MetroLiveboardByLineView(
+                    cog=self.cog,
+                    user_id=self.user_id,
+                    liveboard_data=liveboard_data,
+                    metro_system=self.metro_system,
+                    system_name=self.system_name
+                )
+                embed = view.create_line_embed()
+                await interaction.followup.edit_message(interaction.message.id, embed=embed, view=view)
+            else:
+                await interaction.followup.send("❌ 無法載入路線資料", ephemeral=True)
+        except Exception as e:
+            logger.error(f"返回路線視圖時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 返回路線時發生錯誤", ephemeral=True)
+    
+    async def refresh_station(self, interaction: discord.Interaction):
+        """刷新車站資料"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        try:
+            # 重新獲取該車站資料
+            liveboard_data = await self.cog.fetch_metro_liveboard(self.metro_system)
+            if liveboard_data:
+                station_id = self.station_data.get('StationID')
+                
+                # 找到更新的車站資料
+                updated_station = None
+                for station_data in liveboard_data:
+                    if station_data.get('StationID') == station_id:
+                        updated_station = station_data
+                        break
+                
+                if updated_station:
+                    self.station_data = updated_station
+                    embed = self.create_station_embed()
+                    embed.description += "\n🔄 **資料已刷新**"
+                    await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
+                else:
+                    await interaction.followup.send("❌ 找不到該車站的最新資料", ephemeral=True)
+            else:
+                await interaction.followup.send("❌ 刷新資料失敗", ephemeral=True)
+        except Exception as e:
+            logger.error(f"刷新車站資料時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 刷新資料時發生錯誤", ephemeral=True)
+    
+    def create_station_embed(self) -> discord.Embed:
+        """創建車站詳細資訊嵌入訊息"""
+        # 取得車站名稱
+        station_name_info = self.station_data.get('StationName', {})
+        if isinstance(station_name_info, dict):
+            station_name = station_name_info.get('Zh_tw', '未知車站')
+        else:
+            station_name = str(station_name_info)
+        
+        # 路線名稱對照
+        line_names = {
+            'BR': '🤎 文湖線', 'BL': '💙 板南線', 'G': '💚 松山新店線',
+            'Y': '💛 環狀線', 'LG': '💚 安坑線', 'V': '💜 淡海輕軌',
+            'RO': '❤️ 紅線', 'OR': '🧡 橘線', 'C': '💚 環狀輕軌',
+            'R': '❤️ 紅線' if self.metro_system == 'KRTC' else '❤️ 淡水信義線',
+            'O': '🧡 橘線' if self.metro_system == 'KRTC' else '🧡 中和新蘆線'
+        }
+        
+        line_name = line_names.get(self.line_id, self.line_id)
+        
+        embed = discord.Embed(
+            title=f"🚇 {station_name} 車站",
+            description=f"📍 **{self.system_name}** {line_name}\n🔄 即時到離站資訊",
+            color=0x0099FF if self.metro_system == "TRTC" else 0xFF9900 if self.metro_system == "KRTC" else 0x00CC66
+        )
+        
+        # 處理上行列車 - 簡化顯示
+        up_trains = self.station_data.get('up_trains', [])
+        if up_trains:
+            up_text = []
+            for i, train in enumerate(up_trains[:2]):  # 最多顯示2班，更簡潔
+                train_text = self.cog._format_train_info(train)
+                if train_text:
+                    up_text.append(train_text)  # 移除編號，直接顯示
+            
+            if up_text:
+                embed.add_field(
+                    name="⬆️ 上行列車",
+                    value="\n".join(up_text),
+                    inline=True  # 設為inline讓上下行並排顯示
+                )
+        
+        # 處理下行列車 - 簡化顯示
+        down_trains = self.station_data.get('down_trains', [])
+        if down_trains:
+            down_text = []
+            for i, train in enumerate(down_trains[:2]):  # 最多顯示2班，更簡潔
+                train_text = self.cog._format_train_info(train)
+                if train_text:
+                    down_text.append(train_text)  # 移除編號，直接顯示
+            
+            if down_text:
+                embed.add_field(
+                    name="⬇️ 下行列車",
+                    value="\n".join(down_text),
+                    inline=True  # 設為inline讓上下行並排顯示
+                )
+        
+        # 如果沒有列車資訊
+        if not up_trains and not down_trains:
+            embed.add_field(
+                name="ℹ️ 列車狀態",
+                value="目前暫無列車到站資訊",
+                inline=False
+            )
+        
+        embed.set_footer(text=f"資料來源: 交通部TDX平台 | 車站ID: {self.station_data.get('StationID', 'N/A')}")
+        return embed
+    
+    async def on_timeout(self):
+        """視圖超時處理"""
+        for item in self.children:
+            item.disabled = True
+        try:
+            # 這裡可能需要編輯訊息，但需要有message reference
+            pass
+        except:
+            pass
+
 # 捷運即時電子看板翻頁視圖類
 class MetroLiveboardByLineView(View):
     """捷運即時電子看板按路線分類視圖"""
@@ -3415,6 +3713,20 @@ class MetroLiveboardByLineView(View):
             )
             next_line_button.callback = self.next_line
             self.add_item(next_line_button)
+        
+        # 車站選擇下拉選單
+        if self.selected_line and self.selected_line in self.lines_data:
+            stations_data = self.lines_data[self.selected_line]
+            if stations_data:
+                station_select = MetroStationSelect(
+                    self.cog, 
+                    self.user_id, 
+                    stations_data, 
+                    self.metro_system, 
+                    self.system_name,
+                    self.selected_line
+                )
+                self.add_item(station_select)
         
         # 全部路線總覽按鈕
         overview_button = discord.ui.Button(
