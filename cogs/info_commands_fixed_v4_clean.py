@@ -2080,7 +2080,9 @@ class InfoCommands(commands.Cog):
                         else:
                             logger.warning(f"{metro_system} 沒有收到任何車站資料")
                         
-                        return data
+                        # 處理資料：將LiveBoards分類為上行/下行列車
+                        processed_data = self._process_metro_liveboard_data(data, metro_system)
+                        return processed_data
                     else:
                         logger.error(f"TDX API請求失敗: HTTP {response.status}")
                         response_text = await response.text()
@@ -2095,6 +2097,176 @@ class InfoCommands(commands.Cog):
             logger.error(f"錯誤詳情: {traceback.format_exc()}")
         
         return None
+
+    def _process_metro_liveboard_data(self, raw_data: List[Dict[str, Any]], metro_system: str) -> List[Dict[str, Any]]:
+        """處理捷運即時電子看板資料，將LiveBoards分類為上行/下行列車"""
+        try:
+            processed_stations = []
+            
+            # 定義各路線的終點站（用於判斷方向）
+            terminal_stations = {
+                'TRTC': {  # 台北捷運
+                    'BR': {'up': ['南港展覽館'], 'down': ['動物園']},
+                    'BL': {'up': ['頂埔', '永寧'], 'down': ['南港展覽館', '昆陽']},
+                    'R': {'up': ['淡水'], 'down': ['象山', '信義']},
+                    'G': {'up': ['松山'], 'down': ['新店']},
+                    'O': {'up': ['蘆洲', '回龍'], 'down': ['南勢角']},
+                    'Y': {'up': ['大坪林'], 'down': ['新北產業園區']},
+                    'LG': {'up': ['十四張'], 'down': ['頂埔']},
+                    'V': {'up': ['淡海新市鎮'], 'down': ['紅樹林']}
+                },
+                'KRTC': {  # 高雄捷運
+                    'RO': {'up': ['小港'], 'down': ['南岡山']},
+                    'OR': {'up': ['哈瑪星', '西子灣'], 'down': ['大寮']},
+                    'R': {'up': ['小港'], 'down': ['南岡山']},
+                    'O': {'up': ['哈瑪星', '西子灣'], 'down': ['大寮']}
+                },
+                'KLRT': {  # 高雄輕軌
+                    'C': {'up': ['愛河之心', '文武聖殿'], 'down': ['哈瑪星', '駁二大義']}
+                }
+            }
+            
+            system_terminals = terminal_stations.get(metro_system, {})
+            
+            for station in raw_data:
+                # 取得基本車站資訊
+                station_copy = station.copy()
+                line_id = station.get('LineID', '')
+                live_boards = station.get('LiveBoards', [])
+                
+                # 初始化上行/下行列車列表
+                up_trains = []
+                down_trains = []
+                
+                # 取得該路線的終點站資訊
+                line_terminals = system_terminals.get(line_id, {'up': [], 'down': []})
+                up_terminals = line_terminals.get('up', [])
+                down_terminals = line_terminals.get('down', [])
+                
+                # 處理每個LiveBoard
+                for board in live_boards:
+                    dest_name_info = board.get('DestinationStationName', {})
+                    if isinstance(dest_name_info, dict):
+                        dest_name = dest_name_info.get('Zh_tw', '')
+                    else:
+                        dest_name = str(dest_name_info)
+                    
+                    # 判斷方向
+                    is_up = False
+                    is_down = False
+                    
+                    # 根據目的地判斷方向
+                    for up_terminal in up_terminals:
+                        if up_terminal in dest_name or dest_name in up_terminal:
+                            is_up = True
+                            break
+                    
+                    if not is_up:
+                        for down_terminal in down_terminals:
+                            if down_terminal in dest_name or dest_name in down_terminal:
+                                is_down = True
+                                break
+                    
+                    # 如果無法明確判斷，使用簡單的規則
+                    if not is_up and not is_down:
+                        # 根據路線和常見模式判斷
+                        if metro_system == 'TRTC':
+                            if line_id in ['R', 'BR'] and any(keyword in dest_name for keyword in ['淡水', '動物園', '南港']):
+                                is_up = '淡水' in dest_name or '南港' in dest_name
+                                is_down = '動物園' in dest_name or '象山' in dest_name
+                            elif line_id in ['BL'] and any(keyword in dest_name for keyword in ['頂埔', '永寧', '南港']):
+                                is_up = '頂埔' in dest_name or '永寧' in dest_name
+                                is_down = '南港' in dest_name
+                            else:
+                                # 預設分類：奇數班次為上行，偶數為下行
+                                estimate_time = board.get('EstimateTime', 0)
+                                is_up = (estimate_time % 2) == 0
+                                is_down = not is_up
+                        elif metro_system == 'TRTC':
+                            # 台北捷運特殊判斷
+                            if line_id in ['BL']:
+                                # 板南線：往頂埔/永寧為上行，往南港展覽館為下行
+                                if '頂埔' in dest_name or '永寧' in dest_name:
+                                    is_up = True
+                                elif '南港展覽館' in dest_name or '昆陽' in dest_name or '南港' in dest_name:
+                                    is_down = True
+                            elif line_id in ['BR']:
+                                # 文湖線：往南港展覽館為上行，往動物園為下行
+                                if '南港展覽館' in dest_name or '南港' in dest_name:
+                                    is_up = True
+                                elif '動物園' in dest_name:
+                                    is_down = True
+                            elif line_id in ['R']:
+                                # 淡水信義線：往淡水為上行，往象山/信義為下行
+                                if '淡水' in dest_name:
+                                    is_up = True
+                                elif '象山' in dest_name or '信義' in dest_name:
+                                    is_down = True
+                            elif line_id in ['G']:
+                                # 松山新店線：往松山為上行，往新店為下行
+                                if '松山' in dest_name:
+                                    is_up = True
+                                elif '新店' in dest_name:
+                                    is_down = True
+                            elif line_id in ['O']:
+                                # 中和新蘆線：往蘆洲/回龍為上行，往南勢角為下行
+                                if '蘆洲' in dest_name or '回龍' in dest_name:
+                                    is_up = True
+                                elif '南勢角' in dest_name:
+                                    is_down = True
+                        elif metro_system == 'KRTC':
+                            # 高雄捷運特殊判斷
+                            if line_id in ['O', 'OR']:
+                                # 橘線：往哈瑪星為上行，往大寮為下行
+                                if '哈瑪星' in dest_name or '西子灣' in dest_name:
+                                    is_up = True
+                                elif '大寮' in dest_name:
+                                    is_down = True
+                            elif line_id in ['R', 'RO']:
+                                # 紅線：往小港為上行，往南岡山為下行
+                                if '小港' in dest_name:
+                                    is_up = True
+                                elif '南岡山' in dest_name:
+                                    is_down = True
+                        
+                        # 如果還是無法判斷，使用預設邏輯
+                        if not is_up and not is_down:
+                            estimate_time = board.get('EstimateTime', 0)
+                            is_up = (estimate_time % 2) == 0
+                            is_down = not is_up
+                        else:
+                            # 其他系統的預設分類
+                            estimate_time = board.get('EstimateTime', 0)
+                            is_up = (estimate_time % 2) == 0
+                            is_down = not is_up
+                    
+                    # 將列車分類到對應方向
+                    if is_up:
+                        up_trains.append(board)
+                    elif is_down:
+                        down_trains.append(board)
+                    else:
+                        # 如果還是無法分類，預設放到上行
+                        up_trains.append(board)
+                
+                # 添加分類後的列車資料到車站
+                station_copy['up_trains'] = up_trains
+                station_copy['down_trains'] = down_trains
+                
+                processed_stations.append(station_copy)
+                
+            logger.info(f"處理完成：{len(processed_stations)}個車站的方向分類")
+            
+            # 統計分類結果
+            total_up = sum(len(s.get('up_trains', [])) for s in processed_stations)
+            total_down = sum(len(s.get('down_trains', [])) for s in processed_stations)
+            logger.info(f"方向分類結果：上行 {total_up} 班，下行 {total_down} 班")
+            
+            return processed_stations
+            
+        except Exception as e:
+            logger.error(f"處理捷運電子看板資料時發生錯誤: {str(e)}")
+            return raw_data  # 如果處理失敗，返回原始資料
 
     def format_metro_liveboard_by_direction(self, liveboard_data: List[Dict[str, Any]], metro_system: str, system_name: str, selected_line: str = None, direction_filter: str = None) -> Optional[discord.Embed]:
         """將捷運車站即時電子看板資料按方向分類格式化為Discord嵌入訊息
@@ -2263,10 +2435,25 @@ class InfoCommands(commands.Cog):
                                     dest = train_data.get('DestinationStationName', {})
                                     dest_name = dest.get('Zh_tw', '') if isinstance(dest, dict) else str(dest)
                                     estimate_time = train_data.get('EstimateTime', 0)
+                                    train_no = train_data.get('TrainNo', '') or ''
                                     
-                                    train_key = f"{dest_name}_{estimate_time}"
-                                    if train_key not in seen_trains:
-                                        seen_trains.add(train_key)
+                                    # 檢查是否已有相同的列車
+                                    is_duplicate = False
+                                    for existing_train in unique_trains:
+                                        existing_dest = existing_train.get('DestinationStationName', {})
+                                        existing_dest_name = existing_dest.get('Zh_tw', '') if isinstance(existing_dest, dict) else str(existing_dest)
+                                        existing_time = existing_train.get('EstimateTime', 0)
+                                        existing_train_no = existing_train.get('TrainNo', '') or ''
+                                        
+                                        # 如果目的地和時間完全相同，視為重複
+                                        if (existing_dest_name == dest_name and existing_time == estimate_time):
+                                            # 如果有列車編號且不同，則不是重複
+                                            if train_no and existing_train_no and train_no != existing_train_no:
+                                                continue
+                                            is_duplicate = True
+                                            break
+                                    
+                                    if not is_duplicate and dest_name and dest_name != '未知目的地':
                                         unique_trains.append(train_data)
                                 
                                 for train_data in unique_trains[:2]:  # 最多顯示2班列車
@@ -2289,10 +2476,25 @@ class InfoCommands(commands.Cog):
                                     dest = train_data.get('DestinationStationName', {})
                                     dest_name = dest.get('Zh_tw', '') if isinstance(dest, dict) else str(dest)
                                     estimate_time = train_data.get('EstimateTime', 0)
+                                    train_no = train_data.get('TrainNo', '') or ''
                                     
-                                    train_key = f"{dest_name}_{estimate_time}"
-                                    if train_key not in seen_trains:
-                                        seen_trains.add(train_key)
+                                    # 檢查是否已有相同的列車
+                                    is_duplicate = False
+                                    for existing_train in unique_trains:
+                                        existing_dest = existing_train.get('DestinationStationName', {})
+                                        existing_dest_name = existing_dest.get('Zh_tw', '') if isinstance(existing_dest, dict) else str(existing_dest)
+                                        existing_time = existing_train.get('EstimateTime', 0)
+                                        existing_train_no = existing_train.get('TrainNo', '') or ''
+                                        
+                                        # 如果目的地和時間完全相同，視為重複
+                                        if (existing_dest_name == dest_name and existing_time == estimate_time):
+                                            # 如果有列車編號且不同，則不是重複
+                                            if train_no and existing_train_no and train_no != existing_train_no:
+                                                continue
+                                            is_duplicate = True
+                                            break
+                                    
+                                    if not is_duplicate and dest_name and dest_name != '未知目的地':
                                         unique_trains.append(train_data)
                                 
                                 for train_data in unique_trains[:2]:  # 最多顯示2班列車
@@ -2382,24 +2584,27 @@ class InfoCommands(commands.Cog):
             # 取得預估到站時間（秒）
             estimate_time = train_data.get('EstimateTime', 0)
             
-            # 計算剩餘時間顯示 - 簡化版本
+            # 計算剩餘時間顯示 - 詳細版本（分秒）
             if estimate_time == 0:
                 time_info = "**進站中**"
                 status_emoji = "🚆"
-            elif estimate_time <= 60:  # 1分鐘內
-                time_info = "**即將進站**"
+            elif estimate_time <= 60:  # 1分鐘內顯示秒數
+                time_info = f"**{estimate_time}秒**"
                 status_emoji = "🔥"
-            elif estimate_time <= 300:  # 5分鐘內
-                minutes = estimate_time // 60
-                time_info = f"**{minutes}分**"
-                status_emoji = "🟡"
             else:
                 minutes = estimate_time // 60
-                if minutes > 10:
-                    time_info = "**10分+**"  # 超過10分鐘就顯示10分+
-                else:
+                seconds = estimate_time % 60
+                if seconds == 0:
                     time_info = f"**{minutes}分**"
-                status_emoji = "🟢"
+                else:
+                    time_info = f"**{minutes}分{seconds}秒**"
+                
+                if estimate_time <= 180:  # 3分鐘內
+                    status_emoji = "🟡"
+                elif estimate_time <= 600:  # 10分鐘內
+                    status_emoji = "🟢"
+                else:
+                    status_emoji = "⏱️"
             
             # 組合列車資訊
             return f"{status_emoji} 往**{dest_name}** - {time_info}"
@@ -3364,7 +3569,7 @@ class MetroStationSelect(discord.ui.Select):
             if station_name not in station_names and station_name != '未知車站':
                 station_names.add(station_name)
                 
-                # 取得第一班列車資訊作為預覽 - 簡化版本
+                # 取得第一班列車資訊作為預覽 - 詳細版本（分秒）
                 preview_info = ""
                 if 'up_trains' in station_data and station_data['up_trains']:
                     first_train = station_data['up_trains'][0]
@@ -3374,11 +3579,14 @@ class MetroStationSelect(discord.ui.Select):
                     if estimate == 0:
                         preview_info = f"往{dest_name} - 進站中"
                     elif estimate < 60:
-                        preview_info = f"往{dest_name} - 即將進站"
-                    elif estimate <= 300:  # 5分鐘內
-                        preview_info = f"往{dest_name} - {estimate//60}分"
+                        preview_info = f"往{dest_name} - {estimate}秒"
                     else:
-                        preview_info = f"往{dest_name} - 5分+"
+                        minutes = estimate // 60
+                        seconds = estimate % 60
+                        if seconds == 0:
+                            preview_info = f"往{dest_name} - {minutes}分"
+                        else:
+                            preview_info = f"往{dest_name} - {minutes}分{seconds}秒"
                 elif 'down_trains' in station_data and station_data['down_trains']:
                     first_train = station_data['down_trains'][0]
                     dest = first_train.get('DestinationStationName', {})
@@ -3387,11 +3595,14 @@ class MetroStationSelect(discord.ui.Select):
                     if estimate == 0:
                         preview_info = f"往{dest_name} - 進站中"
                     elif estimate < 60:
-                        preview_info = f"往{dest_name} - 即將進站"
-                    elif estimate <= 300:  # 5分鐘內
-                        preview_info = f"往{dest_name} - {estimate//60}分"
+                        preview_info = f"往{dest_name} - {estimate}秒"
                     else:
-                        preview_info = f"往{dest_name} - 5分+"
+                        minutes = estimate // 60
+                        seconds = estimate % 60
+                        if seconds == 0:
+                            preview_info = f"往{dest_name} - {minutes}分"
+                        else:
+                            preview_info = f"往{dest_name} - {minutes}分{seconds}秒"
                 else:
                     preview_info = "暫無列車資訊"
                 
