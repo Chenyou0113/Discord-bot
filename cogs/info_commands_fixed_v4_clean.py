@@ -2659,45 +2659,34 @@ class InfoCommands(commands.Cog):
             return None
 
     @app_commands.command(name='metro_liveboard', description='查詢捷運車站即時到離站電子看板')
-    @app_commands.describe(metro_system='選擇捷運系統')
-    @app_commands.choices(metro_system=[
-        app_commands.Choice(name='台北捷運', value='TRTC'),
-        app_commands.Choice(name='高雄捷運', value='KRTC'),
-        app_commands.Choice(name='高雄輕軌', value='KLRT')
-    ])
-    async def metro_liveboard(self, interaction: discord.Interaction, metro_system: app_commands.Choice[str]):
-        """查詢捷運車站即時電子看板"""
+    async def metro_liveboard(self, interaction: discord.Interaction):
+        """查詢捷運車站即時電子看板 - 互動式選擇系統"""
         await interaction.response.defer()
         
         try:
-            logger.info(f"使用者 {interaction.user} 查詢捷運電子看板: {metro_system.name}")
+            logger.info(f"使用者 {interaction.user} 開始查詢捷運電子看板")
             
-            # 獲取即時電子看板資料
-            liveboard_data = await self.fetch_metro_liveboard(metro_system.value)
-            
-            if not liveboard_data:
-                embed = discord.Embed(
-                    title="🚇 車站即時電子看板",
-                    description="❌ 目前無法取得即時電子看板資料，請稍後再試。",
-                    color=0xFF0000
-                )
-                embed.add_field(name="系統", value=metro_system.name, inline=True)
-                embed.add_field(name="狀態", value="資料取得失敗", inline=True)
-                embed.set_footer(text="資料來源: 交通部TDX平台")
-                await interaction.followup.send(embed=embed)
-                return
-            
-            # 使用按路線分類的視圖
-            view = MetroLiveboardByLineView(
+            # 創建系統選擇視圖
+            view = MetroSystemSelectionView(
                 cog=self,
                 user_id=interaction.user.id,
-                liveboard_data=liveboard_data,
-                metro_system=metro_system.value,
-                system_name=metro_system.name
+                view_type="liveboard"
             )
             
-            # 創建第一頁的嵌入訊息 (預設顯示第一條路線)
-            embed = view.create_line_embed()
+            # 創建系統選擇嵌入訊息
+            embed = discord.Embed(
+                title="🚇 捷運即時電子看板",
+                description="請選擇要查詢的捷運系統：",
+                color=0x3498DB
+            )
+            embed.add_field(
+                name="🚇 可用系統",
+                value="🔵 **台北捷運** - 文湖線、淡水信義線、松山新店線等\n"
+                      "🟠 **高雄捷運** - 紅線、橘線\n"
+                      "🟢 **高雄輕軌** - 環狀輕軌",
+                inline=False
+            )
+            embed.set_footer(text="點擊下方按鈕選擇捷運系統")
             
             await interaction.followup.send(embed=embed, view=view)
             
@@ -2706,48 +2695,41 @@ class InfoCommands(commands.Cog):
             await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
 
     @app_commands.command(name='metro_direction', description='查詢捷運車站上行/下行方向即時到離站電子看板')
-    @app_commands.describe(metro_system='選擇捷運系統')
-    @app_commands.choices(metro_system=[
-        app_commands.Choice(name='台北捷運', value='TRTC'),
-        app_commands.Choice(name='高雄捷運', value='KRTC'),
-        app_commands.Choice(name='高雄輕軌', value='KLRT')
-    ])
-    async def metro_direction(self, interaction: discord.Interaction, metro_system: app_commands.Choice[str]):
-        """查詢捷運車站按方向分類的即時電子看板"""
+    async def metro_direction(self, interaction: discord.Interaction):
+        """查詢捷運車站按方向分類的即時電子看板 - 互動式選擇系統"""
         await interaction.response.defer()
         
         try:
-            logger.info(f"使用者 {interaction.user} 查詢捷運方向電子看板: {metro_system.name}")
+            logger.info(f"使用者 {interaction.user} 開始查詢捷運方向電子看板")
             
-            # 獲取即時電子看板資料
-            liveboard_data = await self.fetch_metro_liveboard(metro_system.value)
-            
-            if not liveboard_data:
-                embed = discord.Embed(
-                    title="🚇 車站即時電子看板 (方向分類)",
-                    description="❌ 目前無法取得即時電子看板資料，請稍後再試。",
-                    color=0xFF0000
-                )
-                embed.add_field(name="系統", value=metro_system.name, inline=True)
-                embed.add_field(name="狀態", value="資料取得失敗", inline=True)
-                embed.set_footer(text="資料來源: 交通部TDX平台")
-                await interaction.followup.send(embed=embed)
-                return
-            
-            # 使用按方向分類的視圖
-            view = MetroLiveboardByDirectionView(
+            # 創建系統選擇視圖
+            view = MetroSystemSelectionView(
                 cog=self,
                 user_id=interaction.user.id,
-                liveboard_data=liveboard_data,
-                metro_system=metro_system.value,
-                system_name=metro_system.name
+                view_type="direction"
             )
             
-            # 創建第一頁的嵌入訊息 (預設顯示全部方向)
-            embed = view.create_direction_embed()
+            # 創建系統選擇嵌入訊息
+            embed = discord.Embed(
+                title="🚇 捷運方向電子看板",
+                description="請選擇要查詢的捷運系統：",
+                color=0x3498DB
+            )
+            embed.add_field(
+                name="📍 方向說明",
+                value="⬆️ **上行** - 往路線末端方向\n⬇️ **下行** - 往路線起始方向",
+                inline=False
+            )
+            embed.add_field(
+                name="🚇 可用系統",
+                value="🔵 **台北捷運** - 文湖線、淡水信義線、松山新店線等\n"
+                      "🟠 **高雄捷運** - 紅線、橘線\n"
+                      "🟢 **高雄輕軌** - 環狀輕軌",
+                inline=False
+            )
+            embed.set_footer(text="點擊下方按鈕選擇捷運系統")
             
-            message = await interaction.followup.send(embed=embed, view=view)
-            view.message = message
+            await interaction.followup.send(embed=embed, view=view)
             
         except Exception as e:
             logger.error(f"即時電子看板方向指令執行時發生錯誤: {str(e)}")
@@ -3238,6 +3220,123 @@ class MetroLiveboardByDirectionView(View):
         try:
             # 嘗試編輯訊息以禁用按鈕
             await self.message.edit(view=self)
+        except:
+            pass
+
+# 捷運系統選擇視圖類
+class MetroSystemSelectionView(View):
+    """捷運系統選擇視圖"""
+    def __init__(self, cog, user_id: int, view_type: str):
+        super().__init__(timeout=300)  # 5分鐘超時
+        self.cog = cog
+        self.user_id = user_id
+        self.view_type = view_type  # "liveboard" 或 "direction"
+        
+        # 添加系統選擇按鈕
+        self._add_system_buttons()
+    
+    def _add_system_buttons(self):
+        """添加系統選擇按鈕"""
+        # 台北捷運按鈕
+        trtc_button = discord.ui.Button(
+            label="🔵 台北捷運",
+            style=discord.ButtonStyle.primary,
+            custom_id="select_TRTC"
+        )
+        trtc_button.callback = lambda i: self.select_system(i, "TRTC", "台北捷運")
+        self.add_item(trtc_button)
+        
+        # 高雄捷運按鈕
+        krtc_button = discord.ui.Button(
+            label="🟠 高雄捷運",
+            style=discord.ButtonStyle.secondary,
+            custom_id="select_KRTC"
+        )
+        krtc_button.callback = lambda i: self.select_system(i, "KRTC", "高雄捷運")
+        self.add_item(krtc_button)
+        
+        # 高雄輕軌按鈕
+        klrt_button = discord.ui.Button(
+            label="🟢 高雄輕軌",
+            style=discord.ButtonStyle.success,
+            custom_id="select_KLRT"
+        )
+        klrt_button.callback = lambda i: self.select_system(i, "KLRT", "高雄輕軌")
+        self.add_item(klrt_button)
+    
+    async def select_system(self, interaction: discord.Interaction, metro_system: str, system_name: str):
+        """選擇捷運系統"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            return
+        
+        await interaction.response.defer()
+        
+        try:
+            logger.info(f"使用者 {interaction.user} 選擇捷運系統: {system_name}")
+            
+            # 獲取即時電子看板資料
+            liveboard_data = await self.cog.fetch_metro_liveboard(metro_system)
+            
+            if not liveboard_data:
+                embed = discord.Embed(
+                    title="🚇 車站即時電子看板",
+                    description="❌ 目前無法取得即時電子看板資料，請稍後再試。",
+                    color=0xFF0000
+                )
+                embed.add_field(name="系統", value=system_name, inline=True)
+                embed.add_field(name="狀態", value="資料取得失敗", inline=True)
+                embed.set_footer(text="資料來源: 交通部TDX平台")
+                await interaction.followup.edit_message(interaction.message.id, embed=embed, view=None)
+                return
+            
+            # 根據視圖類型創建對應的視圖
+            if self.view_type == "direction":
+                # 創建方向分類視圖
+                view = MetroLiveboardByDirectionView(
+                    cog=self.cog,
+                    user_id=interaction.user.id,
+                    liveboard_data=liveboard_data,
+                    metro_system=metro_system,
+                    system_name=system_name
+                )
+                embed = view.create_direction_embed()
+                view.message = interaction.message
+            else:
+                # 創建路線分類視圖
+                view = MetroLiveboardByLineView(
+                    cog=self.cog,
+                    user_id=interaction.user.id,
+                    liveboard_data=liveboard_data,
+                    metro_system=metro_system,
+                    system_name=system_name
+                )
+                embed = view.create_line_embed()
+            
+            await interaction.followup.edit_message(interaction.message.id, embed=embed, view=view)
+            
+        except Exception as e:
+            logger.error(f"選擇捷運系統時發生錯誤: {str(e)}")
+            embed = discord.Embed(
+                title="🚇 車站即時電子看板",
+                description="❌ 載入資料時發生錯誤，請稍後再試。",
+                color=0xFF0000
+            )
+            await interaction.followup.edit_message(interaction.message.id, embed=embed, view=None)
+    
+    async def on_timeout(self):
+        """視圖超時時禁用所有按鈕"""
+        for item in self.children:
+            item.disabled = True
+        
+        try:
+            embed = discord.Embed(
+                title="🚇 捷運系統選擇",
+                description="⏰ 選擇時間已超時，請重新使用指令。",
+                color=0x95A5A6
+            )
+            # 這裡可能需要訪問message，但View沒有直接的message屬性
+            # 如果需要的話，可以在初始化時傳入
         except:
             pass
 
