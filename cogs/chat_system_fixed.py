@@ -82,17 +82,54 @@ class ChatSystemCommands(commands.Cog):
                     self.chat_history[user_id] = create_chat()
                 
                 # 生成回應
-                response = await generate_content(content, chat=self.chat_history[user_id])
+                response_data = await generate_content(content, chat=self.chat_history[user_id])
                 
-                if response:
-                    # 如果回應太長，分割發送
-                    if len(response) > 2000:
-                        chunks = [response[i:i+1900] for i in range(0, len(response), 1900)]
-                        await message.channel.send(f"{message.author.mention} {chunks[0]}")
-                        for chunk in chunks[1:]:
-                            await message.channel.send(chunk)
+                if response_data and len(response_data) == 2:
+                    response, success = response_data
+                    if success and response:
+                        # 提取實際的文字內容
+                        if hasattr(response, 'text'):
+                            response_text = response.text
+                        elif hasattr(response, 'result') and hasattr(response.result, 'candidates'):
+                            # 從候選項中提取文字
+                            if len(response.result.candidates) > 0:
+                                candidate = response.result.candidates[0]
+                                if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                                    if len(candidate.content.parts) > 0:
+                                        response_text = candidate.content.parts[0].text
+                                    else:
+                                        response_text = None
+                                else:
+                                    response_text = None
+                            else:
+                                response_text = None
+                        else:
+                            response_text = str(response) if response else None
                     else:
-                        await message.channel.send(f"{message.author.mention} {response}")
+                        response_text = None
+                else:
+                    response_text = None
+                
+                if response_text:
+                    # 計算mention的長度
+                    mention = f"{message.author.mention} "
+                    mention_length = len(mention)
+                    max_content_length = 2000 - mention_length
+                    
+                    # 如果回應太長，分割發送
+                    if len(response_text) > max_content_length:
+                        chunks = [response_text[i:i+max_content_length] for i in range(0, len(response_text), max_content_length)]
+                        await message.channel.send(f"{mention}{chunks[0]}")
+                        for chunk in chunks[1:]:
+                            # 確保每個chunk不超過2000字符
+                            if len(chunk) > 2000:
+                                sub_chunks = [chunk[i:i+2000] for i in range(0, len(chunk), 2000)]
+                                for sub_chunk in sub_chunks:
+                                    await message.channel.send(sub_chunk)
+                            else:
+                                await message.channel.send(chunk)
+                    else:
+                        await message.channel.send(f"{mention}{response_text}")
                 else:
                     await message.channel.send(f"{message.author.mention} 抱歉，我無法處理你的請求，請稍後再試。")
                     
@@ -175,12 +212,28 @@ class ChatSystemCommands(commands.Cog):
         
         try:
             # 使用 API 池生成內容
-            content = await generate_content(
-                model=self.current_model_name,
-                user_input=問題,
-                chat_history=self.chat_history.get(user_id, []),
+            response_data = await generate_content(
+                prompt=問題,
+                model_name=self.current_model_name,
                 temperature=0.7
             )
+            
+            content = None
+            if response_data and len(response_data) == 2:
+                response, success = response_data
+                if success and response:
+                    # 提取實際的文字內容
+                    if hasattr(response, 'text'):
+                        content = response.text
+                    elif hasattr(response, 'result') and hasattr(response.result, 'candidates'):
+                        # 從候選項中提取文字
+                        if len(response.result.candidates) > 0:
+                            candidate = response.result.candidates[0]
+                            if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                                if len(candidate.content.parts) > 0:
+                                    content = candidate.content.parts[0].text
+                    else:
+                        content = str(response) if response else None
             
             # 處理回應
             if content:
@@ -193,11 +246,17 @@ class ChatSystemCommands(commands.Cog):
                     self.chat_history[user_id] = self.chat_history[user_id][-20:]
                 
                 # 處理過長的回應
-                if len(content) > 1900:
-                    chunks = [content[i:i+1900] for i in range(0, len(content), 1900)]
+                if len(content) > 2000:
+                    chunks = [content[i:i+2000] for i in range(0, len(content), 2000)]
                     await interaction.followup.send(chunks[0])
                     for chunk in chunks[1:]:
-                        await interaction.channel.send(chunk)
+                        # 確保每個chunk不超過2000字符
+                        if len(chunk) > 2000:
+                            sub_chunks = [chunk[i:i+2000] for i in range(0, len(chunk), 2000)]
+                            for sub_chunk in sub_chunks:
+                                await interaction.channel.send(sub_chunk)
+                        else:
+                            await interaction.channel.send(chunk)
                 else:
                     await interaction.followup.send(content)
             else:

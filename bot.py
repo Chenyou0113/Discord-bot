@@ -431,20 +431,55 @@ def main():
     
     # 添加指令樹錯誤處理
     @bot.tree.error
-    async def on_app_command_error(interaction: discord.Interaction, error):
+    async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+        # 取得最原始的錯誤
+        original_error = getattr(error, 'original', error)
+        command_name = interaction.command.name if interaction.command else "未知指令"
+
+        # 如果是 Cooldown 錯誤
         if isinstance(error, app_commands.CommandOnCooldown):
-            await interaction.response.send_message(f"⏳ 此指令正在冷卻中，請在 {error.retry_after:.2f} 秒後再試。", ephemeral=True)
+            message = f"⏳ 指令 `{command_name}` 正在冷卻中，請在 {error.retry_after:.2f} 秒後再試。"
+        # 如果是權限錯誤
         elif isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("⛔ 您沒有執行此指令的權限。", ephemeral=True)
+            message = f"⛔ 您沒有執行指令 `{command_name}` 的權限。"
+        # 如果是互動過期/未知錯誤 (這是我們的目標)
+        elif isinstance(original_error, discord.errors.NotFound) and original_error.code == 10062:
+            logger.warning(f"指令 `{command_name}` 的互動已過期或未知 (錯誤碼: 10062)。可能原因：執行時間過長且未呼叫 defer()。")
+            return  # 不做任何事，因為無法回應已過期的交互
+        # 其他指令調用錯誤
         else:
-            logger.error(f"應用指令錯誤: {str(error)}")
+            logger.error(f"指令 `{command_name}` 發生錯誤: {original_error}", exc_info=True)
+            message = f"❌ 執行指令 `{command_name}` 時發生錯誤。"
+
+        # 嘗試發送錯誤訊息
+        try:
+            # 如果尚未回應，使用 response.send_message
+            if not interaction.response.is_done():
+                await interaction.response.send_message(message, ephemeral=True)
+            # 如果已經回應 (例如，已經 defer)，使用 followup.send
+            else:
+                await interaction.followup.send(message, ephemeral=True)
+        except discord.errors.NotFound as nf_error:
+            # 檢查是否為特定的"Unknown interaction"錯誤
+            if nf_error.code == 10062:
+                logger.warning(f"試圖為指令 `{command_name}` 發送錯誤訊息時，互動已過期 (錯誤碼: 10062)。")
+            else:
+                logger.warning(f"試圖為指令 `{command_name}` 發送錯誤訊息時發生 NotFound 錯誤: {nf_error}")
+        except discord.errors.InteractionResponded:
+            # 如果已經回應過了，但 is_done() 沒抓到，嘗試 followup
             try:
-                await interaction.response.send_message(f"❌ 發生錯誤: {str(error)}", ephemeral=True)
-            except discord.errors.InteractionResponded:
-                try:
-                    await interaction.followup.send(f"❌ 發生錯誤: {str(error)}", ephemeral=True)
-                except Exception as e:
-                    logger.error(f"無法發送錯誤回覆: {str(e)}")
+                await interaction.followup.send(message, ephemeral=True)
+            except discord.errors.NotFound as nf_error:
+                if nf_error.code == 10062:
+                    logger.warning(f"試圖為指令 `{command_name}` follow up 錯誤訊息時，互動已過期 (錯誤碼: 10062)。")
+                else:
+                    logger.warning(f"試圖為指令 `{command_name}` follow up 錯誤訊息時發生 NotFound 錯誤: {nf_error}")
+        except Exception as unexpected_error:
+            # 處理其他意外錯誤
+            logger.error(f"處理指令 `{command_name}` 錯誤時發生意外錯誤: {unexpected_error}")
+        except Exception as e:
+            # 捕獲所有其他可能的錯誤
+            logger.error(f"在 `{command_name}` 的錯誤處理器中發送回覆時發生未知錯誤: {e}", exc_info=True)
     
     # 運行機器人
     try:

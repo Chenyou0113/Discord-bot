@@ -356,6 +356,11 @@ class InfoCommands(commands.Cog):
         self.tdx_access_token = None
         self.tdx_token_expires_at = 0
         
+        # 台鐵車站資料快取
+        self.tra_stations_cache = None
+        self.tra_stations_cache_time = 0
+        self.tra_stations_cache_duration = 86400  # 24小時更新一次
+        
         self.notification_channels = {}
         self.last_eq_time = {}
         self.check_interval = 300  # 每5分鐘檢查一次
@@ -1356,6 +1361,170 @@ class InfoCommands(commands.Cog):
         }
         return backup_data
 
+    async def fetch_tra_stations_from_api(self) -> Optional[Dict[str, List[Dict[str, str]]]]:
+        """從台鐵官方開放資料平台獲取最新車站資料"""
+        try:
+            import time
+            current_time = time.time()
+            
+            # 檢查快取是否仍有效
+            if (self.tra_stations_cache and 
+                current_time - self.tra_stations_cache_time < self.tra_stations_cache_duration):
+                logger.info("使用快取的台鐵車站資料")
+                return self.tra_stations_cache
+            
+            logger.info("正在從台鐵官方API獲取最新車站資料...")
+            
+            # 台鐵車站資料API端點
+            url = "https://ods.railway.gov.tw/tra-ods-web/ods/download/dataResource/0518b833e8964d53bfea3f7691aea0ee"
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8'
+            }
+            
+            # 建立SSL連接
+            import ssl
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            timeout = aiohttp.ClientTimeout(total=30)
+            
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 200:
+                        # API回應的是二進制內容，需要手動解碼
+                        content = await response.read()
+                        text_content = content.decode('utf-8')
+                        import json
+                        data = json.loads(text_content)
+                        logger.info(f"成功獲取台鐵車站資料，共{len(data)}筆")
+                        
+                        # 處理資料並按縣市分類
+                        processed_stations = await self._process_tra_stations_data(data)
+                        
+                        # 更新快取
+                        self.tra_stations_cache = processed_stations
+                        self.tra_stations_cache_time = current_time
+                        
+                        logger.info(f"台鐵車站資料處理完成，共{len(processed_stations)}個縣市")
+                        return processed_stations
+                    else:
+                        logger.error(f"台鐵API請求失敗: HTTP {response.status}")
+                        response_text = await response.text()
+                        logger.error(f"錯誤回應: {response_text}")
+                        return None
+                        
+        except Exception as e:
+            logger.error(f"獲取台鐵車站資料時發生錯誤: {str(e)}")
+            import traceback
+            logger.error(f"錯誤詳情: {traceback.format_exc()}")
+            return None
+
+    async def _process_tra_stations_data(self, raw_data: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, str]]]:
+        """處理台鐵車站原始資料，按縣市分類"""
+        try:
+            stations_by_county = {}
+            
+            for station in raw_data:
+                # 取得車站資訊 (使用正確的欄位名稱)
+                station_name = station.get('stationName', '').strip()
+                station_id = station.get('stationCode', '').strip()
+                county = station.get('stationAddrTw', '')
+                
+                # 從地址提取縣市資訊
+                if county:
+                    # 提取縣市名稱
+                    county_name = None
+                    for location in TW_LOCATIONS:
+                        if location in county:
+                            county_name = location
+                            break
+                    
+                    if not county_name:
+                        # 嘗試更寬鬆的匹配
+                        if '臺北' in county or '台北' in county:
+                            county_name = '臺北市'
+                        elif '新北' in county:
+                            county_name = '新北市'
+                        elif '桃園' in county:
+                            county_name = '桃園市'
+                        elif '臺中' in county or '台中' in county:
+                            county_name = '臺中市'
+                        elif '臺南' in county or '台南' in county:
+                            county_name = '臺南市'
+                        elif '高雄' in county:
+                            county_name = '高雄市'
+                        elif '基隆' in county:
+                            county_name = '基隆市'
+                        elif '新竹市' in county:
+                            county_name = '新竹市'
+                        elif '新竹縣' in county or ('新竹' in county and '市' not in county):
+                            county_name = '新竹縣'
+                        elif '嘉義市' in county:
+                            county_name = '嘉義市'
+                        elif '嘉義縣' in county or ('嘉義' in county and '市' not in county):
+                            county_name = '嘉義縣'
+                        elif '雲林' in county:
+                            county_name = '雲林縣'
+                        elif '彰化' in county:
+                            county_name = '彰化縣'
+                        elif '南投' in county:
+                            county_name = '南投縣'
+                        elif '宜蘭' in county:
+                            county_name = '宜蘭縣'
+                        elif '花蓮' in county:
+                            county_name = '花蓮縣'
+                        elif '臺東' in county or '台東' in county:
+                            county_name = '臺東縣'
+                        elif '屏東' in county:
+                            county_name = '屏東縣'
+                        else:
+                            # 預設分類
+                            county_name = '其他'
+                
+                # 如果有有效的車站名稱和ID
+                if station_name and station_id and county_name:
+                    if county_name not in stations_by_county:
+                        stations_by_county[county_name] = []
+                    
+                    stations_by_county[county_name].append({
+                        'name': station_name,
+                        'id': station_id
+                    })
+            
+            # 排序各縣市的車站
+            for county in stations_by_county:
+                stations_by_county[county].sort(key=lambda x: x['name'])
+            
+            logger.info(f"車站分類結果: {[(county, len(stations)) for county, stations in stations_by_county.items()]}")
+            
+            return stations_by_county
+            
+        except Exception as e:
+            logger.error(f"處理台鐵車站資料時發生錯誤: {str(e)}")
+            return {}
+
+    async def get_updated_tra_stations(self) -> Dict[str, List[Dict[str, str]]]:
+        """獲取更新的台鐵車站資料，優先使用API，失敗時使用內建資料"""
+        try:
+            # 嘗試從API獲取最新資料
+            api_data = await self.fetch_tra_stations_from_api()
+            if api_data and len(api_data) > 0:
+                logger.info("成功使用API更新台鐵車站資料")
+                return api_data
+            else:
+                logger.warning("API獲取失敗，使用內建台鐵車站資料")
+                return TRA_STATIONS
+                
+        except Exception as e:
+            logger.error(f"獲取台鐵車站資料時發生錯誤: {str(e)}")
+            logger.info("使用內建台鐵車站資料作為備援")
+            return TRA_STATIONS
+
     async def get_tdx_access_token(self) -> Optional[str]:
         """取得 TDX API 存取權杖"""
         try:
@@ -1966,7 +2135,8 @@ class InfoCommands(commands.Cog):
             # 獲取捷運狀態資料
             metro_data = await self.fetch_metro_alerts(metro_system.value)
             
-            if not metro_data:
+            if metro_data is None:
+                # API連線失敗
                 embed = discord.Embed(
                     title="🚇 捷運狀態查詢",
                     description="❌ 目前無法取得捷運狀態資料，請稍後再試。",
@@ -1978,8 +2148,22 @@ class InfoCommands(commands.Cog):
                 await interaction.followup.send(embed=embed)
                 return
             
-            # 格式化資料
-            embed = await self.format_metro_alert(metro_data, metro_system.value, metro_system.name)
+            # 檢查是否有事故資料
+            if len(metro_data) == 0:
+                # 沒有事故，顯示正常營運
+                embed = discord.Embed(
+                    title="🚇 捷運狀態查詢",
+                    description="✅ 目前無事故通報，營運正常。",
+                    color=discord.Color.green()
+                )
+                embed.add_field(name="系統", value=metro_system.name, inline=True)
+                embed.add_field(name="狀態", value="營運正常", inline=True)
+                embed.set_footer(text=f"資料來源: 交通部TDX平台 | 查詢時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 格式化事故資料 - 取第一個事故
+            embed = self.format_metro_alert(metro_data[0], metro_system.value)
             
             if embed is None:
                 embed = discord.Embed(
@@ -2007,11 +2191,17 @@ class InfoCommands(commands.Cog):
                 logger.error("無法取得TDX access token")
                 return None
             
-            # 設定API端點 - 完全移除$top限制以取得所有可用資料
+            # 設定API端點 - 支援所有捷運系統
             api_endpoints = {
-                'TRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TRTC?%24format=JSON',
-                'KRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KRTC?%24format=JSON', 
-                'KLRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KLRT?%24format=JSON'
+                'TRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TRTC?%24format=JSON',        # 臺北捷運
+                'KRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KRTC?%24format=JSON',        # 高雄捷運
+                'TYMC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TYMC?%24format=JSON',        # 桃園捷運
+                'TMRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TMRT?%24format=JSON',        # 臺中捷運
+                'KLRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/KLRT?%24format=JSON',        # 高雄輕軌
+                'NTDLRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/NTDLRT?%24format=JSON',    # 淡海輕軌
+                'TRTCMG': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/TRTCMG?%24format=JSON',    # 貓空纜車
+                'NTMC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/NTMC?%24format=JSON',        # 新北捷運
+                'NTALRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/LiveBoard/NTALRT?%24format=JSON'     # 安坑輕軌
             }
             
             url = api_endpoints.get(metro_system)
@@ -2861,7 +3051,15 @@ class InfoCommands(commands.Cog):
     @app_commands.command(name='metro_liveboard', description='查詢捷運車站即時到離站電子看板')
     async def metro_liveboard(self, interaction: discord.Interaction):
         """查詢捷運車站即時電子看板 - 互動式選擇系統"""
-        await interaction.response.defer()
+        # 添加超時保護
+        try:
+            await interaction.response.defer()
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"metro_liveboard 指令互動已過期 (錯誤碼: 10062)")
+                return
+            else:
+                raise e
         
         try:
             logger.info(f"使用者 {interaction.user} 開始查詢捷運電子看板")
@@ -2881,23 +3079,46 @@ class InfoCommands(commands.Cog):
             )
             embed.add_field(
                 name="🚇 可用系統",
-                value="🔵 **台北捷運** - 文湖線、淡水信義線、松山新店線等\n"
+                value="🔵 **臺北捷運** - 文湖線、淡水信義線、板南線等\n"
                       "🟠 **高雄捷運** - 紅線、橘線\n"
-                      "🟢 **高雄輕軌** - 環狀輕軌",
+                      "🟡 **桃園捷運** - 機場線、綠線\n"
+                      "� **臺中捷運** - 綠線、藍線\n"
+                      "�🟢 **高雄輕軌** - 環狀輕軌\n"
+                      "💜 **淡海輕軌** - 淡海線\n"
+                      "🚠 **貓空纜車** - 貓纜系統\n"
+                      "🔷 **新北捷運** - 新北路線\n"
+                      "💚 **安坑輕軌** - 安坑線",
                 inline=False
             )
-            embed.set_footer(text="點擊下方按鈕選擇捷運系統")
+            embed.set_footer(text="使用下方選單選擇捷運系統")
             
             await interaction.followup.send(embed=embed, view=view)
             
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"metro_liveboard 指令在發送回應時互動已過期")
+                return
+            else:
+                logger.error(f"metro_liveboard 指令發生 NotFound 錯誤: {e}")
         except Exception as e:
             logger.error(f"即時電子看板指令執行時發生錯誤: {str(e)}")
-            await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+            try:
+                await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+            except discord.errors.NotFound:
+                logger.warning(f"metro_liveboard 指令在發送錯誤訊息時互動已過期")
 
     @app_commands.command(name='metro_direction', description='查詢捷運車站上行/下行方向即時到離站電子看板')
     async def metro_direction(self, interaction: discord.Interaction):
         """查詢捷運車站按方向分類的即時電子看板 - 互動式選擇系統"""
-        await interaction.response.defer()
+        # 添加超時保護
+        try:
+            await interaction.response.defer()
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"metro_direction 指令互動已過期 (錯誤碼: 10062)")
+                return
+            else:
+                raise e
         
         try:
             logger.info(f"使用者 {interaction.user} 開始查詢捷運方向電子看板")
@@ -2922,18 +3143,33 @@ class InfoCommands(commands.Cog):
             )
             embed.add_field(
                 name="🚇 可用系統",
-                value="🔵 **台北捷運** - 文湖線、淡水信義線、松山新店線等\n"
+                value="🔵 **臺北捷運** - 文湖線、淡水信義線、板南線等\n"
                       "🟠 **高雄捷運** - 紅線、橘線\n"
-                      "🟢 **高雄輕軌** - 環狀輕軌",
+                      "🟡 **桃園捷運** - 機場線、綠線\n"
+                      "� **臺中捷運** - 綠線、藍線\n"
+                      "�🟢 **高雄輕軌** - 環狀輕軌\n"
+                      "💜 **淡海輕軌** - 淡海線\n"
+                      "🚠 **貓空纜車** - 貓纜系統\n"
+                      "🔷 **新北捷運** - 新北路線\n"
+                      "💚 **安坑輕軌** - 安坑線",
                 inline=False
             )
-            embed.set_footer(text="點擊下方按鈕選擇捷運系統")
+            embed.set_footer(text="使用下方選單選擇捷運系統")
             
             await interaction.followup.send(embed=embed, view=view)
             
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"metro_direction 指令在發送回應時互動已過期")
+                return
+            else:
+                logger.error(f"metro_direction 指令發生 NotFound 錯誤: {e}")
         except Exception as e:
             logger.error(f"即時電子看板方向指令執行時發生錯誤: {str(e)}")
-            await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+            try:
+                await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+            except discord.errors.NotFound:
+                logger.warning(f"metro_direction 指令在發送錯誤訊息時互動已過期")
 
     @app_commands.command(name='tra_liveboard', description='查詢台鐵車站即時電子看板')
     @app_commands.describe(
@@ -2950,8 +3186,11 @@ class InfoCommands(commands.Cog):
         try:
             logger.info(f"使用者 {interaction.user} 查詢台鐵電子看板: {county.value}")
             
+            # 獲取最新的台鐵車站資料
+            tra_stations = await self.get_updated_tra_stations()
+            
             # 檢查縣市是否有台鐵車站
-            if county.value not in TRA_STATIONS:
+            if county.value not in tra_stations:
                 embed = discord.Embed(
                     title="🚆 台鐵電子看板",
                     description=f"❌ {county.value} 目前沒有台鐵車站資料。",
@@ -2960,7 +3199,7 @@ class InfoCommands(commands.Cog):
                 await interaction.followup.send(embed=embed)
                 return
             
-            stations = TRA_STATIONS[county.value]
+            stations = tra_stations[county.value]
             
             # 如果指定了車站名稱，查找該車站
             if station_name:
@@ -3213,6 +3452,117 @@ class InfoCommands(commands.Cog):
         embed.set_footer(text=f"觀測時間: {obs_time} | 資料來源: 中央氣象署")
         return embed
 
+    @app_commands.command(name='metro_news', description='查詢捷運系統最新消息與公告')
+    async def metro_news(self, interaction: discord.Interaction):
+        """查詢捷運系統最新消息 - 互動式選擇系統"""
+        # 添加超時保護
+        try:
+            await interaction.response.defer()
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"metro_news 指令互動已過期 (錯誤碼: 10062)")
+                return
+            else:
+                raise e
+        
+        try:
+            logger.info(f"使用者 {interaction.user} 開始查詢捷運新聞")
+            
+            # 創建系統選擇視圖
+            view = MetroNewsSelectionView(
+                cog=self,
+                user_id=interaction.user.id
+            )
+            
+            # 創建系統選擇嵌入訊息
+            embed = discord.Embed(
+                title="📰 捷運最新消息",
+                description="請選擇要查詢的捷運系統：",
+                color=0x2ECC71
+            )
+            embed.add_field(
+                name="🚇 可用系統",
+                value="🔵 **臺北捷運** - 營運公告、服務資訊\n"
+                      "🟠 **高雄捷運** - 最新消息、活動資訊\n"
+                      "🟡 **桃園捷運** - 營運狀況、公告事項\n"
+                      "🟢 **高雄輕軌** - 服務異動、最新資訊\n"
+                      "🟣 **臺中捷運** - 營運公告、服務訊息",
+                inline=False
+            )
+            embed.set_footer(text="使用下方選單選擇捷運系統")
+            
+            await interaction.followup.send(embed=embed, view=view)
+            
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"metro_news 指令在發送回應時互動已過期")
+                return
+            else:
+                raise e
+        except Exception as e:
+            logger.error(f"metro_news 指令執行錯誤: {str(e)}")
+            try:
+                await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+            except discord.errors.NotFound:
+                logger.warning(f"metro_news 指令在發送錯誤訊息時互動已過期")
+
+    # ================================
+    # 捷運新聞查詢功能
+    # ================================
+    
+    async def fetch_metro_news(self, metro_system: str = "TRTC") -> Optional[List[Dict[str, Any]]]:
+        """從TDX平台取得捷運最新消息"""
+        try:
+            logger.info(f"正在從TDX平台取得{metro_system}最新消息...")
+            
+            # 取得access token
+            access_token = await self.get_tdx_access_token()
+            if not access_token:
+                logger.error("無法取得TDX access token")
+                return None
+            
+            # 設定API端點 - 支援的捷運系統新聞
+            api_endpoints = {
+                'TRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/News/TRTC?%24format=JSON',    # 臺北捷運
+                'KRTC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/News/KRTC?%24format=JSON',    # 高雄捷運
+                'TYMC': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/News/TYMC?%24format=JSON',    # 桃園捷運
+                'KLRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/News/KLRT?%24format=JSON',    # 高雄輕軌
+                'TMRT': 'https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/News/TMRT?%24format=JSON'     # 臺中捷運
+            }
+            
+            url = api_endpoints.get(metro_system)
+            if not url:
+                logger.error(f"不支援的捷運系統新聞查詢: {metro_system}")
+                return None
+            
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+            }
+            
+            # 建立SSL連接
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            timeout = aiohttp.ClientTimeout(total=30)
+            
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        logger.info(f"成功取得{metro_system}新聞資料，共{len(data) if data else 0}筆")
+                        return data
+                    else:
+                        logger.error(f"TDX API 返回錯誤狀態碼: {response.status}")
+                        return None
+                        
+        except Exception as e:
+            logger.error(f"取得捷運新聞時發生錯誤: {str(e)}")
+            return None
+
 # 捷運即時電子看板方向視圖類
 class MetroLiveboardByDirectionView(View):
     """捷運即時電子看板按方向分類視圖"""
@@ -3436,41 +3786,32 @@ class MetroSystemSelectionView(View):
         self._add_system_buttons()
     
     def _add_system_buttons(self):
-        """添加系統選擇按鈕"""
-        # 台北捷運按鈕
-        trtc_button = discord.ui.Button(
-            label="🔵 台北捷運",
-            style=discord.ButtonStyle.primary,
-            custom_id="select_TRTC"
+        """添加系統選擇下拉選單"""
+        # 使用下拉選單來支援更多捷運系統
+        system_select = MetroSystemSelect(
+            cog=self.cog,
+            user_id=self.user_id,
+            view_type=self.view_type
         )
-        trtc_button.callback = lambda i: self.select_system(i, "TRTC", "台北捷運")
-        self.add_item(trtc_button)
-        
-        # 高雄捷運按鈕
-        krtc_button = discord.ui.Button(
-            label="🟠 高雄捷運",
-            style=discord.ButtonStyle.secondary,
-            custom_id="select_KRTC"
-        )
-        krtc_button.callback = lambda i: self.select_system(i, "KRTC", "高雄捷運")
-        self.add_item(krtc_button)
-        
-        # 高雄輕軌按鈕
-        klrt_button = discord.ui.Button(
-            label="🟢 高雄輕軌",
-            style=discord.ButtonStyle.success,
-            custom_id="select_KLRT"
-        )
-        klrt_button.callback = lambda i: self.select_system(i, "KLRT", "高雄輕軌")
-        self.add_item(klrt_button)
+        self.add_item(system_select)
     
     async def select_system(self, interaction: discord.Interaction, metro_system: str, system_name: str):
         """選擇捷運系統"""
         if interaction.user.id != self.user_id:
-            await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            try:
+                await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            except discord.errors.NotFound:
+                logger.warning(f"select_system 權限回應時互動已過期")
             return
         
-        await interaction.response.defer()
+        try:
+            await interaction.response.defer()
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"select_system 互動已過期 (錯誤碼: 10062)")
+                return
+            else:
+                raise e
         
         try:
             logger.info(f"使用者 {interaction.user} 選擇捷運系統: {system_name}")
@@ -3503,26 +3844,35 @@ class MetroSystemSelectionView(View):
                 embed = view.create_direction_embed()
                 view.message = interaction.message
             else:
-                # 創建路線分類視圖
-                view = MetroLiveboardByLineView(
+                # 先創建路線選擇視圖，不直接顯示所有車站
+                view = MetroLineSelectionView(
                     cog=self.cog,
                     user_id=interaction.user.id,
                     liveboard_data=liveboard_data,
                     metro_system=metro_system,
                     system_name=system_name
                 )
-                embed = view.create_line_embed()
+                embed = view.create_line_selection_embed()
             
             await interaction.followup.edit_message(interaction.message.id, embed=embed, view=view)
             
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"select_system 在更新訊息時互動已過期")
+                return
+            else:
+                logger.error(f"select_system 發生 NotFound 錯誤: {e}")
         except Exception as e:
             logger.error(f"選擇捷運系統時發生錯誤: {str(e)}")
-            embed = discord.Embed(
-                title="🚇 車站即時電子看板",
-                description="❌ 載入資料時發生錯誤，請稍後再試。",
-                color=0xFF0000
-            )
-            await interaction.followup.edit_message(interaction.message.id, embed=embed, view=None)
+            try:
+                embed = discord.Embed(
+                    title="🚇 車站即時電子看板",
+                    description="❌ 載入資料時發生錯誤，請稍後再試。",
+                    color=0xFF0000
+                )
+                await interaction.followup.edit_message(interaction.message.id, embed=embed, view=None)
+            except discord.errors.NotFound:
+                logger.warning(f"select_system 在發送錯誤訊息時互動已過期")
     
     async def on_timeout(self):
         """視圖超時時禁用所有按鈕"""
@@ -3539,6 +3889,520 @@ class MetroSystemSelectionView(View):
             # 如果需要的話，可以在初始化時傳入
         except:
             pass
+
+class MetroSystemSelect(discord.ui.Select):
+    """捷運系統選擇下拉選單"""
+    
+    def __init__(self, cog, user_id: int, view_type: str):
+        self.cog = cog
+        self.user_id = user_id
+        self.view_type = view_type
+        
+        # 定義有即時看板資料的捷運系統 (僅限TDX API實際支援的系統)
+        systems = [
+            ("TRTC", "🔵 臺北捷運", "台北市捷運系統"),
+            ("KRTC", "🟠 高雄捷運", "高雄市捷運系統"),
+            ("KLRT", "🟢 高雄輕軌", "高雄環狀輕軌"),
+            ("TYMC", "🟡 桃園捷運", "桃園市捷運系統 (A1~A21站)")
+        ]
+        
+        options = []
+        for code, name, description in systems:
+            options.append(discord.SelectOption(
+                label=name,
+                value=code,
+                description=description,
+                emoji=name.split()[0]  # 取得emoji部分
+            ))
+        
+        super().__init__(
+            placeholder="請選擇要查詢的捷運系統...",
+            options=options,
+            custom_id="metro_system_select"
+        )
+    
+    async def callback(self, interaction: discord.Interaction):
+        """處理捷運系統選擇"""
+        if interaction.user.id != self.user_id:
+            try:
+                await interaction.response.send_message("❌ 只有原始命令使用者可以操作此選單", ephemeral=True)
+            except discord.errors.NotFound:
+                logger.warning(f"MetroSystemSelect 權限回應時互動已過期")
+            return
+        
+        try:
+            await interaction.response.defer()
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"MetroSystemSelect 互動已過期 (錯誤碼: 10062)")
+                return
+            else:
+                raise e
+        
+        try:
+            metro_system = self.values[0]
+            
+            # 系統名稱對照
+            system_names = {
+                "TRTC": "臺北捷運",
+                "KRTC": "高雄捷運", 
+                "TYMC": "桃園捷運",
+                "TMRT": "臺中捷運",
+                "KLRT": "高雄輕軌",
+                "NTDLRT": "淡海輕軌",
+                "TRTCMG": "貓空纜車",
+                "NTMC": "新北捷運",
+                "NTALRT": "安坑輕軌"
+            }
+            
+            system_name = system_names.get(metro_system, metro_system)
+            logger.info(f"使用者 {interaction.user} 選擇捷運系統: {system_name}")
+            
+            # 獲取即時電子看板資料
+            liveboard_data = await self.cog.fetch_metro_liveboard(metro_system)
+            
+            if not liveboard_data:
+                embed = discord.Embed(
+                    title="🚇 捷運即時電子看板",
+                    description=f"❌ {system_name} 目前無法取得即時電子看板資料，可能原因：\n"
+                               f"• 系統維護中\n"
+                               f"• API暫時無回應\n"
+                               f"• 該系統可能尚未支援",
+                    color=0xFF0000
+                )
+                embed.add_field(name="系統", value=system_name, inline=True)
+                embed.add_field(name="代碼", value=metro_system, inline=True)
+                embed.add_field(name="狀態", value="資料取得失敗", inline=True)
+                embed.set_footer(text="資料來源: 交通部TDX平台")
+                await interaction.followup.edit_message(interaction.message.id, embed=embed, view=None)
+                return
+            
+            # 根據視圖類型創建對應的視圖
+            if self.view_type == "direction":
+                # 創建方向分類視圖
+                view = MetroLiveboardByDirectionView(
+                    cog=self.cog,
+                    user_id=interaction.user.id,
+                    liveboard_data=liveboard_data,
+                    metro_system=metro_system,
+                    system_name=system_name
+                )
+                embed = view.create_direction_embed()
+                view.message = interaction.message
+            else:
+                # 先創建路線選擇視圖，不直接顯示所有車站
+                view = MetroLineSelectionView(
+                    cog=self.cog,
+                    user_id=interaction.user.id,
+                    liveboard_data=liveboard_data,
+                    metro_system=metro_system,
+                    system_name=system_name
+                )
+                embed = view.create_line_selection_embed()
+            
+            await interaction.followup.edit_message(interaction.message.id, embed=embed, view=view)
+            
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"MetroSystemSelect 在更新訊息時互動已過期")
+                return
+            else:
+                logger.error(f"MetroSystemSelect 發生 NotFound 錯誤: {e}")
+        except Exception as e:
+            logger.error(f"選擇捷運系統時發生錯誤: {str(e)}")
+            try:
+                embed = discord.Embed(
+                    title="🚇 捷運系統選擇",
+                    description="❌ 載入資料時發生錯誤，請稍後再試。",
+                    color=0xFF0000
+                )
+                await interaction.followup.edit_message(interaction.message.id, embed=embed, view=None)
+            except discord.errors.NotFound:
+                logger.warning(f"MetroSystemSelect 在發送錯誤訊息時互動已過期")
+
+class MetroLineSelectionView(View):
+    """捷運路線選擇視圖"""
+    def __init__(self, cog, user_id: int, liveboard_data: List[Dict[str, Any]], metro_system: str, system_name: str):
+        super().__init__(timeout=300)  # 5分鐘超時
+        self.cog = cog
+        self.user_id = user_id
+        self.liveboard_data = liveboard_data
+        self.metro_system = metro_system
+        self.system_name = system_name
+        
+        # 按路線分組資料
+        self.lines_data = {}
+        for station_data in liveboard_data:
+            line_id = station_data.get('LineID', '未知路線')
+            if line_id not in self.lines_data:
+                self.lines_data[line_id] = []
+            self.lines_data[line_id].append(station_data)
+        
+        # 路線名稱對照 - 支援所有捷運系統
+        self.line_names = {
+            # 台北捷運 (TRTC)
+            'BR': '🤎 文湖線',
+            'BL': '💙 板南線', 
+            'G': '💚 松山新店線',
+            'R': '❤️ 淡水信義線',
+            'O': '🧡 中和新蘆線',
+            'Y': '💛 環狀線',
+            # 高雄捷運 (KRTC)
+            'RO': '❤️ 紅線',
+            'OR': '🧡 橘線',
+            # 高雄輕軌 (KLRT)
+            'C': '� 環狀輕軌',
+            # 桃園捷運 (TYMC)
+            'AP': '💜 機場線',
+            'GN': '💚 綠線',
+            # 臺中捷運 (TMRT)
+            'G': '💚 綠線',
+            'B': '💙 藍線',
+            # 淡海輕軌 (NTDLRT)
+            'V': '💜 淡海輕軌',
+            # 貓空纜車 (TRTCMG)
+            'MG': '🚠 貓空纜車',
+            # 新北捷運 (NTMC) - 根據實際情況調整
+            'BL': '💙 板南線延伸',
+            'O': '🧡 中和新蘆線延伸',
+            # 安坑輕軌 (NTALRT)
+            'LG': '💚 安坑線'
+        }
+        
+        # 根據不同系統調整路線名稱
+        self._adjust_line_names_by_system()
+        
+        self._add_line_buttons()
+    
+    def _adjust_line_names_by_system(self):
+        """根據不同捷運系統調整路線名稱"""
+        if self.metro_system == 'KRTC':  # 高雄捷運
+            self.line_names.update({
+                'R': '❤️ 紅線',
+                'O': '🧡 橘線'
+            })
+        elif self.metro_system == 'TYMC':  # 桃園捷運
+            self.line_names.update({
+                'AP': '💜 機場線',
+                'GN': '💚 綠線'
+            })
+        elif self.metro_system == 'TMRT':  # 臺中捷運
+            self.line_names.update({
+                'G': '💚 綠線',
+                'B': '💙 藍線'
+            })
+        elif self.metro_system == 'KLRT':  # 高雄輕軌
+            self.line_names.update({
+                'C': '💚 環狀輕軌'
+            })
+        elif self.metro_system == 'NTDLRT':  # 淡海輕軌
+            self.line_names.update({
+                'V': '💜 淡海輕軌'
+            })
+        elif self.metro_system == 'TRTCMG':  # 貓空纜車
+            self.line_names.update({
+                'MG': '🚠 貓空纜車'
+            })
+        elif self.metro_system == 'NTALRT':  # 安坑輕軌
+            self.line_names.update({
+                'LG': '💚 安坑線'
+            })
+    
+    def _add_line_buttons(self):
+        """添加路線選擇按鈕"""
+        available_lines = list(self.lines_data.keys())
+        
+        for i, line_id in enumerate(available_lines):
+            if i >= 5:  # Discord限制最多5個按鈕
+                break
+                
+            line_name = self.line_names.get(line_id, f"🚇 {line_id}線")
+            station_count = len(self.lines_data[line_id])
+            
+            button = discord.ui.Button(
+                label=f"{line_name} ({station_count}站)",
+                style=discord.ButtonStyle.primary,
+                custom_id=f"select_line_{line_id}"
+            )
+            button.callback = lambda i, lid=line_id: self.select_line(i, lid)
+            self.add_item(button)
+    
+    def create_line_selection_embed(self) -> discord.Embed:
+        """創建路線選擇嵌入訊息"""
+        embed = discord.Embed(
+            title=f"🚇 {self.system_name} - 路線選擇",
+            description=f"請選擇要查詢的路線：",
+            color=0x3498DB
+        )
+        
+        # 顯示可用路線統計
+        line_info = []
+        for line_id, stations in self.lines_data.items():
+            line_name = self.line_names.get(line_id, f"{line_id}線")
+            station_count = len(stations)
+            line_info.append(f"{line_name} - {station_count}個車站")
+        
+        if line_info:
+            embed.add_field(
+                name="📍 可用路線",
+                value="\n".join(line_info),
+                inline=False
+            )
+        
+        embed.set_footer(text="點擊下方按鈕選擇要查詢的路線")
+        
+        return embed
+    
+    async def select_line(self, interaction: discord.Interaction, line_id: str):
+        """選擇特定路線"""
+        if interaction.user.id != self.user_id:
+            try:
+                await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            except discord.errors.NotFound:
+                logger.warning(f"select_line 權限回應時互動已過期")
+            return
+        
+        try:
+            await interaction.response.defer()
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"select_line 互動已過期 (錯誤碼: 10062)")
+                return
+            else:
+                raise e
+        
+        try:
+            logger.info(f"使用者 {interaction.user} 選擇路線: {line_id}")
+            
+            # 創建車站選擇視圖
+            line_stations = self.lines_data.get(line_id, [])
+            if not line_stations:
+                embed = discord.Embed(
+                    title="🚇 路線查詢",
+                    description=f"❌ {line_id}線目前沒有可用的車站資料。",
+                    color=0xFF0000
+                )
+                await interaction.followup.edit_message(interaction.message.id, embed=embed, view=None)
+                return
+            
+            # 創建單一路線的即時電子看板視圖
+            view = MetroSingleLineView(
+                cog=self.cog,
+                user_id=interaction.user.id,
+                liveboard_data=line_stations,
+                metro_system=self.metro_system,
+                system_name=self.system_name,
+                line_id=line_id,
+                line_name=self.line_names.get(line_id, f"{line_id}線")
+            )
+            
+            embed = view.create_single_line_embed()
+            await interaction.followup.edit_message(interaction.message.id, embed=embed, view=view)
+            
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"select_line 在更新訊息時互動已過期")
+                return
+            else:
+                logger.error(f"select_line 發生 NotFound 錯誤: {e}")
+        except Exception as e:
+            logger.error(f"選擇路線時發生錯誤: {str(e)}")
+            try:
+                embed = discord.Embed(
+                    title="🚇 路線選擇",
+                    description="❌ 載入路線資料時發生錯誤，請稍後再試。",
+                    color=0xFF0000
+                )
+                await interaction.followup.edit_message(interaction.message.id, embed=embed, view=None)
+            except discord.errors.NotFound:
+                logger.warning(f"select_line 在發送錯誤訊息時互動已過期")
+    
+    async def on_timeout(self):
+        """視圖超時時禁用所有按鈕"""
+        for item in self.children:
+            item.disabled = True
+        
+        try:
+            embed = discord.Embed(
+                title="🚇 路線選擇",
+                description="⏰ 選擇時間已超時，請重新使用指令。",
+                color=0x95A5A6
+            )
+            # 這裡可能需要訪問message，但View沒有直接的message屬性
+        except:
+            pass
+
+class MetroSingleLineView(View):
+    """單一路線車站選擇視圖"""
+    def __init__(self, cog, user_id: int, liveboard_data: List[Dict[str, Any]], metro_system: str, system_name: str, line_id: str, line_name: str):
+        super().__init__(timeout=300)  # 5分鐘超時
+        self.cog = cog
+        self.user_id = user_id
+        self.liveboard_data = liveboard_data
+        self.metro_system = metro_system
+        self.system_name = system_name
+        self.line_id = line_id
+        self.line_name = line_name
+        
+        # 添加車站下拉選單
+        self.add_item(MetroStationSelect(
+            cog=cog,
+            user_id=user_id,
+            stations_data=liveboard_data,
+            metro_system=metro_system,
+            system_name=system_name,
+            line_id=line_id
+        ))
+        
+        # 添加返回按鈕
+        back_button = discord.ui.Button(
+            label="🔙 返回路線選擇",
+            style=discord.ButtonStyle.secondary,
+            custom_id="back_to_lines"
+        )
+        back_button.callback = self.back_to_line_selection
+        self.add_item(back_button)
+        
+        # 添加查看全部按鈕
+        view_all_button = discord.ui.Button(
+            label="👁️ 查看全部車站",
+            style=discord.ButtonStyle.success,
+            custom_id="view_all_stations"
+        )
+        view_all_button.callback = self.view_all_stations
+        self.add_item(view_all_button)
+    
+    def create_single_line_embed(self) -> discord.Embed:
+        """創建單一路線選擇嵌入訊息"""
+        embed = discord.Embed(
+            title=f"🚇 {self.system_name} - {self.line_name}",
+            description=f"請選擇要查詢的車站，或查看全部車站資訊：",
+            color=0x3498DB
+        )
+        
+        # 統計路線資訊
+        total_stations = len(self.liveboard_data)
+        stations_with_data = sum(1 for s in self.liveboard_data if s.get('TrainInfos'))
+        
+        embed.add_field(
+            name="📊 路線統計",
+            value=f"🚉 總車站數: {total_stations}\n"
+                  f"🚆 有列車資訊: {stations_with_data}\n"
+                  f"📍 路線代碼: {self.line_id}",
+            inline=False
+        )
+        
+        embed.set_footer(text="使用下拉選單選擇特定車站，或點擊按鈕查看選項")
+        
+        return embed
+    
+    async def back_to_line_selection(self, interaction: discord.Interaction):
+        """返回路線選擇"""
+        if interaction.user.id != self.user_id:
+            try:
+                await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            except discord.errors.NotFound:
+                logger.warning(f"back_to_line_selection 權限回應時互動已過期")
+            return
+        
+        try:
+            await interaction.response.defer()
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"back_to_line_selection 互動已過期")
+                return
+            else:
+                raise e
+        
+        try:
+            # 重新獲取完整的liveboard資料
+            full_liveboard_data = await self.cog.fetch_metro_liveboard(self.metro_system)
+            if not full_liveboard_data:
+                embed = discord.Embed(
+                    title="🚇 返回路線選擇",
+                    description="❌ 無法重新載入路線資料。",
+                    color=0xFF0000
+                )
+                await interaction.followup.edit_message(interaction.message.id, embed=embed, view=None)
+                return
+            
+            # 重新創建路線選擇視圖
+            view = MetroLineSelectionView(
+                cog=self.cog,
+                user_id=interaction.user.id,
+                liveboard_data=full_liveboard_data,
+                metro_system=self.metro_system,
+                system_name=self.system_name
+            )
+            
+            embed = view.create_line_selection_embed()
+            await interaction.followup.edit_message(interaction.message.id, embed=embed, view=view)
+            
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"back_to_line_selection 在更新訊息時互動已過期")
+                return
+        except Exception as e:
+            logger.error(f"返回路線選擇時發生錯誤: {str(e)}")
+    
+    async def view_all_stations(self, interaction: discord.Interaction):
+        """查看全部車站"""
+        if interaction.user.id != self.user_id:
+            try:
+                await interaction.response.send_message("❌ 只有原始命令使用者可以操作此按鈕", ephemeral=True)
+            except discord.errors.NotFound:
+                logger.warning(f"view_all_stations 權限回應時互動已過期")
+            return
+        
+        try:
+            await interaction.response.defer()
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"view_all_stations 互動已過期")
+                return
+            else:
+                raise e
+        
+        try:
+            # 使用原有的格式化方法顯示全部車站
+            embed = self.cog.format_metro_liveboard_by_line(
+                self.liveboard_data,
+                self.metro_system,
+                self.system_name,
+                self.line_id
+            )
+            
+            # 創建一個簡單的返回視圖
+            view = View(timeout=300)
+            back_button = discord.ui.Button(
+                label="🔙 返回車站選擇",
+                style=discord.ButtonStyle.secondary
+            )
+            back_button.callback = lambda i: self.back_to_station_selection(i)
+            view.add_item(back_button)
+            
+            await interaction.followup.edit_message(interaction.message.id, embed=embed, view=view)
+            
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"view_all_stations 在更新訊息時互動已過期")
+                return
+        except Exception as e:
+            logger.error(f"查看全部車站時發生錯誤: {str(e)}")
+    
+    async def back_to_station_selection(self, interaction: discord.Interaction):
+        """返回車站選擇"""
+        if interaction.user.id != self.user_id:
+            return
+        
+        try:
+            await interaction.response.defer()
+            embed = self.create_single_line_embed()
+            await interaction.followup.edit_message(interaction.message.id, embed=embed, view=self)
+        except discord.errors.NotFound:
+            logger.warning(f"back_to_station_selection 互動已過期")
+        except Exception as e:
+            logger.error(f"返回車站選擇時發生錯誤: {str(e)}")
 
 # 捷運車站選擇下拉選單
 class MetroStationSelect(discord.ui.Select):
@@ -4758,10 +5622,14 @@ class TRADelayView(View):
                 }
                 
                 # 如果指定縣市，篩選該縣市的車站
-                if self.county and self.county in TRA_STATIONS:
-                    station_ids = [station['id'] for station in TRA_STATIONS[self.county]]
-                    station_filter = "(" + " or ".join([f"OriginStopTime/StationID eq '{sid}' or DestinationStopTime/StationID eq '{sid}'" for sid in station_ids]) + ")"
-                    url = f"https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/LiveTrainDelay?%24filter={station_filter}&%24format=JSON"
+                if self.county:
+                    tra_stations = await self.cog.get_updated_tra_stations()
+                    if self.county in tra_stations:
+                        station_ids = [station['id'] for station in tra_stations[self.county]]
+                        station_filter = "(" + " or ".join([f"OriginStopTime/StationID eq '{sid}' or DestinationStopTime/StationID eq '{sid}'" for sid in station_ids]) + ")"
+                        url = f"https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/LiveTrainDelay?%24filter={station_filter}&%24format=JSON"
+                    else:
+                        url = "https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/LiveTrainDelay?%24format=JSON"
                 else:
                     url = "https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/LiveTrainDelay?%24format=JSON"
                 
@@ -4892,6 +5760,178 @@ class TRADelayView(View):
             await interaction.response.edit_message(embed=embed, view=self)
         else:
             await interaction.response.defer()
+
+
+# ================================
+# 捷運新聞選擇視圖類
+# ================================
+
+class MetroNewsSelectionView(View):
+    """捷運新聞系統選擇視圖"""
+    
+    def __init__(self, cog, user_id: int):
+        super().__init__(timeout=300)
+        self.cog = cog
+        self.user_id = user_id
+        
+        # 添加系統選擇下拉選單
+        self.add_item(MetroNewsSelect(cog, user_id))
+    
+    async def on_timeout(self):
+        """當視圖超時時的處理"""
+        try:
+            # 禁用所有組件
+            for item in self.children:
+                item.disabled = True
+            
+            # 嘗試更新訊息
+            if hasattr(self, 'message') and self.message:
+                try:
+                    embed = discord.Embed(
+                        title="⏰ 操作超時",
+                        description="此選單已過期，請重新使用指令。",
+                        color=0x95A5A6
+                    )
+                    await self.message.edit(embed=embed, view=self)
+                except:
+                    pass
+        except Exception as e:
+            logger.warning(f"MetroNewsSelectionView 超時處理錯誤: {str(e)}")
+
+class MetroNewsSelect(discord.ui.Select):
+    """捷運新聞系統選擇下拉選單"""
+    
+    def __init__(self, cog, user_id: int):
+        self.cog = cog
+        self.user_id = user_id
+        
+        # 定義有新聞API的捷運系統
+        systems = [
+            ("TRTC", "🔵 臺北捷運", "台北市捷運系統"),
+            ("KRTC", "🟠 高雄捷運", "高雄市捷運系統"),
+            ("TYMC", "🟡 桃園捷運", "桃園市捷運系統"),
+            ("KLRT", "🟢 高雄輕軌", "高雄環狀輕軌"),
+            ("TMRT", "🟣 臺中捷運", "台中市捷運系統")
+        ]
+        
+        options = []
+        for code, name, description in systems:
+            options.append(discord.SelectOption(
+                label=name,
+                value=code,
+                description=description,
+                emoji="🚇"
+            ))
+        
+        super().__init__(
+            placeholder="選擇要查詢新聞的捷運系統...",
+            options=options,
+            min_values=1,
+            max_values=1
+        )
+    
+    async def callback(self, interaction: discord.Interaction):
+        # 檢查使用者權限
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("你沒有權限操作這個選單！", ephemeral=True)
+            return
+        
+        # 添加超時保護
+        try:
+            await interaction.response.defer()
+        except discord.errors.NotFound as e:
+            if e.code == 10062:
+                logger.warning(f"MetroNewsSelect 回調互動已過期")
+                return
+            else:
+                raise e
+        
+        try:
+            selected_system = self.values[0]
+            
+            # 系統名稱映射
+            system_names = {
+                "TRTC": "臺北捷運",
+                "KRTC": "高雄捷運", 
+                "TYMC": "桃園捷運",
+                "KLRT": "高雄輕軌",
+                "TMRT": "臺中捷運"
+            }
+            
+            system_name = system_names.get(selected_system, selected_system)
+            
+            # 取得新聞資料
+            news_data = await self.cog.fetch_metro_news(selected_system)
+            
+            if not news_data:
+                embed = discord.Embed(
+                    title=f"📰 {system_name} - 最新消息",
+                    description="❌ 暫時無法取得新聞資料，請稍後再試。",
+                    color=0xE74C3C
+                )
+                await interaction.edit_original_response(embed=embed, view=None)
+                return
+            
+            if len(news_data) == 0:
+                embed = discord.Embed(
+                    title=f"📰 {system_name} - 最新消息",
+                    description="目前沒有最新消息。",
+                    color=0x95A5A6
+                )
+                await interaction.edit_original_response(embed=embed, view=None)
+                return
+            
+            # 創建新聞嵌入訊息
+            embed = discord.Embed(
+                title=f"📰 {system_name} - 最新消息",
+                color=0x2ECC71
+            )
+            
+            # 顯示前5則新聞
+            for i, news in enumerate(news_data[:5]):
+                title = news.get('Title', news.get('NewsTitle', '無標題'))
+                content = news.get('Description', news.get('NewsContent', news.get('Content', '無內容')))
+                publish_time = news.get('PublishTime', news.get('UpdateTime', news.get('CreateTime', '時間不明')))
+                
+                # 截斷內容長度
+                if len(content) > 200:
+                    content = content[:200] + "..."
+                
+                # 格式化時間
+                if publish_time and publish_time != '時間不明':
+                    try:
+                        if 'T' in publish_time:
+                            formatted_time = publish_time.replace('T', ' ').split('+')[0].split('.')[0]
+                        else:
+                            formatted_time = publish_time
+                    except:
+                        formatted_time = publish_time
+                else:
+                    formatted_time = "時間不明"
+                
+                embed.add_field(
+                    name=f"📌 {title}",
+                    value=f"{content}\n\n🕒 發布時間: {formatted_time}",
+                    inline=False
+                )
+            
+            if len(news_data) > 5:
+                embed.set_footer(text=f"顯示前5則消息，共{len(news_data)}則 | 資料來源: TDX運輸資料流通服務平臺")
+            else:
+                embed.set_footer(text=f"共{len(news_data)}則消息 | 資料來源: TDX運輸資料流通服務平臺")
+            
+            await interaction.edit_original_response(embed=embed, view=None)
+            
+        except Exception as e:
+            logger.error(f"MetroNewsSelect 處理錯誤: {str(e)}")
+            try:
+                await interaction.edit_original_response(
+                    content="❌ 處理請求時發生錯誤，請稍後再試。",
+                    embed=None,
+                    view=None
+                )
+            except discord.errors.NotFound:
+                logger.warning(f"MetroNewsSelect 錯誤回應互動已過期")
 
 async def setup(bot):
     await bot.add_cog(InfoCommands(bot))
