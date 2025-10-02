@@ -1640,6 +1640,61 @@ class InfoCommands(commands.Cog):
             logger.error(f"獲取{rail_type.upper()}事故資料時發生錯誤: {str(e)}")
             return None
 
+    async def fetch_tra_news(self) -> Optional[List[Dict[str, Any]]]:
+        """從TDX平台取得台鐵最新消息"""
+        try:
+            # 取得 TDX 存取權杖
+            access_token = await self.get_tdx_access_token()
+            if not access_token:
+                logger.error("❌ 無法取得 TDX 存取權杖")
+                return None
+            
+            url = "https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/News?$format=JSON"
+            logger.info("開始獲取台鐵最新消息")
+            
+            # 設定認證標頭
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+            }
+            
+            # 使用非同步請求獲取資料
+            logger.info(f"正在發送認證請求到 {url}")
+            async with self.session.get(url, headers=headers, timeout=30) as response:
+                if response.status == 200:
+                    try:
+                        data = await response.json()
+                        
+                        # 處理不同的回應格式
+                        if isinstance(data, list):
+                            logger.info(f"✅ 成功獲取台鐵新聞，共 {len(data)} 筆 (列表格式)")
+                            return data
+                        elif isinstance(data, dict):
+                            # v3 API 可能使用 'News' 或 'Newses' 作為鍵
+                            news_list = data.get('News', data.get('Newses', data.get('data', [])))
+                            if isinstance(news_list, list):
+                                logger.info(f"✅ 成功獲取台鐵新聞，共 {len(news_list)} 筆 (字典格式)")
+                                return news_list
+                            
+                            # 如果字典中沒有明確的新聞資料，返回空列表
+                            logger.info("✅ 台鐵目前沒有新聞")
+                            return []
+                        else:
+                            logger.warning(f"❌ 台鐵新聞資料格式不正確: {type(data)}")
+                            return None
+                    except Exception as e:
+                        logger.error(f"解析台鐵新聞JSON時發生錯誤: {str(e)}")
+                        return None
+                else:
+                    error_text = await response.text()
+                    logger.error(f"❌ TDX API請求失敗: {response.status} - {error_text}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"獲取台鐵新聞時發生錯誤: {str(e)}")
+            return None
+
     async def fetch_metro_alerts(self, metro_system: str = "TRTC") -> Optional[List[Dict[str, Any]]]:
         """從TDX平台取得捷運系統事故資料"""
         try:
@@ -2114,6 +2169,52 @@ class InfoCommands(commands.Cog):
             
         except Exception as e:
             logger.error(f"鐵路事故指令執行時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+
+    @app_commands.command(name='tra_news', description='查詢台鐵最新消息')
+    async def tra_news(self, interaction: discord.Interaction):
+        """查詢台鐵最新消息"""
+        await interaction.response.defer()
+        
+        try:
+            logger.info(f"使用者 {interaction.user} 查詢台鐵最新消息")
+            
+            # 獲取台鐵新聞資料
+            news_list = await self.fetch_tra_news()
+            
+            if news_list is None:
+                await interaction.followup.send("❌ 無法獲取台鐵新聞資料，請稍後再試。")
+                return
+            
+            if len(news_list) == 0:
+                embed = discord.Embed(
+                    title="📰 台鐵最新消息",
+                    description="目前沒有最新消息。",
+                    color=0x95A5A6
+                )
+                embed.set_footer(
+                    text=f"資料來源: TDX運輸資料流通服務平臺 | 查詢時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 使用分頁視圖顯示新聞
+            try:
+                pagination_view = TRANewsPaginationView(news_list, interaction.user.id)
+                pagination_view.update_buttons()  # 初始化按鈕狀態
+                embed = pagination_view.create_embed()
+                
+                # 編輯訊息並保存訊息引用
+                await interaction.followup.send(embed=embed, view=pagination_view)
+                pagination_view.message = await interaction.original_response()
+            except Exception as view_error:
+                logger.error(f"創建台鐵新聞分頁視圖時發生錯誤: {type(view_error).__name__}: {str(view_error)}")
+                raise
+            
+        except Exception as e:
+            logger.error(f"台鐵新聞指令執行時發生錯誤: {str(e)}")
+            import traceback
+            logger.error(f"完整錯誤堆疊:\n{traceback.format_exc()}")
             await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
 
     @app_commands.command(name='metro_status', description='查詢各捷運系統運行狀態')
@@ -6070,6 +6171,202 @@ class MetroNewsSelect(discord.ui.Select):
                 )
             except discord.errors.NotFound:
                 logger.warning(f"MetroNewsSelect 錯誤回應互動已過期")
+
+# ================================
+# 台鐵新聞分頁視圖類
+# ================================
+
+class TRANewsPaginationView(View):
+    """台鐵新聞分頁視圖"""
+    
+    def __init__(self, news_data: List[Dict], user_id: int):
+        super().__init__(timeout=300)  # 5分鐘超時
+        self.news_data = news_data if news_data else []
+        self.user_id = user_id
+        self.current_page = 0
+        self.items_per_page = 1  # 每頁顯示1則新聞
+        
+        # 安全計算總頁數
+        if len(self.news_data) == 0:
+            self.total_pages = 1
+            logger.warning(f"TRANewsPaginationView 初始化時新聞資料為空")
+        else:
+            self.total_pages = (len(self.news_data) + self.items_per_page - 1) // self.items_per_page
+            logger.info(f"TRANewsPaginationView 初始化: {len(self.news_data)} 則新聞, {self.total_pages} 頁")
+        
+    def create_embed(self) -> discord.Embed:
+        """創建當前頁面的 embed"""
+        embed = discord.Embed(
+            title="🚆 台鐵最新消息",
+            color=0x0099FF
+        )
+        
+        if len(self.news_data) == 0:
+            embed.description = "目前沒有最新消息。"
+            return embed
+        
+        # 計算當前頁面要顯示的新聞
+        start_idx = self.current_page * self.items_per_page
+        end_idx = min(start_idx + self.items_per_page, len(self.news_data))
+        
+        for i in range(start_idx, end_idx):
+            news = self.news_data[i]
+            
+            # 提取新聞資訊 (v3 API 欄位)
+            title = news.get('Title', news.get('NewsTitle', '無標題'))
+            description = news.get('Description', news.get('Content', news.get('NewsContent', '')))
+            news_url = news.get('NewsURL', news.get('Link', ''))
+            publish_time = news.get('PublishTime', news.get('NewsDate', ''))
+            
+            # 截短描述
+            content = description[:200] + '...' if len(description) > 200 else description
+            if not content:
+                content = "無內容描述"
+            
+            # 格式化時間
+            if publish_time:
+                try:
+                    if 'T' in publish_time:
+                        formatted_time = publish_time.replace('T', ' ').split('+')[0].split('.')[0]
+                    else:
+                        formatted_time = publish_time
+                except:
+                    formatted_time = publish_time
+            else:
+                formatted_time = "時間不明"
+            
+            # 新聞編號
+            news_number = i + 1
+            
+            # 組合 field value
+            field_value = f"{content}\n\n🕒 發布時間: {formatted_time}"
+            if news_url:
+                field_value += f"\n🔗 [查看完整新聞]({news_url})"
+            
+            embed.add_field(
+                name=f"📌 第 {news_number} 則 - {title}",
+                value=field_value,
+                inline=False
+            )
+        
+        # 設置頁腳
+        embed.set_footer(
+            text=f"第 {self.current_page + 1}/{self.total_pages} 頁 | 共 {len(self.news_data)} 則消息 | TDX運輸資料流通服務平臺"
+        )
+        
+        return embed
+    
+    @discord.ui.button(label="◀️ 上一頁", style=discord.ButtonStyle.primary, custom_id="tra_news_prev_page")
+    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """上一頁按鈕"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 你沒有權限操作這個按鈕！", ephemeral=True)
+            return
+        
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        else:
+            await interaction.response.send_message("❌ 已經是第一頁了！", ephemeral=True)
+    
+    @discord.ui.button(label="▶️ 下一頁", style=discord.ButtonStyle.primary, custom_id="tra_news_next_page")
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """下一頁按鈕"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 你沒有權限操作這個按鈕！", ephemeral=True)
+            return
+        
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        else:
+            await interaction.response.send_message("❌ 已經是最後一頁了！", ephemeral=True)
+    
+    @discord.ui.button(label="📄 頁面選擇", style=discord.ButtonStyle.secondary, custom_id="tra_news_page_select")
+    async def page_select_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """頁面選擇按鈕"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 你沒有權限操作這個按鈕！", ephemeral=True)
+            return
+        
+        # 創建頁面選擇下拉選單
+        options = []
+        for i in range(self.total_pages):
+            options.append(discord.SelectOption(
+                label=f"第 {i + 1} 頁",
+                value=str(i),
+                description=f"跳轉到第 {i + 1} 頁"
+            ))
+        
+        # 創建一個臨時的視圖包含選擇器
+        class PageSelectView(View):
+            def __init__(self, parent_view):
+                super().__init__(timeout=60)
+                self.parent_view = parent_view
+                self.add_item(PageSelect(parent_view, options))
+        
+        class PageSelect(discord.ui.Select):
+            def __init__(self, parent_view, options):
+                super().__init__(
+                    placeholder="選擇要跳轉的頁面...",
+                    options=options,
+                    min_values=1,
+                    max_values=1
+                )
+                self.parent_view = parent_view
+            
+            async def callback(self, select_interaction: discord.Interaction):
+                if select_interaction.user.id != self.parent_view.user_id:
+                    await select_interaction.response.send_message("❌ 你沒有權限操作這個選單！", ephemeral=True)
+                    return
+                
+                selected_page = int(self.values[0])
+                self.parent_view.current_page = selected_page
+                self.parent_view.update_buttons()
+                
+                await select_interaction.response.edit_message(
+                    embed=self.parent_view.create_embed(),
+                    view=self.parent_view
+                )
+        
+        select_view = PageSelectView(self)
+        await interaction.response.send_message(
+            "請選擇要跳轉的頁面：",
+            view=select_view,
+            ephemeral=True
+        )
+    
+    def update_buttons(self):
+        """更新按鈕狀態"""
+        # 上一頁按鈕
+        self.children[0].disabled = (self.current_page == 0)
+        # 下一頁按鈕
+        self.children[1].disabled = (self.current_page >= self.total_pages - 1)
+        # 如果只有一頁，禁用頁面選擇按鈕
+        self.children[2].disabled = (self.total_pages <= 1)
+    
+    async def on_timeout(self):
+        """當視圖超時時的處理"""
+        try:
+            # 禁用所有按鈕
+            for item in self.children:
+                item.disabled = True
+            
+            # 嘗試更新訊息
+            if hasattr(self, 'message') and self.message:
+                try:
+                    embed = discord.Embed(
+                        title="⏰ 操作超時",
+                        description="此分頁選單已過期,請重新使用指令。",
+                        color=0x95A5A6
+                    )
+                    await self.message.edit(embed=embed, view=self)
+                except:
+                    pass
+        except Exception as e:
+            logger.warning(f"TRANewsPaginationView 超時處理錯誤: {str(e)}")
 
 async def setup(bot):
     await bot.add_cog(InfoCommands(bot))
