@@ -126,7 +126,7 @@ class CustomBot(commands.Bot):
             'cogs.monitor_system',
             'cogs.voice_system',
             'cogs.chat_system_fixed',
-            'cogs.search_commands',
+            # 'cogs.search_commands',  # 已停用 Google 搜尋功能
             'cogs.weather_commands',
             'cogs.air_quality_commands',
             'cogs.radar_commands',

@@ -5798,6 +5798,170 @@ class MetroNewsSelectionView(View):
         except Exception as e:
             logger.warning(f"MetroNewsSelectionView 超時處理錯誤: {str(e)}")
 
+class MetroNewsPaginationView(View):
+    """捷運新聞分頁視圖"""
+    
+    def __init__(self, news_data: List[Dict], system_name: str, user_id: int):
+        super().__init__(timeout=300)  # 5分鐘超時
+        self.news_data = news_data if news_data else []
+        self.system_name = system_name
+        self.user_id = user_id
+        self.current_page = 0
+        self.items_per_page = 3  # 每頁顯示3則新聞
+        
+        # 安全計算總頁數
+        if len(self.news_data) == 0:
+            self.total_pages = 1
+            logger.warning(f"MetroNewsPaginationView 初始化時新聞資料為空")
+        else:
+            self.total_pages = (len(self.news_data) + self.items_per_page - 1) // self.items_per_page
+            logger.info(f"MetroNewsPaginationView 初始化: {len(self.news_data)} 則新聞, {self.total_pages} 頁")
+        
+    def create_embed(self) -> discord.Embed:
+        """創建當前頁面的 embed"""
+        embed = discord.Embed(
+            title=f"📰 {self.system_name} - 最新消息",
+            color=0x2ECC71
+        )
+        
+        # 檢查是否有新聞資料
+        if len(self.news_data) == 0:
+            embed.description = "目前沒有新聞資料"
+            return embed
+        
+        # 計算當前頁的新聞範圍
+        start_idx = self.current_page * self.items_per_page
+        end_idx = min(start_idx + self.items_per_page, len(self.news_data))
+        
+        # 顯示當前頁的新聞
+        for i in range(start_idx, end_idx):
+            news = self.news_data[i]
+            title = news.get('Title', news.get('NewsTitle', '無標題'))
+            content = news.get('Description', news.get('NewsContent', news.get('Content', '無內容')))
+            publish_time = news.get('PublishTime', news.get('UpdateTime', news.get('CreateTime', '時間不明')))
+            news_url = news.get('NewsURL', news.get('Link', ''))
+            
+            # 截斷內容長度
+            if len(content) > 300:
+                content = content[:300] + "..."
+            
+            # 格式化時間
+            if publish_time and publish_time != '時間不明':
+                try:
+                    if 'T' in publish_time:
+                        formatted_time = publish_time.replace('T', ' ').split('+')[0].split('.')[0]
+                    else:
+                        formatted_time = publish_time
+                except:
+                    formatted_time = publish_time
+            else:
+                formatted_time = "時間不明"
+            
+            # 新聞編號
+            news_number = i + 1
+            
+            # 組合 field value
+            field_value = f"{content}\n\n🕒 發布時間: {formatted_time}"
+            if news_url:
+                field_value += f"\n🔗 [查看完整新聞]({news_url})"
+            
+            embed.add_field(
+                name=f"📌 第 {news_number} 則 - {title}",
+                value=field_value,
+                inline=False
+            )
+        
+        # 設置頁腳
+        embed.set_footer(
+            text=f"第 {self.current_page + 1}/{self.total_pages} 頁 | 共 {len(self.news_data)} 則消息 | TDX運輸資料流通服務平臺"
+        )
+        
+        return embed
+    
+    @discord.ui.button(label="◀️ 上一頁", style=discord.ButtonStyle.primary, custom_id="prev_page")
+    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """上一頁按鈕"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 你沒有權限操作這個按鈕！", ephemeral=True)
+            return
+        
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        else:
+            await interaction.response.send_message("❌ 已經是第一頁了！", ephemeral=True)
+    
+    @discord.ui.button(label="▶️ 下一頁", style=discord.ButtonStyle.primary, custom_id="next_page")
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """下一頁按鈕"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 你沒有權限操作這個按鈕！", ephemeral=True)
+            return
+        
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        else:
+            await interaction.response.send_message("❌ 已經是最後一頁了！", ephemeral=True)
+    
+    @discord.ui.button(label="📄 頁面選擇", style=discord.ButtonStyle.secondary, custom_id="page_select")
+    async def page_select_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """頁面選擇按鈕"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 你沒有權限操作這個按鈕！", ephemeral=True)
+            return
+        
+        # 創建頁面選擇下拉選單
+        options = []
+        for i in range(self.total_pages):
+            options.append(discord.SelectOption(
+                label=f"第 {i + 1} 頁",
+                value=str(i),
+                description=f"跳轉到第 {i + 1} 頁",
+                default=(i == self.current_page)
+            ))
+        
+        select = discord.ui.Select(
+            placeholder=f"目前在第 {self.current_page + 1} 頁，選擇要跳轉的頁面...",
+            options=options,
+            min_values=1,
+            max_values=1
+        )
+        
+        async def select_callback(select_interaction: discord.Interaction):
+            if select_interaction.user.id != self.user_id:
+                await select_interaction.response.send_message("❌ 你沒有權限操作這個選單！", ephemeral=True)
+                return
+            
+            self.current_page = int(select.values[0])
+            self.update_buttons()
+            await select_interaction.response.edit_message(embed=self.create_embed(), view=self)
+        
+        select.callback = select_callback
+        
+        # 創建臨時視圖
+        temp_view = View(timeout=60)
+        temp_view.add_item(select)
+        
+        await interaction.response.send_message("請選擇要跳轉的頁面:", view=temp_view, ephemeral=True)
+    
+    def update_buttons(self):
+        """更新按鈕狀態"""
+        # 上一頁按鈕
+        self.children[0].disabled = (self.current_page == 0)
+        # 下一頁按鈕
+        self.children[1].disabled = (self.current_page >= self.total_pages - 1)
+        # 如果只有一頁，禁用頁面選擇按鈕
+        self.children[2].disabled = (self.total_pages <= 1)
+    
+    async def on_timeout(self):
+        """超時處理"""
+        # 禁用所有按鈕
+        for item in self.children:
+            item.disabled = True
+
 class MetroNewsSelect(discord.ui.Select):
     """捷運新聞系統選擇下拉選單"""
     
@@ -5863,6 +6027,8 @@ class MetroNewsSelect(discord.ui.Select):
             # 取得新聞資料
             news_data = await self.cog.fetch_metro_news(selected_system)
             
+            logger.info(f"取得 {selected_system} 新聞資料: type={type(news_data)}, len={len(news_data) if news_data else 0}")
+            
             if not news_data:
                 embed = discord.Embed(
                     title=f"📰 {system_name} - 最新消息",
@@ -5881,52 +6047,24 @@ class MetroNewsSelect(discord.ui.Select):
                 await interaction.edit_original_response(embed=embed, view=None)
                 return
             
-            # 創建新聞嵌入訊息
-            embed = discord.Embed(
-                title=f"📰 {system_name} - 最新消息",
-                color=0x2ECC71
-            )
-            
-            # 顯示前5則新聞
-            for i, news in enumerate(news_data[:5]):
-                title = news.get('Title', news.get('NewsTitle', '無標題'))
-                content = news.get('Description', news.get('NewsContent', news.get('Content', '無內容')))
-                publish_time = news.get('PublishTime', news.get('UpdateTime', news.get('CreateTime', '時間不明')))
+            # 使用分頁視圖顯示新聞
+            try:
+                pagination_view = MetroNewsPaginationView(news_data, system_name, self.user_id)
+                pagination_view.update_buttons()  # 初始化按鈕狀態
+                embed = pagination_view.create_embed()
                 
-                # 截斷內容長度
-                if len(content) > 200:
-                    content = content[:200] + "..."
-                
-                # 格式化時間
-                if publish_time and publish_time != '時間不明':
-                    try:
-                        if 'T' in publish_time:
-                            formatted_time = publish_time.replace('T', ' ').split('+')[0].split('.')[0]
-                        else:
-                            formatted_time = publish_time
-                    except:
-                        formatted_time = publish_time
-                else:
-                    formatted_time = "時間不明"
-                
-                embed.add_field(
-                    name=f"📌 {title}",
-                    value=f"{content}\n\n🕒 發布時間: {formatted_time}",
-                    inline=False
-                )
-            
-            if len(news_data) > 5:
-                embed.set_footer(text=f"顯示前5則消息，共{len(news_data)}則 | 資料來源: TDX運輸資料流通服務平臺")
-            else:
-                embed.set_footer(text=f"共{len(news_data)}則消息 | 資料來源: TDX運輸資料流通服務平臺")
-            
-            await interaction.edit_original_response(embed=embed, view=None)
+                await interaction.edit_original_response(embed=embed, view=pagination_view)
+            except Exception as view_error:
+                logger.error(f"創建分頁視圖時發生錯誤: {type(view_error).__name__}: {str(view_error)}")
+                raise
             
         except Exception as e:
-            logger.error(f"MetroNewsSelect 處理錯誤: {str(e)}")
+            logger.error(f"MetroNewsSelect 處理錯誤: {type(e).__name__}: {str(e)}")
+            import traceback
+            logger.error(f"完整錯誤堆疊:\n{traceback.format_exc()}")
             try:
                 await interaction.edit_original_response(
-                    content="❌ 處理請求時發生錯誤，請稍後再試。",
+                    content=f"❌ 處理請求時發生錯誤: {str(e)}\n請稍後再試。",
                     embed=None,
                     view=None
                 )
