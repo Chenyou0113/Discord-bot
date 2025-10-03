@@ -9,7 +9,7 @@ import asyncio
 import ssl
 from typing import Optional, Dict, Any, List
 import urllib3
-from discord.ui import Select, View
+from discord.ui import Select, View, Button
 import os
 from dotenv import load_dotenv
 
@@ -1680,6 +1680,31 @@ class InfoCommands(commands.Cog):
                                 # 如果字典中沒有明確的新聞資料，返回空列表
                                 logger.info("✅ 台鐵目前沒有新聞")
                                 return []
+                        
+                        # 過濾掉人事相關公告(面試、甄選、錄取、徵才等)
+                        if news_list:
+                            original_count = len(news_list)
+                            # 定義要過濾的關鍵字
+                            filter_keywords = [
+                                '面試', '甄選', '錄取', '徵才', '招募', '招考',
+                                '人才', '應徵', '筆試', '口試', '面談', '甄試',
+                                '錄用', '聘用', '遴選', '考試', '報名'
+                            ]
+                            
+                            def should_filter(news):
+                                """檢查是否應該過濾此新聞"""
+                                title = news.get('Title', '')
+                                category = news.get('Category', '')
+                                # 檢查標題或分類是否包含任何過濾關鍵字
+                                for keyword in filter_keywords:
+                                    if keyword in title or keyword in category:
+                                        return True
+                                return False
+                            
+                            news_list = [news for news in news_list if not should_filter(news)]
+                            filtered_count = original_count - len(news_list)
+                            if filtered_count > 0:
+                                logger.info(f"🔍 已過濾 {filtered_count} 筆人事相關公告(面試/甄選/錄取/徵才等)")
                         
                         # 按照發布時間排序,最新的在前面
                         if news_list:
@@ -3722,6 +3747,150 @@ class InfoCommands(commands.Cog):
             except discord.errors.NotFound:
                 logger.warning(f"metro_news 指令在發送錯誤訊息時互動已過期")
 
+    @app_commands.command(name='metro_facility', description='查詢捷運車站設施資料(互動式選擇)')
+    @app_commands.describe(metro_system='選擇捷運系統')
+    @app_commands.choices(metro_system=[
+        app_commands.Choice(name='臺北捷運', value='TRTC'),
+        app_commands.Choice(name='桃園捷運', value='TYMC'),
+        app_commands.Choice(name='新北捷運', value='NTMC'),
+        app_commands.Choice(name='臺中捷運', value='TMRT')
+    ])
+    async def metro_facility(self, interaction: discord.Interaction, metro_system: app_commands.Choice[str]):
+        """查詢捷運車站設施資料"""
+        await interaction.response.defer()
+        
+        try:
+            logger.info(f"使用者 {interaction.user} 查詢捷運車站設施: {metro_system.name}")
+            
+            # 獲取車站設施資料
+            facility_data = await self.fetch_metro_facility(metro_system.value)
+            
+            if facility_data is None or len(facility_data) == 0:
+                embed = discord.Embed(
+                    title=f"🚇 {metro_system.name} 車站設施",
+                    description="❌ 目前無法取得車站設施資料，請稍後再試。",
+                    color=0xFF0000
+                )
+                embed.set_footer(text="資料來源: TDX運輸資料流通服務")
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 按路線分組
+            lines_data = {}
+            # 除錯：記錄第一筆資料的結構
+            if facility_data:
+                logger.info(f"🔍 捷運設施API回傳欄位: {list(facility_data[0].keys())}")
+                logger.info(f"🔍 第一筆資料範例: {facility_data[0]}")
+            
+            for station in facility_data:
+                # 嘗試多種可能的路線ID欄位名稱，並從StationID中提取路線資訊
+                line_id = (station.get('LineID') or 
+                          station.get('LineName') or 
+                          station.get('RouteID') or 
+                          station.get('RouteName') or 
+                          station.get('Line') or 
+                          station.get('Route'))
+                
+                # 如果沒找到，嘗試從StationID中提取路線資訊
+                if not line_id:
+                    station_id = station.get('StationID', '')
+                    logger.info(f"🔍 車站 {station.get('StationName', {station.get('StationID', '')})} StationID: {station_id}")
+                    if station_id:
+                        # 從BL14, R22, O07等格式中提取路線代碼
+                        import re
+                        match = re.match(r'^([A-Z]+)', station_id)
+                        if match:
+                            line_code = match.group(1)
+                            logger.info(f"🔍 提取到路線代碼: {line_code}")
+                            # 路線代碼對應
+                            line_mapping = {
+                                'BL': '板南線', 'BR': '文湖線', 'R': '淡水信義線', 
+                                'G': '松山新店線', 'O': '中和新蘆線', 'Y': '環狀線',
+                                'A': '機場線', 'AP': '機場線', 'TYMC': '桃園捷運'
+                            }
+                            line_id = line_mapping.get(line_code, f'{line_code}線')
+                            logger.info(f"🔍 對應到路線: {line_id}")
+                        else:
+                            logger.info(f"🔍 無法提取路線代碼")
+                            line_id = '未知路線'
+                    else:
+                        logger.info(f"🔍 無StationID")
+                        line_id = '未知路線'
+                
+                if line_id not in lines_data:
+                    lines_data[line_id] = []
+                lines_data[line_id].append(station)
+            
+            # 創建路線選擇視圖
+            view = MetroFacilityLineSelectionView(lines_data, interaction.user.id, metro_system.name, metro_system.value)
+            
+            embed = discord.Embed(
+                title=f"🚇 {metro_system.name} 車站設施查詢",
+                description=f"請選擇路線以查詢車站設施資料\n\n📊 共有 **{len(lines_data)}** 條路線",
+                color=0x2ECC71
+            )
+            
+            # 列出所有路線
+            line_list = []
+            for line_id in sorted(lines_data.keys()):
+                station_count = len(lines_data[line_id])
+                line_list.append(f"🚉 **{line_id}** - {station_count} 個車站")
+            
+            embed.add_field(
+                name="📍 可用路線",
+                value="\n".join(line_list[:10]) + ("\n..." if len(line_list) > 10 else ""),
+                inline=False
+            )
+            
+            embed.set_footer(text="請使用下方選單選擇路線")
+            
+            await interaction.followup.send(embed=embed, view=view)
+            
+        except Exception as e:
+            logger.error(f"metro_facility 指令執行時發生錯誤: {str(e)}")
+            import traceback
+            logger.error(f"完整錯誤: {traceback.format_exc()}")
+            await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+
+    @app_commands.command(name='metro_network', description='查詢捷運路網資料')
+    @app_commands.describe(metro_system='選擇捷運系統')
+    @app_commands.choices(metro_system=[
+        app_commands.Choice(name='臺北捷運', value='TRTC'),
+        app_commands.Choice(name='高雄捷運', value='KRTC'),
+        app_commands.Choice(name='桃園捷運', value='TYMC'),
+        app_commands.Choice(name='臺中捷運', value='TMRT'),
+        app_commands.Choice(name='貓空纜車', value='TRTCMG'),
+        app_commands.Choice(name='新北捷運', value='NTMC')
+    ])
+    async def metro_network(self, interaction: discord.Interaction, metro_system: app_commands.Choice[str]):
+        """查詢捷運路網資料"""
+        await interaction.response.defer()
+        
+        try:
+            logger.info(f"使用者 {interaction.user} 查詢捷運路網: {metro_system.name}")
+            
+            # 獲取路網資料
+            network_data = await self.fetch_metro_network(metro_system.value)
+            
+            if network_data is None or len(network_data) == 0:
+                embed = discord.Embed(
+                    title=f"🗺️ {metro_system.name} 路網資料",
+                    description="❌ 目前無法取得路網資料，請稍後再試。",
+                    color=0xFF0000
+                )
+                embed.set_footer(text="資料來源: TDX運輸資料流通服務")
+                await interaction.followup.send(embed=embed)
+                return
+            
+            # 使用分頁視圖顯示路網資料
+            view = MetroNetworkPaginationView(network_data, interaction.user.id, metro_system.name)
+            embed = view.create_embed()
+            await interaction.followup.send(embed=embed, view=view)
+            
+        except Exception as e:
+            logger.error(f"metro_network 指令執行時發生錯誤: {str(e)}")
+            await interaction.followup.send("❌ 執行指令時發生錯誤，請稍後再試。")
+
     # ================================
     # 捷運新聞查詢功能
     # ================================
@@ -3770,16 +3939,42 @@ class InfoCommands(commands.Cog):
                     if response.status == 200:
                         data = await response.json()
                         
-                        # 按照發布時間排序,最新的在前面
-                        if data and isinstance(data, list):
-                            try:
-                                data.sort(key=lambda x: x.get('PublishTime', x.get('NewsDate', '')), reverse=True)
-                                logger.info(f"✅ 成功取得{metro_system}新聞資料，共{len(data)}筆 (已按時間排序)")
-                            except Exception as sort_error:
-                                logger.warning(f"⚠️ 排序{metro_system}新聞時發生錯誤: {str(sort_error)}，使用原始順序")
-                                logger.info(f"成功取得{metro_system}新聞資料，共{len(data)}筆")
+                        # 處理不同的API回傳格式
+                        if data:
+                            # 如果回傳的是dict，嘗試提取新聞列表
+                            if isinstance(data, dict):
+                                logger.info(f"API回傳dict格式，鍵: {list(data.keys())}")
+                                # 常見的新聞列表鍵名
+                                possible_keys = ['News', 'news', 'data', 'Data', 'items', 'results']
+                                news_list = []
+                                
+                                for key in possible_keys:
+                                    if key in data and isinstance(data[key], list):
+                                        news_list = data[key]
+                                        logger.info(f"找到新聞列表於鍵 '{key}'，共{len(news_list)}筆")
+                                        break
+                                
+                                # 如果沒找到列表，將dict本身當作單一新聞項目
+                                if not news_list:
+                                    news_list = [data]
+                                    logger.info(f"將dict當作單一新聞項目處理")
+                                
+                                data = news_list
+                            
+                            # 按照發布時間排序,最新的在前面
+                            if isinstance(data, list):
+                                try:
+                                    data.sort(key=lambda x: x.get('PublishTime', x.get('NewsDate', '')), reverse=True)
+                                    logger.info(f"✅ 成功取得{metro_system}新聞資料，共{len(data)}筆 (已按時間排序)")
+                                except Exception as sort_error:
+                                    logger.warning(f"⚠️ 排序{metro_system}新聞時發生錯誤: {str(sort_error)}，使用原始順序")
+                                    logger.info(f"成功取得{metro_system}新聞資料，共{len(data)}筆")
+                            else:
+                                logger.warning(f"處理後資料仍非列表格式: {type(data)}")
+                                return None
                         else:
-                            logger.info(f"成功取得{metro_system}新聞資料，共{len(data) if data else 0}筆")
+                            logger.info(f"API回傳空資料")
+                            return None
                         
                         return data
                     else:
@@ -3788,6 +3983,90 @@ class InfoCommands(commands.Cog):
                         
         except Exception as e:
             logger.error(f"取得捷運新聞時發生錯誤: {str(e)}")
+            return None
+
+    async def fetch_metro_facility(self, metro_system: str = "TRTC") -> Optional[List[Dict[str, Any]]]:
+        """從TDX平台取得捷運車站設施資料"""
+        try:
+            logger.info(f"正在從TDX平台取得{metro_system}車站設施資料...")
+            
+            # 取得access token
+            access_token = await self.get_tdx_access_token()
+            if not access_token:
+                logger.error("無法取得TDX access token")
+                return None
+            
+            # 設定API端點
+            url = f"https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/StationFacility/{metro_system}?%24format=JSON"
+            
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            
+            # 建立SSL連接
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            timeout = aiohttp.ClientTimeout(total=30)
+            
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        logger.info(f"✅ 成功取得{metro_system}車站設施資料，共{len(data) if data else 0}筆")
+                        return data
+                    else:
+                        logger.error(f"TDX API 返回錯誤狀態碼: {response.status}")
+                        return None
+                        
+        except Exception as e:
+            logger.error(f"取得捷運車站設施資料時發生錯誤: {str(e)}")
+            return None
+
+    async def fetch_metro_network(self, metro_system: str = "TRTC") -> Optional[List[Dict[str, Any]]]:
+        """從TDX平台取得捷運路網資料"""
+        try:
+            logger.info(f"正在從TDX平台取得{metro_system}路網資料...")
+            
+            # 取得access token
+            access_token = await self.get_tdx_access_token()
+            if not access_token:
+                logger.error("無法取得TDX access token")
+                return None
+            
+            # 設定API端點
+            url = f"https://tdx.transportdata.tw/api/basic/v2/Rail/Metro/Network/{metro_system}?%24format=JSON"
+            
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            
+            # 建立SSL連接
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            timeout = aiohttp.ClientTimeout(total=30)
+            
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        logger.info(f"✅ 成功取得{metro_system}路網資料，共{len(data) if data else 0}筆")
+                        return data
+                    else:
+                        logger.error(f"TDX API 返回錯誤狀態碼: {response.status}")
+                        return None
+                        
+        except Exception as e:
+            logger.error(f"取得捷運路網資料時發生錯誤: {str(e)}")
             return None
 
 # 捷運即時電子看板方向視圖類
@@ -5990,6 +6269,480 @@ class TRADelayView(View):
 
 
 # ================================
+# 捷運車站設施視圖類
+# ================================
+
+class MetroFacilityLineSelectionView(View):
+    """捷運車站設施 - 路線選擇視圖"""
+    
+    def __init__(self, lines_data: Dict[str, List[Dict]], user_id: int, system_name: str, system_code: str):
+        super().__init__(timeout=300)
+        self.lines_data = lines_data
+        self.user_id = user_id
+        self.system_name = system_name
+        self.system_code = system_code
+        
+        # 添加路線選擇下拉選單
+        self.add_item(MetroFacilityLineSelect(lines_data, user_id, system_name, system_code))
+    
+    async def on_timeout(self):
+        """超時處理"""
+        try:
+            for item in self.children:
+                item.disabled = True
+        except:
+            pass
+
+class MetroFacilityLineSelect(discord.ui.Select):
+    """路線選擇下拉選單"""
+    
+    def __init__(self, lines_data: Dict[str, List[Dict]], user_id: int, system_name: str, system_code: str):
+        self.lines_data = lines_data
+        self.user_id = user_id
+        self.system_name = system_name
+        self.system_code = system_code
+        
+        # 創建選項(最多25個)
+        options = []
+        for line_id in sorted(lines_data.keys())[:25]:
+            station_count = len(lines_data[line_id])
+            options.append(discord.SelectOption(
+                label=f"{line_id} 線",
+                value=line_id,
+                description=f"{station_count} 個車站",
+                emoji="🚉"
+            ))
+        
+        super().__init__(
+            placeholder="請選擇路線...",
+            options=options,
+            min_values=1,
+            max_values=1
+        )
+    
+    async def callback(self, interaction: discord.Interaction):
+        """選擇路線後的回調"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 你沒有權限操作這個選單！", ephemeral=True)
+            return
+        
+        try:
+            selected_line = self.values[0]
+            stations = self.lines_data[selected_line]
+            
+            # 創建車站選擇視圖
+            view = MetroFacilityStationSelectionView(stations, self.user_id, self.system_name, selected_line, self.system_code)
+            
+            embed = discord.Embed(
+                title=f"🚇 {self.system_name} - {selected_line} 線",
+                description=f"請選擇車站以查看詳細設施資料\n\n📊 共有 **{len(stations)}** 個車站",
+                color=0x2ECC71
+            )
+            
+            # 列出部分車站
+            station_list = []
+            for station in stations[:15]:
+                station_name = station.get('StationName', {}).get('Zh_tw', '未知')
+                station_id = station.get('StationID', '')
+                station_list.append(f"🚉 {station_name} ({station_id})")
+            
+            embed.add_field(
+                name="📍 車站列表",
+                value="\n".join(station_list) + ("\n..." if len(stations) > 15 else ""),
+                inline=False
+            )
+            
+            embed.set_footer(text="請使用下方選單選擇車站")
+            
+            await interaction.response.edit_message(embed=embed, view=view)
+            
+        except Exception as e:
+            logger.error(f"路線選擇回調錯誤: {str(e)}")
+            import traceback
+            logger.error(f"完整錯誤堆疊: {traceback.format_exc()}")
+            await interaction.response.send_message("❌ 處理時發生錯誤", ephemeral=True)
+
+class MetroFacilityStationSelectionView(View):
+    """車站選擇視圖"""
+    
+    def __init__(self, stations: List[Dict], user_id: int, system_name: str, line_id: str, system_code: str):
+        super().__init__(timeout=300)
+        self.stations = stations
+        self.user_id = user_id
+        self.system_name = system_name
+        self.line_id = line_id
+        self.system_code = system_code
+        
+        # 如果車站數量超過25個,分頁處理
+        if len(stations) <= 25:
+            self.add_item(MetroFacilityStationSelect(stations, user_id, system_name, line_id, system_code, 0))
+        else:
+            # 第一頁(0-24)
+            self.add_item(MetroFacilityStationSelect(stations[:25], user_id, system_name, line_id, system_code, 0))
+    
+    async def on_timeout(self):
+        try:
+            for item in self.children:
+                item.disabled = True
+        except:
+            pass
+
+class MetroFacilityStationSelect(discord.ui.Select):
+    """車站選擇下拉選單"""
+    
+    def __init__(self, stations: List[Dict], user_id: int, system_name: str, line_id: str, system_code: str, page: int = 0):
+        self.stations = stations
+        self.user_id = user_id
+        self.system_name = system_name
+        self.line_id = line_id
+        self.system_code = system_code
+        self.page = page
+        
+        # 創建選項
+        options = []
+        for station in stations:
+            station_name = station.get('StationName', {}).get('Zh_tw', '未知車站')
+            station_id = station.get('StationID', 'N/A')
+            options.append(discord.SelectOption(
+                label=station_name,
+                value=station_id,
+                description=f"車站代碼: {station_id}",
+                emoji="🚉"
+            ))
+        
+        super().__init__(
+            placeholder="請選擇車站...",
+            options=options[:25],  # Discord 限制最多25個選項
+            min_values=1,
+            max_values=1
+        )
+    
+    async def callback(self, interaction: discord.Interaction):
+        """選擇車站後的回調"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 你沒有權限操作這個選單！", ephemeral=True)
+            return
+        
+        try:
+            selected_station_id = self.values[0]
+            
+            # 找到選中的車站
+            station_data = None
+            for station in self.stations:
+                if station.get('StationID') == selected_station_id:
+                    station_data = station
+                    break
+            
+            if not station_data:
+                await interaction.response.send_message("❌ 找不到該車站資料", ephemeral=True)
+                return
+            
+            # 創建車站設施詳細資訊embed
+            station_name = station_data.get('StationName', {}).get('Zh_tw', '未知車站')
+            station_id = station_data.get('StationID', 'N/A')
+            
+            # 從車站資料中獲取路線資訊
+            line_id = station_data.get('LineID', self.line_id)
+            line_name = station_data.get('LineName', {})
+            if isinstance(line_name, dict):
+                line_display = line_name.get('Zh_tw', line_id)
+            else:
+                line_display = line_id
+            
+            embed = discord.Embed(
+                title=f"🚉 {station_name}",
+                description=f"**路線:** {line_display}\n**車站代碼:** {station_id}",
+                color=0x2ECC71
+            )
+            
+            
+            # 設施資訊
+            facilities = []
+            
+            # 電梯 (檢查陣列長度)
+            elevators = station_data.get('Elevators', [])
+            if elevators and len(elevators) > 0:
+                facilities.append(f"🛗 電梯 ({len(elevators)}台)")
+            
+            # 電扶梯
+            escalators = station_data.get('Escalators', [])
+            if escalators and len(escalators) > 0:
+                facilities.append(f"🚶 電扶梯 ({len(escalators)}台)")
+            
+            # 廁所
+            toilets = station_data.get('Toilets', [])
+            if toilets and len(toilets) > 0:
+                facilities.append(f"🚻 廁所 ({len(toilets)}間)")
+            
+            # 飲水機
+            drinking_fountains = station_data.get('DrinkingFountains', [])
+            if drinking_fountains and len(drinking_fountains) > 0:
+                facilities.append(f"💧 飲水機 ({len(drinking_fountains)}台)")
+            
+            # 服務台/詢問處
+            info_spots = station_data.get('InformationSpots', [])
+            if info_spots and len(info_spots) > 0:
+                facilities.append(f"ℹ️ 服務台 ({len(info_spots)}處)")
+            
+            # AED
+            aeds = station_data.get('AEDs', [])
+            if aeds and len(aeds) > 0:
+                facilities.append(f"🏥 AED ({len(aeds)}台)")
+            
+            # 哺集乳室
+            nursing_rooms = station_data.get('NursingRooms', [])
+            if nursing_rooms and len(nursing_rooms) > 0:
+                facilities.append(f"🍼 哺集乳室 ({len(nursing_rooms)}間)")
+            
+            # 置物櫃
+            lockers = station_data.get('Lockers', [])
+            if lockers and len(lockers) > 0:
+                facilities.append(f"🔐 置物櫃 ({len(lockers)}組)")
+            
+            # 停車場
+            parkings = station_data.get('ParkingLots', [])
+            if parkings and len(parkings) > 0:
+                facilities.append(f"🅿️ 停車場 ({len(parkings)}處)")
+            
+            # 自行車停車
+            bike_parkings = station_data.get('BikeParkingLots', [])
+            if bike_parkings and len(bike_parkings) > 0:
+                facilities.append(f"🚲 自行車停車 ({len(bike_parkings)}處)")
+            
+            # 充電站
+            charging = station_data.get('ChargingStations', [])
+            if charging and len(charging) > 0:
+                facilities.append(f"🔌 充電站 ({len(charging)}處)")
+            
+            # 售票機
+            ticket_machines = station_data.get('TicketMachines', [])
+            if ticket_machines and len(ticket_machines) > 0:
+                facilities.append(f"🎫 售票機 ({len(ticket_machines)}台)")
+            
+            if facilities:
+                embed.add_field(
+                    name="🎯 車站設施",
+                    value=" | ".join(facilities),
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name="🎯 車站設施",
+                    value="無詳細設施資訊",
+                    inline=False
+                )
+            
+            # 位置資訊
+            position = station_data.get('StationPosition', {})
+            if position:
+                lat = position.get('PositionLat')
+                lon = position.get('PositionLon')
+                if lat and lon:
+                    embed.add_field(
+                        name="📍 位置",
+                        value=f"[Google Maps](https://www.google.com/maps?q={lat},{lon})",
+                        inline=True
+                    )
+            
+            # 地址
+            address = station_data.get('StationAddress')
+            if address:
+                embed.add_field(
+                    name="🏠 地址",
+                    value=address,
+                    inline=False
+                )
+            
+            embed.set_footer(text=f"資料來源: TDX運輸資料流通服務 | {self.system_name}")
+            
+            # 建立包含設施地圖按鈕的 View
+            button_view = View(timeout=300)
+            
+            # 新增設施地圖按鈕
+            facility_maps = station_data.get('FacilityMapURLs', [])
+            if facility_maps and len(facility_maps) > 0:
+                for map_item in facility_maps[:5]:  # 最多5個按鈕(Discord限制)
+                    map_name = map_item.get('MapName', {}).get('Zh_tw', '車站資訊圖')
+                    map_url = map_item.get('MapURL', '')
+                    if map_url:
+                        button = Button(
+                            label=f"🗺️ {map_name}",
+                            url=map_url,
+                            style=discord.ButtonStyle.link
+                        )
+                        button_view.add_item(button)
+            
+            await interaction.response.edit_message(embed=embed, view=button_view)
+            
+        except Exception as e:
+            logger.error(f"車站選擇回調錯誤: {str(e)}")
+            import traceback
+            logger.error(f"完整錯誤堆疊: {traceback.format_exc()}")
+            await interaction.response.send_message("❌ 處理時發生錯誤", ephemeral=True)
+
+# ================================
+# 捷運路網分頁視圖類
+# ================================
+
+class MetroNetworkPaginationView(View):
+    """捷運路網分頁視圖"""
+    
+    def __init__(self, network_data: List[Dict], user_id: int, system_name: str):
+        super().__init__(timeout=300)  # 5分鐘超時
+        self.network_data = network_data if network_data else []
+        self.user_id = user_id
+        self.system_name = system_name
+        self.current_page = 0
+        self.items_per_page = 2  # 每頁顯示2條路線
+        
+        if len(self.network_data) == 0:
+            self.total_pages = 1
+        else:
+            self.total_pages = (len(self.network_data) + self.items_per_page - 1) // self.items_per_page
+            logger.info(f"MetroNetworkPaginationView 初始化: {len(self.network_data)} 條路線, {self.total_pages} 頁")
+        
+    def create_embed(self) -> discord.Embed:
+        """創建當前頁面的 embed"""
+        embed = discord.Embed(
+            title=f"🗺️ {self.system_name} 路網資料",
+            color=0x3498DB
+        )
+        
+        if len(self.network_data) == 0:
+            embed.description = "目前沒有路網資料。"
+            return embed
+        
+        # 計算當前頁面要顯示的路線
+        start_idx = self.current_page * self.items_per_page
+        end_idx = min(start_idx + self.items_per_page, len(self.network_data))
+        
+        for i in range(start_idx, end_idx):
+            line = self.network_data[i]
+            
+            line_name = line.get('LineName', {}).get('Zh_tw', '未知路線')
+            line_id = line.get('LineID', 'N/A')
+            
+            # 獲取路線資訊
+            info_parts = []
+            
+            # 路線編號
+            line_no = line.get('LineNo', '')
+            if line_no:
+                info_parts.append(f"🔢 **路線編號:** {line_no}")
+            
+            # 營運業者
+            operator = line.get('OperatorName', {}).get('Zh_tw', '')
+            if operator:
+                info_parts.append(f"🏢 **營運業者:** {operator}")
+            
+            # 起訖站
+            start_station = line.get('StartStation', {}).get('Zh_tw', '')
+            end_station = line.get('EndStation', {}).get('Zh_tw', '')
+            if start_station and end_station:
+                info_parts.append(f"🚉 **起訖站:** {start_station} ↔️ {end_station}")
+            
+            # 路線長度
+            line_length = line.get('LineLength', 0)
+            if line_length > 0:
+                info_parts.append(f"📏 **路線長度:** {line_length:.2f} 公里")
+            
+            # 車站數
+            station_count = line.get('StationCount', 0)
+            if station_count > 0:
+                info_parts.append(f"🚇 **車站數:** {station_count} 站")
+            
+            # 路線類型
+            line_type = line.get('LineType', '')
+            if line_type:
+                type_names = {
+                    '1': '高運量',
+                    '2': '中運量',
+                    '3': '輕軌',
+                    '4': '纜車'
+                }
+                type_name = type_names.get(str(line_type), line_type)
+                info_parts.append(f"🚊 **路線類型:** {type_name}")
+            
+            # 路線狀態
+            status = line.get('LineStatus', '')
+            if status:
+                status_emoji = "🟢" if status == "1" else "🔴"
+                status_names = {
+                    '1': '營運中',
+                    '2': '規劃中',
+                    '3': '興建中'
+                }
+                status_name = status_names.get(str(status), status)
+                info_parts.append(f"{status_emoji} **狀態:** {status_name}")
+            
+            # 路線顏色
+            line_color = line.get('LineColor', '')
+            if line_color:
+                info_parts.append(f"🎨 **路線顏色:** {line_color}")
+            
+            line_number = i + 1
+            
+            # 組合資訊
+            if info_parts:
+                info_text = "\n".join(info_parts)
+            else:
+                info_text = "無詳細路線資訊"
+            
+            embed.add_field(
+                name=f"🚇 {line_number}. {line_name} ({line_id})",
+                value=info_text,
+                inline=False
+            )
+        
+        # 設置頁腳
+        embed.set_footer(
+            text=f"第 {self.current_page + 1}/{self.total_pages} 頁 | 共 {len(self.network_data)} 條路線 | TDX運輸資料流通服務"
+        )
+        
+        return embed
+    
+    @discord.ui.button(label="◀️ 上一頁", style=discord.ButtonStyle.primary)
+    async def previous_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """上一頁按鈕"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 你沒有權限操作這個按鈕！", ephemeral=True)
+            return
+        
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        else:
+            await interaction.response.send_message("❌ 已經是第一頁了！", ephemeral=True)
+    
+    @discord.ui.button(label="▶️ 下一頁", style=discord.ButtonStyle.primary)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """下一頁按鈕"""
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ 你沒有權限操作這個按鈕！", ephemeral=True)
+            return
+        
+        if self.current_page < self.total_pages - 1:
+            self.current_page += 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        else:
+            await interaction.response.send_message("❌ 已經是最後一頁了！", ephemeral=True)
+    
+    def update_buttons(self):
+        """更新按鈕狀態"""
+        self.children[0].disabled = (self.current_page == 0)
+        self.children[1].disabled = (self.current_page >= self.total_pages - 1)
+    
+    async def on_timeout(self):
+        """當視圖超時時的處理"""
+        try:
+            for item in self.children:
+                item.disabled = True
+        except:
+            pass
+
+# ================================
 # 捷運新聞選擇視圖類
 # ================================
 
@@ -6030,7 +6783,35 @@ class MetroNewsPaginationView(View):
     
     def __init__(self, news_data: List[Dict], system_name: str, user_id: int):
         super().__init__(timeout=300)  # 5分鐘超時
-        self.news_data = news_data if news_data else []
+        
+        # 處理不同格式的新聞資料
+        if not news_data:
+            self.news_data = []
+        elif isinstance(news_data, dict):
+            # 如果傳入的是字典，嘗試轉換為列表
+            logger.info(f"MetroNewsPaginationView 收到dict格式資料，鍵: {list(news_data.keys())}")
+            # 常見的新聞列表鍵名
+            possible_keys = ['News', 'news', 'data', 'Data', 'items', 'results']
+            news_list = []
+            
+            for key in possible_keys:
+                if key in news_data and isinstance(news_data[key], list):
+                    news_list = news_data[key]
+                    logger.info(f"從鍵 '{key}' 找到新聞列表，共{len(news_list)}筆")
+                    break
+            
+            # 如果沒找到列表，將dict本身當作單一新聞項目
+            if not news_list:
+                news_list = [news_data]
+                logger.info(f"將dict當作單一新聞項目處理")
+            
+            self.news_data = news_list
+        elif isinstance(news_data, list):
+            self.news_data = news_data
+        else:
+            logger.warning(f"MetroNewsPaginationView 收到未知格式資料: {type(news_data)}")
+            self.news_data = []
+        
         self.system_name = system_name
         self.user_id = user_id
         self.current_page = 0
@@ -6320,6 +7101,16 @@ class TRANewsPaginationView(View):
             self.total_pages = (len(self.news_data) + self.items_per_page - 1) // self.items_per_page
             logger.info(f"TRANewsPaginationView 初始化: {len(self.news_data)} 則新聞, {self.total_pages} 頁")
         
+    def clear_link_buttons(self):
+        """清除所有連結按鈕"""
+        # 移除所有 ButtonStyle.link 的按鈕
+        items_to_remove = []
+        for item in self.children:
+            if hasattr(item, 'style') and item.style == discord.ButtonStyle.link:
+                items_to_remove.append(item)
+        for item in items_to_remove:
+            self.remove_item(item)
+    
     def create_embed(self) -> discord.Embed:
         """創建當前頁面的 embed"""
         embed = discord.Embed(
@@ -6344,8 +7135,19 @@ class TRANewsPaginationView(View):
             news_url = news.get('NewsURL', news.get('Link', ''))
             publish_time = news.get('PublishTime', news.get('NewsDate', ''))
             
+            # 清理 HTML 標籤和程式碼
+            import re
+            if description:
+                # 移除 HTML 標籤
+                description = re.sub(r'<[^>]+>', '', description)
+                # 移除多餘的空白
+                description = re.sub(r'\s+', ' ', description).strip()
+                # 移除常見的程式碼標記
+                description = re.sub(r'```[\s\S]*?```', '', description)
+                description = re.sub(r'`[^`]*`', '', description)
+            
             # 截短描述
-            content = description[:200] + '...' if len(description) > 200 else description
+            content = description[:300] + '...' if len(description) > 300 else description
             if not content:
                 content = "無內容描述"
             
@@ -6363,17 +7165,41 @@ class TRANewsPaginationView(View):
             
             # 新聞編號
             news_number = i + 1
+            # 組合 field value (移除純文字連結)
+            field_value = f"{content}\n\n🕒 **發布時間:** {formatted_time}"
             
-            # 組合 field value
-            field_value = f"{content}\n\n🕒 發布時間: {formatted_time}"
+            # 保存當前新聞的 URL 用於建立按鈕
             if news_url:
-                field_value += f"\n🔗 [查看完整新聞]({news_url})"
+                self.current_news_url = news_url
+                self.current_news_title = title
+            else:
+                self.current_news_url = None
+                self.current_news_title = None
             
             embed.add_field(
                 name=f"📌 第 {news_number} 則 - {title}",
                 value=field_value,
                 inline=False
             )
+        
+        
+        
+        # 清除舊的連結按鈕
+        self.clear_link_buttons()
+        
+        # 如果有新聞連結,加入連結按鈕
+        if hasattr(self, 'current_news_url') and self.current_news_url:
+            logger.info(f"✅ TRA 正在建立連結按鈕: {self.current_news_url[:50]}...")
+            link_button = Button(
+                label=f"🔗 查看完整公告",
+                url=self.current_news_url,
+                style=discord.ButtonStyle.link
+            )
+            self.add_item(link_button)
+            logger.info(f"✅ TRA 按鈕已加入視圖，當前按鈕數量: {len(self.children)}")
+        else:
+            logger.info(f"❌ TRA 未建立連結按鈕，current_news_url: {getattr(self, 'current_news_url', 'NOT_SET')}")
+        
         
         # 設置頁腳
         embed.set_footer(
@@ -6537,6 +7363,16 @@ class THSRNewsPaginationView(View):
             self.total_pages = (len(self.news_data) + self.items_per_page - 1) // self.items_per_page
             logger.info(f"THSRNewsPaginationView 初始化: {len(self.news_data)} 則新聞, {self.total_pages} 頁")
         
+    def clear_link_buttons(self):
+        """清除所有連結按鈕"""
+        # 移除所有 ButtonStyle.link 的按鈕
+        items_to_remove = []
+        for item in self.children:
+            if hasattr(item, 'style') and item.style == discord.ButtonStyle.link:
+                items_to_remove.append(item)
+        for item in items_to_remove:
+            self.remove_item(item)
+    
     def create_embed(self) -> discord.Embed:
         """創建當前頁面的 embed"""
         embed = discord.Embed(
@@ -6558,11 +7394,40 @@ class THSRNewsPaginationView(View):
             # 提取新聞資訊 (v2 API 欄位)
             title = news.get('Title', news.get('NewsTitle', '無標題'))
             description = news.get('Description', news.get('Content', news.get('NewsContent', '')))
-            news_url = news.get('NewsURL', news.get('Link', ''))
+            
+            # 嘗試多種 URL 欄位名稱
+            news_url = (news.get('NewsURL') or 
+                       news.get('Link') or 
+                       news.get('Url') or 
+                       news.get('URL') or 
+                       news.get('DetailURL') or 
+                       news.get('WebsiteURL') or '')
+            
+            # 除錯資訊 - 檢查 URL 是否找到
+            if news_url:
+                logger.info(f"🔗 THSR 找到新聞連結: {news_url[:50]}...")
+            else:
+                logger.info(f"❌ THSR 未找到新聞連結，可用欄位: {list(news.keys())}")
+            
             publish_time = news.get('PublishTime', news.get('NewsDate', ''))
             
+            # 清理 HTML 標籤和程式碼
+            import re
+            if description:
+                # 移除 HTML 標籤
+                description = re.sub(r'<[^>]+>', '', description)
+                # 移除 CSS 樣式 (包含在 <style> 標籤中或獨立的 CSS)
+                description = re.sub(r'<style[^>]*>.*?</style>', '', description, flags=re.DOTALL | re.IGNORECASE)
+                description = re.sub(r'\.[\w\-]+\s*\{[^}]*\}', '', description)  # 移除 CSS 類別樣式
+                description = re.sub(r'[\.#][\w\-]+\s*\{[^}]*\}', '', description)  # 移除 CSS 選擇器
+                # 移除多餘的空白
+                description = re.sub(r'\s+', ' ', description).strip()
+                # 移除常見的程式碼標記
+                description = re.sub(r'```[\s\S]*?```', '', description)
+                description = re.sub(r'`[^`]*`', '', description)
+            
             # 截短描述
-            content = description[:200] + '...' if len(description) > 200 else description
+            content = description[:300] + '...' if len(description) > 300 else description
             if not content:
                 content = "無內容描述"
             
@@ -6580,17 +7445,41 @@ class THSRNewsPaginationView(View):
             
             # 新聞編號
             news_number = i + 1
+            # 組合 field value (移除純文字連結)
+            field_value = f"{content}\n\n🕒 **發布時間:** {formatted_time}"
             
-            # 組合 field value
-            field_value = f"{content}\n\n🕒 發布時間: {formatted_time}"
+            # 保存當前新聞的 URL 用於建立按鈕
             if news_url:
-                field_value += f"\n🔗 [查看完整新聞]({news_url})"
+                self.current_news_url = news_url
+                self.current_news_title = title
+            else:
+                self.current_news_url = None
+                self.current_news_title = None
             
             embed.add_field(
                 name=f"📌 第 {news_number} 則 - {title}",
                 value=field_value,
                 inline=False
             )
+        
+        
+        
+        # 清除舊的連結按鈕
+        self.clear_link_buttons()
+        
+        # 如果有新聞連結,加入連結按鈕
+        if hasattr(self, 'current_news_url') and self.current_news_url:
+            logger.info(f"✅ THSR 正在建立連結按鈕: {self.current_news_url[:50]}...")
+            link_button = Button(
+                label=f"🔗 查看完整公告",
+                url=self.current_news_url,
+                style=discord.ButtonStyle.link
+            )
+            self.add_item(link_button)
+            logger.info(f"✅ THSR 按鈕已加入視圖，當前按鈕數量: {len(self.children)}")
+        else:
+            logger.info(f"❌ THSR 未建立連結按鈕，current_news_url: {getattr(self, 'current_news_url', 'NOT_SET')}")
+        
         
         # 設置頁腳
         embed.set_footer(
